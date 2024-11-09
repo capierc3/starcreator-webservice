@@ -1,11 +1,11 @@
 package com.brickroad.starcreator_webservice.entity;
 
-public class Star {
+public class StarTest {
 
     private String name;
     private String type;
 
-    public Star(String name, String type) {
+    public StarTest(String name, String type) {
         this.name = name;
         this.type = type;
     }

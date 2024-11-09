@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.controller;
 
-import com.brickroad.starcreator_webservice.entity.Star;
+import com.brickroad.starcreator_webservice.WorldBuilder.Planet;
+import com.brickroad.starcreator_webservice.WorldBuilder.Star;
 import com.brickroad.starcreator_webservice.request.CreationRequest;
 import com.brickroad.starcreator_webservice.service.CreationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,15 +19,16 @@ public class CreationController {
         this.creationService = creationService;
     }
 
-    @GetMapping("/star")
-    public ResponseEntity<Star> createStar() {
-        return ResponseEntity.ok(creationService.createStar());
+    @RequestMapping("/star")
+    @ResponseBody
+    public ResponseEntity<Star> createStar(@RequestBody CreationRequest input) {
+        return ResponseEntity.ok(creationService.createStar(input));
     }
 
-    @RequestMapping("/newStar")
+    @RequestMapping("/planet")
     @ResponseBody
-    public ResponseEntity<Star> createStarFromRequest(@RequestBody CreationRequest input) {
-        return ResponseEntity.ok(creationService.createStar(input));
+    public ResponseEntity<Planet> createPlanet(@RequestBody CreationRequest input) {
+        return ResponseEntity.ok(creationService.createPlanet(input));
     }
 
 }
