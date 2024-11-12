@@ -1,4 +1,4 @@
-package com.brickroad.starcreator_webservice.request;
+package com.brickroad.starcreator_webservice.model;
 
 public class CreationRequest {
 

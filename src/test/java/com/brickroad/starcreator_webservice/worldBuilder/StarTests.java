@@ -1,7 +1,6 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
-import com.brickroad.starcreator_webservice.WorldBuilder.Planet;
-import com.brickroad.starcreator_webservice.WorldBuilder.Star;
+import com.brickroad.starcreator_webservice.model.Star;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;

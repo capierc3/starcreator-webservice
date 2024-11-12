@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.utils;
 
 import java.util.Random;
+import java.util.random.RandomGenerator;
 
 public class Dice {
 
@@ -55,5 +56,10 @@ public class Dice {
             value = value + die.Roll(1);
         }
         return value;
+    }
+
+    public static int rollRange(int low, int high) {
+        RandomGenerator randomGenerator = RandomGenerator.getDefault();
+        return randomGenerator.nextInt(low,high);
     }
 }

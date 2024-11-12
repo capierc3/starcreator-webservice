@@ -1,4 +1,4 @@
-package com.brickroad.starcreator_webservice.WorldBuilder;
+package com.brickroad.starcreator_webservice.model;
 
 import com.brickroad.starcreator_webservice.utils.Dice;
 

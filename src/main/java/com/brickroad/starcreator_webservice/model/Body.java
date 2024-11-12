@@ -1,7 +1,11 @@
-package com.brickroad.starcreator_webservice.WorldBuilder;
+package com.brickroad.starcreator_webservice.model;
 
+import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.utils.Dice;
 import com.brickroad.starcreator_webservice.utils.SpaceTravel;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * Abstract class that holds all shared variables and methods for the different types of Bodies.
@@ -14,11 +18,11 @@ public abstract class Body implements Comparable {
     protected String type;
     protected String name;
     protected String size;
-    String atmosphere;
+    Map<AtmosphereType, Integer> atmosphere;
     String density;
     /**Body numeric information*/
-    long circumference;
-    long radius;
+    double circumference;
+    double radius;
     protected double gravity;
     double temp;
     double orbitLength;
@@ -117,7 +121,7 @@ public abstract class Body implements Comparable {
         return size;
     }
 
-    public String getAtmosphere() {
+    public Map<AtmosphereType, Integer> getAtmosphere() {
         return atmosphere;
     }
 
@@ -125,11 +129,11 @@ public abstract class Body implements Comparable {
         return density;
     }
 
-    public long getCircumference() {
+    public Double getCircumference() {
         return circumference;
     }
 
-    public long getRadius() {
+    public Double getRadius() {
         return radius;
     }
 
