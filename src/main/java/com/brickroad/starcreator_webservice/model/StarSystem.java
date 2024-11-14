@@ -52,7 +52,7 @@ public class StarSystem {
         this.population = population;
         findName();
         int starCount;
-        int roll = RandomUtils.Roller(1,20);
+        int roll = RandomUtils.rollDice(1,20);
         if (roll < 14) {
             starCount = 1;
         } else if (roll < 19) {
@@ -63,12 +63,12 @@ public class StarSystem {
         int negX = 1;
         int negY = 1;
         int negZ = 1;
-        if (RandomUtils.Roller(1,2)==1) negX = -1;
-        if (RandomUtils.Roller(1,2)==1) negY = -1;
-        if (RandomUtils.Roller(1,2)==1) negZ = -1;
-        this.x = (((RandomUtils.Roller(1,99.00)/100.00)+x)+(10*secX))*(negX);
-        this.y = (((RandomUtils.Roller(1,99.00)/100.00)+y)+(10*secY))*(negY);
-        this.z = ((RandomUtils.Roller(1,999)/100.0)+(10*secZ))*(negZ);
+        if (RandomUtils.rollDice(1,2)==1) negX = -1;
+        if (RandomUtils.rollDice(1,2)==1) negY = -1;
+        if (RandomUtils.rollDice(1,2)==1) negZ = -1;
+        this.x = (((RandomUtils.rollDice(1,99.00)/100.00)+x)+(10*secX))*(negX);
+        this.y = (((RandomUtils.rollDice(1,99.00)/100.00)+y)+(10*secY))*(negY);
+        this.z = ((RandomUtils.rollDice(1,999)/100.0)+(10*secZ))*(negZ);
         createStars(starCount);
         createBodies();
         createSize();
@@ -85,7 +85,7 @@ public class StarSystem {
         File file = new File("txtFiles/WorldBuilder/StarNamesSuffix.txt");
         try {
             Scanner in = new Scanner(file);
-            int roll= RandomUtils.Roller(1,1000);
+            int roll= RandomUtils.rollDice(1,1000);
             int i = 1;
             String line = in.nextLine();
             while (in.hasNext()){
@@ -118,18 +118,18 @@ public class StarSystem {
      * Creates a random size for the system in AUs based on the amount of bodies in the system
      */
     private void createSize(){
-        int sizeMod = RandomUtils.Roller(1,20)+(bodies.size()+planets.size());
+        int sizeMod = RandomUtils.rollDice(1,20)+(bodies.size()+planets.size());
         if (sizeMod<7){
             double[] aus = {.25,.33,.5,.66,.75,1};
             size = aus[sizeMod-1];
         } else if (sizeMod<9){
-            size = RandomUtils.Roller(sizeMod-6,4);
+            size = RandomUtils.rollDice(sizeMod-6,4);
         } else if (sizeMod<11){
-            size = RandomUtils.Roller(sizeMod-7,6);
+            size = RandomUtils.rollDice(sizeMod-7,6);
         } else if (sizeMod==11){
-            size = RandomUtils.Roller(2,8);
+            size = RandomUtils.rollDice(2,8);
         } else{
-            size = RandomUtils.Roller(sizeMod-10,10);
+            size = RandomUtils.rollDice(sizeMod-10,10);
         }
 
 
@@ -138,12 +138,12 @@ public class StarSystem {
      * Creates a random amount of bodies in the system and then randomly creates each body.
      */
     private void createBodies(){
-        int bodyNum = RandomUtils.Roller(1,10);
-        if (bodyNum == 10) bodyNum = 10+ RandomUtils.Roller(1,10);
+        int bodyNum = RandomUtils.rollDice(1,10);
+        if (bodyNum == 10) bodyNum = 10+ RandomUtils.rollDice(1,10);
         bodies = new ArrayList<>();
         planets = new ArrayList<>();
         for (int i = 0; i < bodyNum; i++) {
-            int roll = RandomUtils.Roller(1,20);
+            int roll = RandomUtils.rollDice(1,20);
             if (roll <= 1) {
                 bodies.add(new OtherBody("Anomaly",name));
             } else if (roll <=2){
@@ -245,7 +245,7 @@ public class StarSystem {
      * @return double of the location to place the body
      */
     private double placeInSystem(ArrayList<Double> locs,double low, double high){
-        double dist = RandomUtils.Roller(1,high-low)+low;
+        double dist = RandomUtils.rollDice(1,high-low)+low;
         if (!locs.contains(dist)){
             return dist;
         } else {
@@ -282,18 +282,18 @@ public class StarSystem {
      */
     private double[] RollTemps(){
         return new double[]{
-                (401 + (RandomUtils.Roller(4, 4) * 100)),
-                300 + RandomUtils.Roller(1, 100),
-                200 + RandomUtils.Roller(1, 100),
-                100 + RandomUtils.Roller(1, 100),
-                50 + RandomUtils.Roller(1, 50),
-                RandomUtils.Roller(1, 50),
-                RandomUtils.Roller(1, 50) * -1,
-                (RandomUtils.Roller(1, 50) + 50) * -1,
-                (100 + RandomUtils.Roller(1, 100)) * -1,
-                (200 + RandomUtils.Roller(1, 100)) * -1,
-                (300 + RandomUtils.Roller(1, 100)) * -1,
-                RandomUtils.Roller(4, 4) * -100,
+                (401 + (RandomUtils.rollDice(4, 4) * 100)),
+                300 + RandomUtils.rollDice(1, 100),
+                200 + RandomUtils.rollDice(1, 100),
+                100 + RandomUtils.rollDice(1, 100),
+                50 + RandomUtils.rollDice(1, 50),
+                RandomUtils.rollDice(1, 50),
+                RandomUtils.rollDice(1, 50) * -1,
+                (RandomUtils.rollDice(1, 50) + 50) * -1,
+                (100 + RandomUtils.rollDice(1, 100)) * -1,
+                (200 + RandomUtils.rollDice(1, 100)) * -1,
+                (300 + RandomUtils.rollDice(1, 100)) * -1,
+                RandomUtils.rollDice(4, 4) * -100,
         };
     }
 

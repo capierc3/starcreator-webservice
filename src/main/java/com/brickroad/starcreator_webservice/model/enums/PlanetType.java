@@ -25,7 +25,7 @@ public enum PlanetType {
     }
 
     public static PlanetType getRandom() {
-        return PlanetType.values()[RandomUtils.Roller(1,PlanetType.values().length) - 1];
+        return PlanetType.values()[RandomUtils.rollDice(1,PlanetType.values().length) - 1];
     }
 
     @Override

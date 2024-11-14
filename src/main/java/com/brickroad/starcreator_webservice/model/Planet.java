@@ -1,6 +1,5 @@
 package com.brickroad.starcreator_webservice.model;
 
-import com.brickroad.starcreator_webservice.model.constants.PlanetConstants;
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
@@ -18,7 +17,7 @@ public class Planet extends Body {
     private double tiltDegree;
     private double rotation;
     private String rotationDir;
-    private int liquidAmt;
+    private double liquidAmt;
     private String liquidType;
     private String[] orbitingBodies;
     private String atmosphereThickness;
@@ -48,16 +47,16 @@ public class Planet extends Body {
 
     //TODO moons and space stations
     private void findMoons(){
-        int roll = RandomUtils.Roller(1,20);
+        int roll = RandomUtils.rollDice(1,20);
         if (roll<=10){
             orbitingBodies = new String[0];
         } else if (roll<=15){
             orbitingBodies = new String[1];
         } else if (roll<20){
             orbitingBodies = new String[roll-14];
-        } else orbitingBodies = new String[RandomUtils.Roller(2,4)];
+        } else orbitingBodies = new String[RandomUtils.rollDice(2,4)];
         for (int i = 0; i < orbitingBodies.length; i++) {
-            roll = RandomUtils.Roller(1,20);
+            roll = RandomUtils.rollDice(1,20);
             if (roll<=2){
                 orbitingBodies[i] = "Dust Cloud";
             } else if (roll==3){
@@ -69,7 +68,7 @@ public class Planet extends Body {
             } else if (roll<=16){
                 orbitingBodies[i] = "Moon";
             } else if (roll<=18){
-                int ringType = RandomUtils.Roller(1,3)-1;
+                int ringType = RandomUtils.rollDice(1,3)-1;
                 String[] ringTypes = {"Ice","Rock","Ice/Rock Mix"};
                 orbitingBodies[i] = "Ring of "+ringTypes[ringType];
             } else {
@@ -79,23 +78,14 @@ public class Planet extends Body {
     }
 
     private void findLiquid(){
-        int roll = RandomUtils.Roller(1,12);
-        if (roll==1) {
-            liquidAmt = 0;
-        } else if (roll==2){
-            liquidAmt = RandomUtils.Roller(1,5);
-        } else if (roll<=11){
-            int mod = ((roll-3)*10)+5;
-            liquidAmt = RandomUtils.Roller(1,10)+mod;
-        } else {
-            liquidAmt = RandomUtils.Roller(1,5)+95;
-        }
+        int roll = RandomUtils.rollDice(1,12);
+        liquidAmt = RandomUtils.getRandomFromArray(LAND_COVER_LIQUID.get(roll));
         if (atmosphere.containsKey(AtmosphereType.EARTH_LIKE)){
             liquidType = "H2O";
         } else {
             String[] types = {"H20","Ammonia","Bromine","Caesium","Francium","Gallium","Liquid Nitrogen",
                     "Liquid Oxygen","Mercury","Rubidium"};
-            roll = RandomUtils.Roller(1,20);
+            roll = RandomUtils.rollDice(1,20);
             if (roll<=11){
                 liquidType = types[0];
             } else {
@@ -108,25 +98,25 @@ public class Planet extends Body {
         axisTilt = (String) TILTS.keySet().toArray()[RandomGenerator.getDefault().nextInt(0, TILTS.size() - 1)];
         tiltDegree = RandomUtils.getRandomFromArray(TILTS.get(axisTilt));
         //Rotation(hrs per day)
-        int rotationMod = planetSize+(RandomUtils.Roller(1,10)-1);
+        int rotationMod = planetSize+(RandomUtils.rollDice(1,10)-1);
         if (rotationMod<3){
             if (rotationMod==1){
-                rotation = RandomUtils.Roller(1,4);
-            } else rotation = RandomUtils.Roller(1,8);
+                rotation = RandomUtils.rollDice(1,4);
+            } else rotation = RandomUtils.rollDice(1,8);
         } else if (rotationMod<5){
-            rotation = RandomUtils.Roller(rotationMod-2,10);
+            rotation = RandomUtils.rollDice(rotationMod-2,10);
         } else if (rotationMod<12){
-            rotation = RandomUtils.Roller(rotationMod-1,10);
-        } else rotation = RandomUtils.Roller(rotationMod,10);
+            rotation = RandomUtils.rollDice(rotationMod-1,10);
+        } else rotation = RandomUtils.rollDice(rotationMod,10);
         //Rotation Direction
-        int roll = RandomUtils.Roller(1,100);
+        int roll = RandomUtils.rollDice(1,100);
         if (roll<=70){
             rotationDir = "Prograde";
         } else rotationDir = "Retrograde";
     }
 
     private void findDensityAndGravity() {
-        densityRating = planetSize + RandomUtils.Roller(1,10) - 1;
+        densityRating = planetSize + RandomUtils.rollDice(1,10) - 1;
 
         if (densityRating < 12) {
             density = (String) DENSITY_RATINGS.keySet().toArray()[densityRating - 1];
@@ -144,7 +134,7 @@ public class Planet extends Body {
     }
 
     private void findAtmosphericPressure(){
-        double pressureRating = (RandomUtils.Roller(1, 10) - 3) + (planetSize / 2.0) + (densityRating / 2.0);
+        double pressureRating = (RandomUtils.rollDice(1, 10) - 3) + (planetSize / 2.0) + (densityRating / 2.0);
         if (Math.floor(pressureRating) >= (ATMOSPHERIC_PRESSURE.keySet().size() - 1)){
             atmosphereThickness = (String) ATMOSPHERIC_PRESSURE.keySet().toArray()[ATMOSPHERIC_PRESSURE.keySet().toArray().length - 1];
             atmosphericPressure = pressureRating * ATMOSPHERIC_PRESSURE.get(atmosphereThickness)[0];
@@ -194,7 +184,7 @@ public class Planet extends Body {
         } else {
             size = (String) SIZE_VALUES.keySet().toArray()[7];
         }
-        circumference = RandomUtils.Roller((int)SIZE_VALUES.get(size)[0],(double)SIZE_VALUES.get(size)[1]) * (int) SIZE_VALUES.get(size)[2];
+        circumference = RandomUtils.rollDice((int)SIZE_VALUES.get(size)[0],(double)SIZE_VALUES.get(size)[1]) * (int) SIZE_VALUES.get(size)[2];
         radius = (circumference / (2 * Math.PI));
     }
 
@@ -237,7 +227,7 @@ public class Planet extends Body {
         return rotationDir;
     }
 
-    public int getLiquidAmt() {
+    public double getLiquidAmt() {
         return liquidAmt;
     }
 

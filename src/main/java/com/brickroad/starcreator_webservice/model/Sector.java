@@ -56,18 +56,18 @@ public class Sector {
         }
         grid = new StarSystem[10][10];
         findName();
-        amtSystems = RandomUtils.Roller(1,10)+20;
+        amtSystems = RandomUtils.rollDice(1,10)+20;
         for (int i = 0; i < amtSystems; i++) {
-            int row = RandomUtils.Roller(1,10)-1;
-            int col = RandomUtils.Roller(1,10)-1;
+            int row = RandomUtils.rollDice(1,10)-1;
+            int col = RandomUtils.rollDice(1,10)-1;
             boolean placed = false;
             while (!placed) {
                 if (grid[row][col] == null) {
                     grid[row][col] = new StarSystem(name,population,col,row,x,y,z);
                     placed = true;
                 } else {
-                    row = RandomUtils.Roller(1,10) - 1;
-                    col = RandomUtils.Roller(1,10) - 1;
+                    row = RandomUtils.rollDice(1,10) - 1;
+                    col = RandomUtils.rollDice(1,10) - 1;
                 }
             }
         }
@@ -82,7 +82,7 @@ public class Sector {
         File file = new File("txtFiles/WorldBuilder/StarNamesPrefix.txt");
         try {
             Scanner in = new Scanner(file);
-            int roll= RandomUtils.Roller(1,1000);
+            int roll= RandomUtils.rollDice(1,1000);
             int i = 1;
             String line = in.nextLine();
             while (in.hasNext()){

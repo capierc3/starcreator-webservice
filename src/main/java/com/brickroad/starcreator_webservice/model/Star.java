@@ -31,7 +31,7 @@ public class Star extends Body {
     public Star(String name) {
         this.name = name;
         systemName = name;
-        int roll = RandomUtils.Roller(1,20);
+        int roll = RandomUtils.rollDice(1,20);
         for (int i = 0; i < starTypes.length; i++) {
             if (roll >= (int) starTypes[i][0]) {
                 type = (String) starTypes[i][1];

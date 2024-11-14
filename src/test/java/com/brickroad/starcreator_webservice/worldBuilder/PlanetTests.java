@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
 import com.brickroad.starcreator_webservice.model.Planet;
+import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,6 +57,9 @@ public class PlanetTests {
         assertPlanetGravity(planet);
         assertAtmosphere(planet);
         assertTiltAndRotation(planet);
+        if (!planet.getPlanetType().equals(PlanetType.GAS)) {
+            assertLiquidAmtAndType(planet);
+        }
     }
 
     private void assertPlanetSize(Planet planet) {
@@ -106,5 +110,14 @@ public class PlanetTests {
         assertTrue(planet.getTiltDegree() >= TILTS.get(planet.getAxisTilt())[0]);
         assertTrue(planet.getTiltDegree() <= TILTS.get(planet.getAxisTilt())[1]);
         assertTrue(planet.getRotation() >= 0);
+    }
+
+    private void assertLiquidAmtAndType(Planet planet) {
+        if (planet.getAtmosphere().containsKey(AtmosphereType.EARTH_LIKE)) {
+            assertTrue(planet.getLiquidType().equalsIgnoreCase("H2O"));
+        }
+        assertNotNull(planet.getLiquidType());
+        assertTrue(planet.getLiquidAmt() >= 0);
+        assertTrue(planet.getLiquidAmt() <= 100);
     }
 }

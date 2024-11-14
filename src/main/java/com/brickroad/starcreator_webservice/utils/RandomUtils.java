@@ -42,7 +42,7 @@ public class RandomUtils {
         return roll;
     }
 
-    public static int Roller(int times, int sides){
+    public static int rollDice(int times, int sides){
         RandomUtils die = new RandomUtils(sides);
         int value = 0;
         for (int i = 0; i < times; i++) {
@@ -50,7 +50,7 @@ public class RandomUtils {
         }
         return value;
     }
-    public static double Roller(int times,double sides){
+    public static double rollDice(int times, double sides){
         RandomUtils die = new RandomUtils(sides);
         double value = 0;
         for (int i = 0; i < times; i++) {

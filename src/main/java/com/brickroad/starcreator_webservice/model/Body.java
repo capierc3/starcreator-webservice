@@ -32,8 +32,8 @@ public abstract class Body implements Comparable {
 
     /**Main Constructor that sets the orbit length of the body*/
     Body(){
-        int roll = RandomUtils.Roller(1,10);
-        orbitLength = (RandomUtils.Roller(10,10)*roll)/365.0;
+        int roll = RandomUtils.rollDice(1,10);
+        orbitLength = (RandomUtils.rollDice(10,10)*roll)/365.0;
     }
 
     /**

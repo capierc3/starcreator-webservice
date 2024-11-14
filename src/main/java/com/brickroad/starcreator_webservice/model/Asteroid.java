@@ -29,7 +29,7 @@ public class Asteroid extends Body{
      *Sets the "Size" descriptions if the type is a Belt. String == "distance of belt,Density of belt,resource quality"
      */
     private void findBeltSize(){
-        int roll = RandomUtils.Roller(1, 3);
+        int roll = RandomUtils.rollDice(1, 3);
         if (roll <2){
             size = "Thin";
         } else if (roll <3){
@@ -37,7 +37,7 @@ public class Asteroid extends Body{
         } else {
             size = "Thick";
         }
-        roll = RandomUtils.Roller(1,3);
+        roll = RandomUtils.rollDice(1,3);
         if (roll <2){
             size = size+", spread out,";
         } else if (roll <3){
@@ -45,7 +45,7 @@ public class Asteroid extends Body{
         } else {
             size = size+" Dense,";
         }
-        roll = RandomUtils.Roller(1,3);
+        roll = RandomUtils.rollDice(1,3);
         if (roll <2){
             size = size+", Poor";
         } else if (roll <3){
@@ -59,22 +59,22 @@ public class Asteroid extends Body{
      * If its a comet it finds it's size, and sets the Body class size var.
      */
     private void findCometSize(){
-        int sizeInt = RandomUtils.Roller(1,5);
+        int sizeInt = RandomUtils.rollDice(1,5);
         if (sizeInt <= 1){
             size = "Small nucleus";
-            radius = RandomUtils.Roller(4,3850);
+            radius = RandomUtils.rollDice(4,3850);
         } else if (sizeInt == 2){
             size = "Medium nucleus";
-            radius = RandomUtils.Roller(4,3850)+3858;
+            radius = RandomUtils.rollDice(4,3850)+3858;
         } else if (sizeInt == 3){
             size = "Average nucleus";
-            radius = RandomUtils.Roller(4,3850)+7700;
+            radius = RandomUtils.rollDice(4,3850)+7700;
         } else if(sizeInt == 4){
             size = "Large nucleus";
-            radius = RandomUtils.Roller(4,3850)+11550;
+            radius = RandomUtils.rollDice(4,3850)+11550;
         } else  {
             size = "Huge nucleus";
-            radius = RandomUtils.Roller(4,3850)+(15400);
+            radius = RandomUtils.rollDice(4,3850)+(15400);
         }
         radius = radius + 750;
     }
@@ -86,7 +86,7 @@ public class Asteroid extends Body{
      * If its an asteroid it finds it's size, and sets the Body class size var.
      */
     private void findAstSize(){
-        int sizeInt = RandomUtils.Roller(1,7);
+        int sizeInt = RandomUtils.rollDice(1,7);
         if (sizeInt <= 1){
             size = "Small";
             //circumference = Dice.Roller(4,10);

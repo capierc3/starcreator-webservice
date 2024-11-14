@@ -25,7 +25,7 @@ public enum AtmosphereType {
     }
 
     public static AtmosphereType getRandom() {
-        return AtmosphereType.values()[RandomUtils.Roller(1,AtmosphereType.values().length) - 1];
+        return AtmosphereType.values()[RandomUtils.rollDice(1,AtmosphereType.values().length) - 1];
     }
 
     public String getEffect() {
