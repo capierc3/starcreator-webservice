@@ -105,5 +105,6 @@ public class PlanetTests {
         assertNotNull(planet.getAxisTilt(), "Axis tilt should not be null");
         assertTrue(planet.getTiltDegree() >= TILTS.get(planet.getAxisTilt())[0]);
         assertTrue(planet.getTiltDegree() <= TILTS.get(planet.getAxisTilt())[1]);
+        assertTrue(planet.getRotation() >= 0);
     }
 }

@@ -1,6 +1,6 @@
 package com.brickroad.starcreator_webservice.model.enums;
 
-import com.brickroad.starcreator_webservice.utils.Dice;
+import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.apache.commons.text.WordUtils;
 
 public enum AtmosphereType {
@@ -25,7 +25,7 @@ public enum AtmosphereType {
     }
 
     public static AtmosphereType getRandom() {
-        return AtmosphereType.values()[Dice.Roller(1,AtmosphereType.values().length) - 1];
+        return AtmosphereType.values()[RandomUtils.Roller(1,AtmosphereType.values().length) - 1];
     }
 
     public String getEffect() {

@@ -1,20 +1,21 @@
 package com.brickroad.starcreator_webservice.utils;
 
+import java.util.Objects;
 import java.util.Random;
 import java.util.random.RandomGenerator;
 
-public class Dice {
+public class RandomUtils {
 
     private final int d;
     private final double dD;
     private int roll;
     private double dRoll;
 
-    public Dice(int dSize){
+    public RandomUtils(int dSize){
         this.d=dSize;
         this.dD=dSize;
     }
-    public Dice(double dSize){
+    public RandomUtils(double dSize){
         this.dD = dSize;
         this.d = (int) dSize;
     }
@@ -42,7 +43,7 @@ public class Dice {
     }
 
     public static int Roller(int times, int sides){
-        Dice die = new Dice(sides);
+        RandomUtils die = new RandomUtils(sides);
         int value = 0;
         for (int i = 0; i < times; i++) {
             value = value + die.Roll();
@@ -50,7 +51,7 @@ public class Dice {
         return value;
     }
     public static double Roller(int times,double sides){
-        Dice die = new Dice(sides);
+        RandomUtils die = new RandomUtils(sides);
         double value = 0;
         for (int i = 0; i < times; i++) {
             value = value + die.Roll(1);
@@ -61,5 +62,21 @@ public class Dice {
     public static int rollRange(int low, int high) {
         RandomGenerator randomGenerator = RandomGenerator.getDefault();
         return randomGenerator.nextInt(low,high);
+    }
+
+    public static Double getRandomFromArray(Integer[] array){
+        if (Objects.equals(array[0], array[1])) {
+            return  array[0].doubleValue();
+        } else {
+            return RandomGenerator.getDefault().nextDouble(array[0],array[1]);
+        }
+    }
+
+    public static Double getRandomFromArray(Double[] array){
+        if (Objects.equals(array[0], array[1])) {
+            return  array[0];
+        } else {
+            return RandomGenerator.getDefault().nextDouble(array[0],array[1]);
+        }
     }
 }

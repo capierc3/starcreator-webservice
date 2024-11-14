@@ -1,6 +1,6 @@
 package com.brickroad.starcreator_webservice.model;
 
-import com.brickroad.starcreator_webservice.utils.Dice;
+import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
 /**
  * Class for the creation and holding of the Stars in the system
@@ -31,7 +31,7 @@ public class Star extends Body {
     public Star(String name) {
         this.name = name;
         systemName = name;
-        int roll = Dice.Roller(1,20);
+        int roll = RandomUtils.Roller(1,20);
         for (int i = 0; i < starTypes.length; i++) {
             if (roll >= (int) starTypes[i][0]) {
                 type = (String) starTypes[i][1];
@@ -69,25 +69,25 @@ public class Star extends Body {
      * Randomly assigns the type of main sequence star based on star type probability. Then sets it radius and mass.
      */
     private void mainSeq(){
-        int roll = new Dice(100).Roll();
+        int roll = new RandomUtils(100).Roll();
         if (roll<=3){
             type = type+ "(O)";
             solarMass = 16;
             solarRadius = 6;
         } else if (roll<=6){
             type = type+ "(B)";
-            int r2 = new Dice(8).Roll();
-            int r3 = new Dice(8).Roll();
+            int r2 = new RandomUtils(8).Roll();
+            int r3 = new RandomUtils(8).Roll();
             solarMass = r2+r3;
-            solarRadius = new Dice(6).Roll();
+            solarRadius = new RandomUtils(6).Roll();
         } else if (roll<=9){
             type = type+ "(A)";
-            int r2 = new Dice(4).Roll();
-            int r3 = new Dice(4).Roll();
+            int r2 = new RandomUtils(4).Roll();
+            int r3 = new RandomUtils(4).Roll();
             solarMass = r2+r3;
-            solarRadius = new Dice(4).Roll();
+            solarRadius = new RandomUtils(4).Roll();
         } else if (roll<=15){
-            solarMass = new Dice(4).Roll();
+            solarMass = new RandomUtils(4).Roll();
             solarRadius = 2;
             type = type+ "(F)";
         } else if (roll<=20){

@@ -1,6 +1,6 @@
 package com.brickroad.starcreator_webservice.model.enums;
 
-import com.brickroad.starcreator_webservice.utils.Dice;
+import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
 public enum PlanetType {
 
@@ -25,7 +25,7 @@ public enum PlanetType {
     }
 
     public static PlanetType getRandom() {
-        return PlanetType.values()[Dice.Roller(1,PlanetType.values().length) - 1];
+        return PlanetType.values()[RandomUtils.Roller(1,PlanetType.values().length) - 1];
     }
 
     @Override

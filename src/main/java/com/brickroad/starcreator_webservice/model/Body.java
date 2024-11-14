@@ -1,10 +1,9 @@
 package com.brickroad.starcreator_webservice.model;
 
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
-import com.brickroad.starcreator_webservice.utils.Dice;
+import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.SpaceTravel;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -33,8 +32,8 @@ public abstract class Body implements Comparable {
 
     /**Main Constructor that sets the orbit length of the body*/
     Body(){
-        int roll = Dice.Roller(1,10);
-        orbitLength = (Dice.Roller(10,10)*roll)/365.0;
+        int roll = RandomUtils.Roller(1,10);
+        orbitLength = (RandomUtils.Roller(10,10)*roll)/365.0;
     }
 
     /**
