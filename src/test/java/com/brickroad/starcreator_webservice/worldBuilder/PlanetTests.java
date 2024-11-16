@@ -109,6 +109,7 @@ public class PlanetTests {
         assertTiltAndRotation(planet);
         if (!planet.getPlanetType().equals(PlanetType.GAS)) {
             assertLiquidAmtAndType(planet);
+            assertTerrain(planet);
         }
         assertMagnetField(planet);
     }
@@ -175,6 +176,14 @@ public class PlanetTests {
 
     private void assertMagnetField(Planet planet) {
         assertNotNull(planet.getMagneticField().getVariation());
+    }
+
+    private void assertTerrain(Planet planet) {
+        AtomicInteger percent = new AtomicInteger();
+        planet.getTerrain().values().forEach(atmoPercent -> {
+            percent.set(percent.get() + atmoPercent);
+        });
+        assertEquals(100, percent.intValue(), "Total terrain should be 100%");
     }
 
 }

@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.model;
 
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
+import com.brickroad.starcreator_webservice.model.enums.TerrainType;
 import com.brickroad.starcreator_webservice.model.planets.MagneticField;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
@@ -36,6 +37,7 @@ public class Planet extends Body {
         this.planetType = PlanetType.getEnum(type);
         this.name = name;
         systemName = name;
+        magneticField = new MagneticField(densityRating,rotation);
         findSize();
         findAtmosphereComposite();
         findDensityAndGravity();
@@ -43,9 +45,8 @@ public class Planet extends Body {
         findTiltRotate();
         if (!type.equalsIgnoreCase("Gas Planet")){
             findLiquid();
+            findTerrainComposite();
         }
-        magneticField = new MagneticField(densityRating,rotation);
-
         findMoons();
     }
 
@@ -249,6 +250,26 @@ public class Planet extends Body {
 
     public double getAtmosphericPressure() {
         return atmosphericPressure;
+    }
+
+    private void findTerrainComposite() {
+        terrain = new HashMap<>();
+        int percentRemaining = 100;
+        while (percentRemaining > 0) {
+            int percentFound;
+            if (percentRemaining != 1) {
+                percentFound = RandomGenerator.getDefault().nextInt(1, percentRemaining);
+            } else {
+                percentFound = 1;
+            }
+            TerrainType randomType = TerrainType.getRandom();
+            if (terrain.containsKey(randomType)) {
+                terrain.compute(randomType, (_, v) -> v + percentFound);
+            } else {
+                terrain.put(randomType, percentFound);
+            }
+            percentRemaining = percentRemaining - percentFound;
+        }
     }
 
     public String getSystemName() {
