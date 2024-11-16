@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.model;
 
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
+import com.brickroad.starcreator_webservice.model.planets.MagneticField;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.SpaceTravel;
 
@@ -18,6 +19,7 @@ public abstract class Body implements Comparable {
     protected String name;
     protected String size;
     Map<AtmosphereType, Integer> atmosphere;
+    MagneticField magneticField;
     String density;
     /**Body numeric information*/
     double circumference;
@@ -84,6 +86,10 @@ public abstract class Body implements Comparable {
      */
     public Double getDistanceSun() {
         return distanceSun;
+    }
+
+    public MagneticField getMagneticField() {
+        return magneticField;
     }
 
     /**

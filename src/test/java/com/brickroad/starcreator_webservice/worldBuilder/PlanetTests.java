@@ -37,11 +37,54 @@ public class PlanetTests {
 
     @Test
     void randomPlanetTest() {
-        for (int i = 0; i < 1000; i++) {
+        int runs = 1000000;
+        double gasAvgDR = 0;
+        double gasAvgSTE = 0;
+        double gasAvgGrav = 0;
+        int gasAMT = 0;
+        double terraAvgDR = 0;
+        double terraAvgSTE = 0;
+        double terraAvgGrav = 0;
+        int terraAMT = 0;
+        double dwarfAvgDR = 0;
+        double dwarfAvgSTE = 0;
+        double dwarfAvgGrav = 0;
+        int dwarfAMT = 0;
+        for (int i = 0; i < runs; i++) {
             Planet planet = new Planet();
             assertNotNull(planet.getType(), "Planet type should not be null");
             assertPlanetRandomValues(planet);
+
+            if (planet.getPlanetType().equals(PlanetType.GAS)) {
+                gasAMT++;
+                gasAvgDR += planet.getDensityRating();
+                gasAvgSTE += planet.getMagneticField().getComparedToEarthStrength();
+                gasAvgGrav += planet.getGravity();
+            } else if (planet.getPlanetType().equals(PlanetType.DWARF)) {
+                dwarfAMT++;
+                dwarfAvgDR += planet.getDensityRating();
+                dwarfAvgSTE += planet.getMagneticField().getComparedToEarthStrength();
+                dwarfAvgGrav += planet.getGravity();
+            } else {
+                terraAMT++;
+                terraAvgDR += planet.getDensityRating();
+                terraAvgSTE += planet.getMagneticField().getComparedToEarthStrength();
+                terraAvgGrav += planet.getGravity();
+            }
+
         }
+        System.out.println("\tGas: " + gasAMT);
+        System.out.println("\t\tAvg Dr: " + gasAvgDR/gasAMT);
+        System.out.println("\t\tAvg STE: " + gasAvgSTE/gasAMT);
+        System.out.println("\t\tAvg Grav: " + gasAvgGrav/gasAMT);
+        System.out.println("\tTerrestrial: " + terraAMT);
+        System.out.println("\t\tAvg Dr: " + terraAvgDR/terraAMT);
+        System.out.println("\t\tAvg STE: " + terraAvgSTE/terraAMT);
+        System.out.println("\t\tAvg Grav: " + terraAvgGrav/terraAMT);
+        System.out.println("\tDwarf: " + dwarfAMT);
+        System.out.println("\t\tAvg Dr: " + dwarfAvgDR/dwarfAMT);
+        System.out.println("\t\tAvg STE: " + dwarfAvgSTE/dwarfAMT);
+        System.out.println("\t\tAvg Grav: " + dwarfAvgGrav/dwarfAMT);
     }
 
     @Test
@@ -52,6 +95,13 @@ public class PlanetTests {
         });
     }
 
+    @Test
+    void randomTest() {
+//        for (int i = 0; i < 11; i++) {
+//
+//        }
+    }
+
     private void assertPlanetRandomValues(Planet planet) {
         assertPlanetSize(planet);
         assertPlanetGravity(planet);
@@ -60,6 +110,7 @@ public class PlanetTests {
         if (!planet.getPlanetType().equals(PlanetType.GAS)) {
             assertLiquidAmtAndType(planet);
         }
+        assertMagnetField(planet);
     }
 
     private void assertPlanetSize(Planet planet) {
@@ -110,6 +161,7 @@ public class PlanetTests {
         assertTrue(planet.getTiltDegree() >= TILTS.get(planet.getAxisTilt())[0]);
         assertTrue(planet.getTiltDegree() <= TILTS.get(planet.getAxisTilt())[1]);
         assertTrue(planet.getRotation() >= 0);
+        assertNotNull(planet.getRotationDir());
     }
 
     private void assertLiquidAmtAndType(Planet planet) {
@@ -120,4 +172,9 @@ public class PlanetTests {
         assertTrue(planet.getLiquidAmt() >= 0);
         assertTrue(planet.getLiquidAmt() <= 100);
     }
+
+    private void assertMagnetField(Planet planet) {
+        assertNotNull(planet.getMagneticField().getVariation());
+    }
+
 }

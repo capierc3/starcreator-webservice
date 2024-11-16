@@ -69,25 +69,25 @@ public class Star extends Body {
      * Randomly assigns the type of main sequence star based on star type probability. Then sets it radius and mass.
      */
     private void mainSeq(){
-        int roll = new RandomUtils(100).Roll();
+        int roll = RandomUtils.rollD100();
         if (roll<=3){
             type = type+ "(O)";
             solarMass = 16;
             solarRadius = 6;
         } else if (roll<=6){
             type = type+ "(B)";
-            int r2 = new RandomUtils(8).Roll();
-            int r3 = new RandomUtils(8).Roll();
+            int r2 = RandomUtils.rollD8();
+            int r3 = RandomUtils.rollD8();
             solarMass = r2+r3;
-            solarRadius = new RandomUtils(6).Roll();
+            solarRadius = RandomUtils.rollD6();
         } else if (roll<=9){
             type = type+ "(A)";
-            int r2 = new RandomUtils(4).Roll();
-            int r3 = new RandomUtils(4).Roll();
+            int r2 = RandomUtils.rollD4();
+            int r3 = RandomUtils.rollD4();
             solarMass = r2+r3;
-            solarRadius = new RandomUtils(4).Roll();
+            solarRadius = RandomUtils.rollD4();
         } else if (roll<=15){
-            solarMass = new RandomUtils(4).Roll();
+            solarMass = RandomUtils.rollD4();
             solarRadius = 2;
             type = type+ "(F)";
         } else if (roll<=20){

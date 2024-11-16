@@ -2,12 +2,14 @@ package com.brickroad.starcreator_webservice.model;
 
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
+import com.brickroad.starcreator_webservice.model.planets.MagneticField;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
 import java.util.HashMap;
 import java.util.random.RandomGenerator;
 
 import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.*;
+import static com.brickroad.starcreator_webservice.model.planets.MagneticField.MAGNETIC_FIELD;
 
 public class Planet extends Body {
 
@@ -42,6 +44,8 @@ public class Planet extends Body {
         if (!type.equalsIgnoreCase("Gas Planet")){
             findLiquid();
         }
+        magneticField = new MagneticField(densityRating,rotation);
+
         findMoons();
     }
 
@@ -116,7 +120,7 @@ public class Planet extends Body {
     }
 
     private void findDensityAndGravity() {
-        densityRating = planetSize + RandomUtils.rollDice(1,10) - 1;
+        densityRating = planetSize + RandomUtils.rollD10() - 1;
 
         if (densityRating < 12) {
             density = (String) DENSITY_RATINGS.keySet().toArray()[densityRating - 1];
@@ -133,7 +137,7 @@ public class Planet extends Body {
         }
     }
 
-    private void findAtmosphericPressure(){
+    private void findAtmosphericPressure() {
         double pressureRating = (RandomUtils.rollDice(1, 10) - 3) + (planetSize / 2.0) + (densityRating / 2.0);
         if (Math.floor(pressureRating) >= (ATMOSPHERIC_PRESSURE.keySet().size() - 1)){
             atmosphereThickness = (String) ATMOSPHERIC_PRESSURE.keySet().toArray()[ATMOSPHERIC_PRESSURE.keySet().toArray().length - 1];
@@ -145,7 +149,7 @@ public class Planet extends Body {
         }
     }
 
-    private void findAtmosphereComposite(){
+    private void findAtmosphereComposite() {
         atmosphere = new HashMap<>();
         int percentRemaining = 100;
         while (percentRemaining > 0) {
@@ -253,5 +257,9 @@ public class Planet extends Body {
 
     public PlanetType getPlanetType() {
         return planetType;
+    }
+
+    public int getDensityRating() {
+        return densityRating;
     }
 }

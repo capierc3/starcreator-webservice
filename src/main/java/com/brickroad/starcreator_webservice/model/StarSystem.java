@@ -265,10 +265,10 @@ public class StarSystem {
         } else {
             stars[0] = new Star(name);
             for (int i = 1; i < stars.length; i++) {
-                if (new RandomUtils(2).Roll() == 1) {
+                if (RandomUtils.flipCoin() == 1) {
                     stars[i] = new Star(stars[i - 1].getTypeNum(),i+1,name);
                 } else {
-                    if (new RandomUtils(2).Roll() == 1){
+                    if (RandomUtils.flipCoin() == 1){
                         stars[i] = new Star(stars[i-1].getTypeNum()-1,i+1,name);
                     } else stars[i] = new Star(stars[i-1].getTypeNum()+1,i+1,name);
                 }
