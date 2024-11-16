@@ -37,7 +37,6 @@ public class Planet extends Body {
         this.planetType = PlanetType.getEnum(type);
         this.name = name;
         systemName = name;
-        magneticField = new MagneticField(densityRating,rotation);
         findSize();
         findAtmosphereComposite();
         findDensityAndGravity();
@@ -47,6 +46,7 @@ public class Planet extends Body {
             findLiquid();
             findTerrainComposite();
         }
+        magneticField = new MagneticField(densityRating,rotation);
         findMoons();
     }
 
