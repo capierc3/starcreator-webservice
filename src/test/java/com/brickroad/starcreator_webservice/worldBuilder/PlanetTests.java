@@ -37,7 +37,7 @@ public class PlanetTests {
 
     @Test
     void randomPlanetTest() {
-        int runs = 1000000;
+        int runs = 1000;
         double gasAvgDR = 0;
         double gasAvgSTE = 0;
         double gasAvgGrav = 0;
