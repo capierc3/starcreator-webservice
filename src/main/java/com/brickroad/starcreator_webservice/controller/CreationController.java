@@ -13,7 +13,6 @@ import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.ModelAndView;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +29,7 @@ public class CreationController {
         this.creationService = creationService;
     }
 
-    @Operation(summary = "Welcome Text")
+    @Operation(summary = "Welcome Text", description = "Welcome text to help direct users", tags = {"help"})
     @ApiResponse(responseCode = "200", description = "Welcome")
     @GetMapping("/")
     String home() throws IOException {
@@ -38,18 +37,18 @@ public class CreationController {
     }
 
 
-    @Operation(summary = "Generate a random planet")
+    @Operation(summary = "Generate planet", description = "Generates a random planet based on name and type", tags = {"Planet Creation"})
     @ApiResponse(responseCode = "200", description = "Planet Generated", content = {@Content(mediaType = "application/json",schema = @Schema(implementation = Planet.class))})
     @GetMapping("/planet")
-    public ResponseEntity<Planet> createPlanet(@RequestBody(required = false) PlanetRequest input) {
-        return ResponseEntity.ok(creationService.createPlanet(input));
+    public ResponseEntity<Planet> createPlanet(@RequestBody(required = false) PlanetRequest planetRequest) {
+        return ResponseEntity.ok(creationService.createPlanet(planetRequest));
     }
 
-    @Operation(summary = "Generate a random star")
+    @Operation(summary = "Generate star", description = "Generates a random star based on type", tags = {"Star Creation"})
     @ApiResponse(responseCode = "200", description = "Star Generated", content = {@Content(mediaType = "application/json",schema = @Schema(implementation = Star.class))})
     @GetMapping("/star")
-    public ResponseEntity<Star> createStar(@RequestBody StarRequest input) {
-        return ResponseEntity.ok(creationService.createStar(input));
+    public ResponseEntity<Star> createStar(@RequestBody StarRequest starRequest) {
+        return ResponseEntity.ok(creationService.createStar(starRequest));
     }
 
 
