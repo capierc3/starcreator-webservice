@@ -144,16 +144,14 @@ public class PlanetTests {
 
     private void assertAtmosphere(Planet planet) {
         AtomicInteger percent = new AtomicInteger();
-        planet.getAtmosphere().values().forEach(atmoPercent -> {
-            percent.set(percent.get() + atmoPercent);
-        });
+        planet.getAtmosphere().getAtmosphericComposite().forEach(ac -> percent.set(percent.get() + ac.getPercent()));
         assertEquals(100, percent.intValue(), "Total atmosphere should be 100%");
-        assertNotNull(planet.getAtmosphereThickness(), "Atmospheric description should be populated");
-        if (planet.getAtmosphereThickness().equalsIgnoreCase("Ultra Dense")) {
-            assertTrue(planet.getAtmosphericPressure() >= 430);
+        assertNotNull(planet.getAtmosphere().getAtmosphereThickness(), "Atmospheric description should be populated");
+        if (planet.getAtmosphere().getAtmosphereThickness().equalsIgnoreCase("Ultra Dense")) {
+            assertTrue(planet.getAtmosphere().getAtmosphericPressure() >= 430);
         } else {
-            assertTrue(planet.getAtmosphericPressure() >= ATMOSPHERIC_PRESSURE.get(planet.getAtmosphereThickness())[0]);
-            assertTrue(planet.getAtmosphericPressure() <= ATMOSPHERIC_PRESSURE.get(planet.getAtmosphereThickness())[1]);
+            assertTrue(planet.getAtmosphere().getAtmosphericPressure() >= ATMOSPHERIC_PRESSURE.get(planet.getAtmosphere().getAtmosphereThickness())[0]);
+            assertTrue(planet.getAtmosphere().getAtmosphericPressure() <= ATMOSPHERIC_PRESSURE.get(planet.getAtmosphere().getAtmosphereThickness())[1]);
         }
     }
 
@@ -166,7 +164,7 @@ public class PlanetTests {
     }
 
     private void assertLiquidAmtAndType(Planet planet) {
-        if (planet.getAtmosphere().containsKey(AtmosphereType.EARTH_LIKE)) {
+        if (planet.getAtmosphere().compositeContainsType(AtmosphereType.EARTH_LIKE)) {
             assertTrue(planet.getLiquidType().equalsIgnoreCase("H2O"));
         }
         assertNotNull(planet.getLiquidType());

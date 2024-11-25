@@ -19,7 +19,6 @@ public abstract class Body implements Comparable {
     protected String type;
     protected String name;
     protected String size;
-    Map<AtmosphereType, Integer> atmosphere;
     Map<TerrainType, Integer> terrain;
     MagneticField magneticField;
     String density;
@@ -126,10 +125,6 @@ public abstract class Body implements Comparable {
 
     public String getSize() {
         return size;
-    }
-
-    public Map<AtmosphereType, Integer> getAtmosphere() {
-        return atmosphere;
     }
 
     public String getDensity() {

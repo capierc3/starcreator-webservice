@@ -3,6 +3,7 @@ package com.brickroad.starcreator_webservice.model;
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
 import com.brickroad.starcreator_webservice.model.enums.TerrainType;
+import com.brickroad.starcreator_webservice.model.planets.Atmosphere;
 import com.brickroad.starcreator_webservice.model.planets.MagneticField;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
@@ -24,8 +25,7 @@ public class Planet extends Body {
     private double liquidAmt;
     private String liquidType;
     private String[] orbitingBodies;
-    private String atmosphereThickness;
-    private double atmosphericPressure;
+    private final Atmosphere atmosphere;
     private final String systemName;
     private final PlanetType planetType;
 
@@ -42,6 +42,7 @@ public class Planet extends Body {
             this.name = name;
         }
         systemName = name;
+        atmosphere = new Atmosphere();
         findSize();
         findAtmosphereComposite();
         findDensityAndGravity();
@@ -99,7 +100,7 @@ public class Planet extends Body {
     private void findLiquid(){
         int roll = RandomUtils.rollDice(1,12);
         liquidAmt = RandomUtils.getRandomFromArray(LAND_COVER_LIQUID.get(roll));
-        if (atmosphere.containsKey(AtmosphereType.EARTH_LIKE)){
+        if (atmosphere.compositeContainsType(AtmosphereType.EARTH_LIKE)){
             liquidType = "H2O";
         } else {
             String[] types = {"H20","Ammonia","Bromine","Caesium","Francium","Gallium","Liquid Nitrogen",
@@ -155,17 +156,16 @@ public class Planet extends Body {
     private void findAtmosphericPressure() {
         double pressureRating = (RandomUtils.rollDice(1, 10) - 3) + (planetSize / 2.0) + (densityRating / 2.0);
         if (Math.floor(pressureRating) >= (ATMOSPHERIC_PRESSURE.keySet().size() - 1)){
-            atmosphereThickness = (String) ATMOSPHERIC_PRESSURE.keySet().toArray()[ATMOSPHERIC_PRESSURE.keySet().toArray().length - 1];
-            atmosphericPressure = pressureRating * ATMOSPHERIC_PRESSURE.get(atmosphereThickness)[0];
+            atmosphere.setAtmosphereThickness((String) ATMOSPHERIC_PRESSURE.keySet().toArray()[ATMOSPHERIC_PRESSURE.keySet().toArray().length - 1]);
+            atmosphere.setAtmosphericPressure(pressureRating * ATMOSPHERIC_PRESSURE.get(atmosphere.getAtmosphereThickness())[0]);
         } else {
             if ((int) pressureRating<0) pressureRating = 0;
-            atmosphereThickness = (String) ATMOSPHERIC_PRESSURE.keySet().toArray()[(int) pressureRating];
-            atmosphericPressure = RandomUtils.getRandomFromArray(ATMOSPHERIC_PRESSURE.get(atmosphereThickness));
+            atmosphere.setAtmosphereThickness((String) ATMOSPHERIC_PRESSURE.keySet().toArray()[(int) pressureRating]);
+            atmosphere.setAtmosphericPressure(RandomUtils.getRandomFromArray(ATMOSPHERIC_PRESSURE.get(atmosphere.getAtmosphereThickness())));
         }
     }
 
     private void findAtmosphereComposite() {
-        atmosphere = new HashMap<>();
         int percentRemaining = 100;
         while (percentRemaining > 0) {
             int percentFound;
@@ -175,13 +175,17 @@ public class Planet extends Body {
                 percentFound = 1;
             }
             AtmosphereType randomType = AtmosphereType.getRandom();
-            if (atmosphere.containsKey(randomType)) {
-                atmosphere.compute(randomType, (_, v) -> v + percentFound);
+            if (atmosphere.compositeContainsType(randomType)) {
+                atmosphere.compositeUpdatePercent(randomType,percentFound);
             } else {
-                atmosphere.put(randomType, percentFound);
+                atmosphere.addComposite(randomType, percentFound);
             }
             percentRemaining = percentRemaining - percentFound;
         }
+        StringBuilder stringBuilder = new StringBuilder();
+        atmosphere.getAtmosphericComposite().forEach(sc -> stringBuilder.append(sc.getType().getEffect()).append(", "));
+        stringBuilder.delete(stringBuilder.length() - 2,stringBuilder.length());
+        atmosphere.setDescription(stringBuilder.toString());
     }
 
     private void findSize(){
@@ -235,21 +239,6 @@ public class Planet extends Body {
         return sb.toString();
     }
 
-    @Override
-    public String toString() {
-        return super.toString()+
-                "\nAtmosphere: "+atmosphere+
-                "\nAtmospheric Pressure: "+ atmosphereThickness +"("+ atmosphericPressure +"APR)"+
-                "\nPlanet Density: "+ density+
-                "\nGravity: "+String.format("%.2f",gravity)+"g"+
-                "\nCircumference: "+circumference+",000 km"+
-                "\nTilt: "+ axisTilt +"("+tiltDegree+"*)"+
-                "\nRotation: "+rotation+" hr/day "+rotationDir+
-                "\nLiquid: "+liquidType+" ("+liquidAmt+"%)"+
-                "\nOrbiting Bodies: "+orbitingBodies.length+
-                "\n"+printOrbit();
-    }
-
     public String getAxisTilt() {
         return axisTilt;
     }
@@ -278,14 +267,6 @@ public class Planet extends Body {
         return orbitingBodies;
     }
 
-    public String getAtmosphereThickness() {
-        return atmosphereThickness;
-    }
-
-    public double getAtmosphericPressure() {
-        return atmosphericPressure;
-    }
-
     public String getSystemName() {
         return systemName;
     }
@@ -296,5 +277,9 @@ public class Planet extends Body {
 
     public int getDensityRating() {
         return densityRating;
+    }
+
+    public Atmosphere getAtmosphere() {
+        return atmosphere;
     }
 }
