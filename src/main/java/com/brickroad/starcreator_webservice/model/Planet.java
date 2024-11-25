@@ -10,7 +10,8 @@ import java.util.HashMap;
 import java.util.random.RandomGenerator;
 
 import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.*;
-import static com.brickroad.starcreator_webservice.model.planets.MagneticField.MAGNETIC_FIELD;
+import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomLetter;
+import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomStringFromTxt;
 
 public class Planet extends Body {
 
@@ -25,17 +26,21 @@ public class Planet extends Body {
     private String[] orbitingBodies;
     private String atmosphereThickness;
     private double atmosphericPressure;
-    private String systemName;
-    private PlanetType planetType;
+    private final String systemName;
+    private final PlanetType planetType;
 
     public Planet(){
-        this(PlanetType.getRandom().toString(),"");
+        this(PlanetType.getRandom().toString(), "");
     }
 
     public Planet(String type,String name){
         this.type = type;
         this.planetType = PlanetType.getEnum(type);
-        this.name = name;
+        if (name.equalsIgnoreCase("")) {
+            this.name = findName();
+        } else {
+            this.name = name;
+        }
         systemName = name;
         findSize();
         findAtmosphereComposite();
@@ -50,7 +55,16 @@ public class Planet extends Body {
         findMoons();
     }
 
-    //TODO moons and space stations
+    private String findName() {
+        return new StringBuilder()
+                .append(getRandomStringFromTxt(SYSTEM_NAMES_PREFIX_TXT))
+                .append(" ")
+                .append(getRandomStringFromTxt(SYSTEM_NAMES_SUFFIX_TXT))
+                .append(" ")
+                .append(getRandomLetter(10))
+                .toString();
+    }
+
     private void findMoons(){
         int roll = RandomUtils.rollDice(1,20);
         if (roll<=10){
@@ -193,6 +207,26 @@ public class Planet extends Body {
         radius = (circumference / (2 * Math.PI));
     }
 
+    private void findTerrainComposite() {
+        terrain = new HashMap<>();
+        int percentRemaining = 100;
+        while (percentRemaining > 0) {
+            int percentFound;
+            if (percentRemaining != 1) {
+                percentFound = RandomGenerator.getDefault().nextInt(1, percentRemaining);
+            } else {
+                percentFound = 1;
+            }
+            TerrainType randomType = TerrainType.getRandom();
+            if (terrain.containsKey(randomType)) {
+                terrain.compute(randomType, (_, v) -> v + percentFound);
+            } else {
+                terrain.put(randomType, percentFound);
+            }
+            percentRemaining = percentRemaining - percentFound;
+        }
+    }
+
     private String printOrbit(){
         StringBuilder sb = new StringBuilder();
         for (String s:orbitingBodies) {
@@ -250,26 +284,6 @@ public class Planet extends Body {
 
     public double getAtmosphericPressure() {
         return atmosphericPressure;
-    }
-
-    private void findTerrainComposite() {
-        terrain = new HashMap<>();
-        int percentRemaining = 100;
-        while (percentRemaining > 0) {
-            int percentFound;
-            if (percentRemaining != 1) {
-                percentFound = RandomGenerator.getDefault().nextInt(1, percentRemaining);
-            } else {
-                percentFound = 1;
-            }
-            TerrainType randomType = TerrainType.getRandom();
-            if (terrain.containsKey(randomType)) {
-                terrain.compute(randomType, (_, v) -> v + percentFound);
-            } else {
-                terrain.put(randomType, percentFound);
-            }
-            percentRemaining = percentRemaining - percentFound;
-        }
     }
 
     public String getSystemName() {

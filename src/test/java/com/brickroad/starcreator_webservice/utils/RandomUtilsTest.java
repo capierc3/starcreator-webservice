@@ -1,8 +1,13 @@
 package com.brickroad.starcreator_webservice.utils;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
+import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.SYSTEM_NAMES_PREFIX_TXT;
 import static com.brickroad.starcreator_webservice.model.planets.MagneticField.MAGNETIC_FIELD;
+import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomLetter;
+import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomStringFromTxt;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class RandomUtilsTest {
@@ -60,4 +65,22 @@ public class RandomUtilsTest {
             assertNotEquals("Error", RandomUtils.getStringFromArray(MAGNETIC_FIELD), "Should not return the error string");
         }
     }
+
+    @Test
+    void testRandomStringFromTxt() {
+        for (int i = 0; i < 1000; i++) {
+            assertNotEquals(getRandomStringFromTxt(SYSTEM_NAMES_PREFIX_TXT),"ERROR",
+                    "File should be found and not error out");
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"3,ABC", "6,ABCDEF", "12,ABCDEFGHIJKL"})
+    void testRandomLetter(int maxLetter, String acceptableValues) {
+        for (int i = 0; i < 100; i++) {
+            String letter = getRandomLetter(maxLetter);
+            assertTrue(acceptableValues.contains(letter), letter + " is not allowed");
+        }
+    }
+
 }

@@ -1,6 +1,15 @@
 package com.brickroad.starcreator_webservice.utils;
 
-import java.util.LinkedHashMap;
+import org.apache.commons.io.FileUtils;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.Objects;
 import java.util.random.RandomGenerator;
 
@@ -38,53 +47,53 @@ public class RandomUtils {
         return rollDice(2);
     }
 
-    public static int rollDice(int sides){
-        return RandomGenerator.getDefault().nextInt(1,sides);
+    public static int rollDice(int sides) {
+        return RandomGenerator.getDefault().nextInt(1, sides);
     }
 
-    public static int rollDice(int times, int sides){
+    public static int rollDice(int times, int sides) {
         int value = 0;
         for (int i = 0; i < times; i++) {
-            value = value + RandomGenerator.getDefault().nextInt(1,sides);
+            value = value + RandomGenerator.getDefault().nextInt(1, sides);
         }
         return value;
     }
 
-    public static double rollDice(double sides){
-        return RandomGenerator.getDefault().nextDouble(1,sides);
+    public static double rollDice(double sides) {
+        return RandomGenerator.getDefault().nextDouble(1, sides);
     }
 
     public static double rollDice(int times, double sides) {
         double value = 0;
         for (int i = 0; i < times; i++) {
-            value = value + RandomGenerator.getDefault().nextDouble(1,sides);
+            value = value + RandomGenerator.getDefault().nextDouble(1, sides);
         }
         return value;
     }
 
     public static int rollRange(int low, int high) {
         RandomGenerator randomGenerator = RandomGenerator.getDefault();
-        return randomGenerator.nextInt(low,(high + 1));
+        return randomGenerator.nextInt(low, (high + 1));
     }
 
     public static double rollRange(double low, double high) {
         RandomGenerator randomGenerator = RandomGenerator.getDefault();
-        return randomGenerator.nextDouble(low,high);
+        return randomGenerator.nextDouble(low, high);
     }
 
     public static Double getRandomFromArray(Integer[] array) {
         if (Objects.equals(array[0], array[1])) {
-            return  array[0].doubleValue();
+            return array[0].doubleValue();
         } else {
-            return RandomGenerator.getDefault().nextDouble(array[0],array[1]);
+            return RandomGenerator.getDefault().nextDouble(array[0], array[1]);
         }
     }
 
     public static Double getRandomFromArray(Double[] array) {
         if (Objects.equals(array[0], array[1])) {
-            return  array[0];
+            return array[0];
         } else {
-            return RandomGenerator.getDefault().nextDouble(array[0],array[1]);
+            return RandomGenerator.getDefault().nextDouble(array[0], array[1]);
         }
     }
 
@@ -97,4 +106,23 @@ public class RandomUtils {
         }
         return "Error";
     }
+
+    public static String getRandomStringFromTxt(String fileName) {
+        try {
+            URL fileURL = ClassLoader.getSystemResource(fileName);
+            Path filePath = Paths.get(fileURL.toURI());
+            List<String> stringList = FileUtils.readLines(filePath.toFile(), Charset.defaultCharset());
+            return stringList.get(rollRange(0, stringList.size() - 1));
+        } catch (IOException | URISyntaxException e) {
+            return "ERROR";
+        }
+    }
+
+    public static String getRandomLetter(int maxLetter) {
+        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        return Character.toString(alphabet.toCharArray()[rollRange(0,maxLetter - 1)]);
+    }
+
+
 }
+
