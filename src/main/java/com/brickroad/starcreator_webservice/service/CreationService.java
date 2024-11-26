@@ -1,18 +1,24 @@
 package com.brickroad.starcreator_webservice.service;
 
-import com.brickroad.starcreator_webservice.entity.Star;
-import com.brickroad.starcreator_webservice.request.CreationRequest;
+import com.brickroad.starcreator_webservice.model.planets.Planet;
+import com.brickroad.starcreator_webservice.model.Star;
+import com.brickroad.starcreator_webservice.request.PlanetRequest;
+import com.brickroad.starcreator_webservice.request.StarRequest;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CreationService {
 
-    public Star createStar() {
-        return new Star("Sol","Yellow Dwarf");
+    public Star createStar(StarRequest input) {
+        return new Star(input.getName());
     }
 
-    public Star createStar(CreationRequest input) {
-        return new Star(input.getName(),"Yellow Dwarf");
+    public Planet createPlanet(PlanetRequest planetRequest) {
+        if (planetRequest != null) {
+            return PlanetCreator.generateRandomPlanet(planetRequest.getType().getName(), planetRequest.getName());
+        } else {
+            return PlanetCreator.generateRandomPlanet("","");
+        }
     }
 
 }

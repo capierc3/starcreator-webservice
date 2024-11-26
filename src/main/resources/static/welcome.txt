@@ -1,0 +1,3 @@
+BrickRoad Software - Galaxy Creation Service
+This service will return json responses that include randomized Stars, Planets, Solar Systems, and Galaxy Sectors.
+Use this tool to aid in Sci-fi world building or any creative needs you might have.
