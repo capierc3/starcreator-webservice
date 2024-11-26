@@ -1,12 +1,7 @@
 package com.brickroad.starcreator_webservice.model;
 
-import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
-import com.brickroad.starcreator_webservice.model.enums.TerrainType;
 import com.brickroad.starcreator_webservice.model.planets.MagneticField;
-import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.SpaceTravel;
-
-import java.util.Map;
 
 /**
  * Abstract class that holds all shared variables and methods for the different types of Bodies.
@@ -15,75 +10,39 @@ import java.util.Map;
  */
 public abstract class Body implements Comparable {
 
-    /**Body string Information*/
     protected String type;
     protected String name;
     protected String size;
-    MagneticField magneticField;
-    String density;
-    /**Body numeric information*/
-    double circumference;
-    double radius;
+    protected MagneticField magneticField;
+    protected String density;
+    protected double circumference;
+    protected double radius;
     protected double gravity;
-    double temp;
-    double orbitLength;
-    int location;
-    /**Distance from sun is in AUs*/
-    Double distanceSun;
-    public String systemName;
+    protected double temp;
+    protected double orbitLength;
+    protected int location;
+    protected Double distanceSun;
+    protected String systemName;
 
-    /**Main Constructor that sets the orbit length of the body*/
-    Body(){
-        int roll = RandomUtils.rollDice(1,10);
-        orbitLength = (RandomUtils.rollDice(10,10)*roll)/365.0;
-    }
+    protected Body(){}
 
-    /**
-     * Setter for the temperature of the body
-     * @param temp double
-     */
     public void setTemp(double temp){
         this.temp=temp;
     }
 
-    /**
-     * Sets the location tag and distance to the sun value
-     * @param loc int
-     * @param distSun double
-     */
     public void setLocation(int loc, double distSun){
         location = loc;
         distanceSun = distSun;
     }
 
-    /**
-     *Changes the name of the body by adding the value of its location after the name.
-     * @param i int
-     */
-    public void setName(int i){
-        this.name = name+" "+(i > 0 && i < 27 ? String.valueOf((char)(i + 64)) : null);
-    }
-
-    /**
-     * Getter that returns the bodies name
-     * @return String
-     */
     public String getName() {
         return name;
     }
 
-    /**
-     * Getting that returns the bodies type
-     * @return String
-     */
     public String getType() {
         return type;
     }
 
-    /**
-     * getter that returns the distance to the sun value.
-     * @return Double
-     */
     public Double getDistanceSun() {
         return distanceSun;
     }
@@ -92,11 +51,6 @@ public abstract class Body implements Comparable {
         return magneticField;
     }
 
-    /**
-     * Compares the Bodies by the distance form sun value
-     * @param o Body
-     * @return int
-     */
     @Override
     public int compareTo(Object o) {
         try {
@@ -156,5 +110,53 @@ public abstract class Body implements Comparable {
 
     public String getSystemName() {
         return systemName;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setSize(String size) {
+        this.size = size;
+    }
+
+    public void setMagneticField(MagneticField magneticField) {
+        this.magneticField = magneticField;
+    }
+
+    public void setDensity(String density) {
+        this.density = density;
+    }
+
+    public void setCircumference(double circumference) {
+        this.circumference = circumference;
+    }
+
+    public void setRadius(double radius) {
+        this.radius = radius;
+    }
+
+    public void setGravity(double gravity) {
+        this.gravity = gravity;
+    }
+
+    public void setOrbitLength(double orbitLength) {
+        this.orbitLength = orbitLength;
+    }
+
+    public void setLocation(int location) {
+        this.location = location;
+    }
+
+    public void setDistanceSun(Double distanceSun) {
+        this.distanceSun = distanceSun;
+    }
+
+    public void setSystemName(String systemName) {
+        this.systemName = systemName;
     }
 }

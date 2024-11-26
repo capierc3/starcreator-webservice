@@ -1,5 +1,7 @@
 package com.brickroad.starcreator_webservice.model;
 
+import com.brickroad.starcreator_webservice.model.planets.Planet;
+import com.brickroad.starcreator_webservice.service.PlanetCreator;
 import com.brickroad.starcreator_webservice.utils.SpaceTravel;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
@@ -109,7 +111,7 @@ public class StarSystem {
         int i = 1;
         for (Body b:orderSystem) {
             if (b!=null){
-                b.setName(i);
+                b.setName(Integer.toString(i));
                 i++;
             }
         }
@@ -159,11 +161,11 @@ public class StarSystem {
             } else if (roll <=9){
                 bodies.add(new OtherBody("Oort Cloud",name));
             } else if (roll <=12){
-                planets.add(new Planet("Dwarf Planet",name));
+                planets.add(PlanetCreator.generateRandomPlanet("Dwarf Planet",name));
             } else if (roll <=16){
-                planets.add(new Planet("Gas Planet",name));
+                planets.add(PlanetCreator.generateRandomPlanet("Gas Planet",name));
             } else {
-                planets.add(new Planet("Terrestrial Planet",name));
+                planets.add(PlanetCreator.generateRandomPlanet("Terrestrial Planet",name));
             }
         }
     }

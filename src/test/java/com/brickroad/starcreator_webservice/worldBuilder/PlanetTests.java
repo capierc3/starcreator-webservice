@@ -1,8 +1,9 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
-import com.brickroad.starcreator_webservice.model.Planet;
+import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
+import com.brickroad.starcreator_webservice.service.PlanetCreator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -28,7 +29,7 @@ public class PlanetTests {
     @ParameterizedTest
     @MethodSource("testPrams")
     void planetCreationTest(String type, String name) {
-        Planet planet = new Planet(type,name);
+        Planet planet = PlanetCreator.generateRandomPlanet(type,name);
         assertNotNull(planet, "Planet should have been created");
         assertEquals(planet.getName(), name, "Name should match");
         assertEquals(planet.getPlanetType(), PlanetType.getEnum(type));
@@ -38,53 +39,11 @@ public class PlanetTests {
     @Test
     void randomPlanetTest() {
         int runs = 1000;
-        double gasAvgDR = 0;
-        double gasAvgSTE = 0;
-        double gasAvgGrav = 0;
-        int gasAMT = 0;
-        double terraAvgDR = 0;
-        double terraAvgSTE = 0;
-        double terraAvgGrav = 0;
-        int terraAMT = 0;
-        double dwarfAvgDR = 0;
-        double dwarfAvgSTE = 0;
-        double dwarfAvgGrav = 0;
-        int dwarfAMT = 0;
         for (int i = 0; i < runs; i++) {
-            Planet planet = new Planet();
+            Planet planet = PlanetCreator.generateRandomPlanet(null,null);
             assertNotNull(planet.getType(), "Planet type should not be null");
             assertPlanetRandomValues(planet);
-
-            if (planet.getPlanetType().equals(PlanetType.GAS)) {
-                gasAMT++;
-                gasAvgDR += planet.getDensityRating();
-                gasAvgSTE += planet.getMagneticField().getComparedToEarthStrength();
-                gasAvgGrav += planet.getGravity();
-            } else if (planet.getPlanetType().equals(PlanetType.DWARF)) {
-                dwarfAMT++;
-                dwarfAvgDR += planet.getDensityRating();
-                dwarfAvgSTE += planet.getMagneticField().getComparedToEarthStrength();
-                dwarfAvgGrav += planet.getGravity();
-            } else {
-                terraAMT++;
-                terraAvgDR += planet.getDensityRating();
-                terraAvgSTE += planet.getMagneticField().getComparedToEarthStrength();
-                terraAvgGrav += planet.getGravity();
-            }
-
         }
-        System.out.println("\tGas: " + gasAMT);
-        System.out.println("\t\tAvg Dr: " + gasAvgDR/gasAMT);
-        System.out.println("\t\tAvg STE: " + gasAvgSTE/gasAMT);
-        System.out.println("\t\tAvg Grav: " + gasAvgGrav/gasAMT);
-        System.out.println("\tTerrestrial: " + terraAMT);
-        System.out.println("\t\tAvg Dr: " + terraAvgDR/terraAMT);
-        System.out.println("\t\tAvg STE: " + terraAvgSTE/terraAMT);
-        System.out.println("\t\tAvg Grav: " + terraAvgGrav/terraAMT);
-        System.out.println("\tDwarf: " + dwarfAMT);
-        System.out.println("\t\tAvg Dr: " + dwarfAvgDR/dwarfAMT);
-        System.out.println("\t\tAvg STE: " + dwarfAvgSTE/dwarfAMT);
-        System.out.println("\t\tAvg Grav: " + dwarfAvgGrav/dwarfAMT);
     }
 
     @Test

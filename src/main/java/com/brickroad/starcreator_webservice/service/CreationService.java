@@ -1,6 +1,6 @@
 package com.brickroad.starcreator_webservice.service;
 
-import com.brickroad.starcreator_webservice.model.Planet;
+import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.Star;
 import com.brickroad.starcreator_webservice.request.PlanetRequest;
 import com.brickroad.starcreator_webservice.request.StarRequest;
@@ -13,11 +13,11 @@ public class CreationService {
         return new Star(input.getName());
     }
 
-    public Planet createPlanet(PlanetRequest input) {
-        if (input != null) {
-            return new Planet(input.getType().getName(), input.getName());
+    public Planet createPlanet(PlanetRequest planetRequest) {
+        if (planetRequest != null) {
+            return PlanetCreator.generateRandomPlanet(planetRequest.getType().getName(), planetRequest.getName());
         } else {
-            return new Planet();
+            return PlanetCreator.generateRandomPlanet("","");
         }
     }
 

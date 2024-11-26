@@ -1,6 +1,6 @@
 package com.brickroad.starcreator_webservice.controller;
 
-import com.brickroad.starcreator_webservice.model.Planet;
+import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.Star;
 import com.brickroad.starcreator_webservice.request.PlanetRequest;
 import com.brickroad.starcreator_webservice.request.StarRequest;
