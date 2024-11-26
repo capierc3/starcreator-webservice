@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.model.enums;
 
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum TerrainType {
 
@@ -35,6 +36,7 @@ public enum TerrainType {
         return TerrainType.values()[RandomUtils.rollDice(1,TerrainType.values().length) - 1];
     }
 
+    @JsonValue
     public String getName() {
         return name;
     }

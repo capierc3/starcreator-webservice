@@ -19,7 +19,6 @@ public abstract class Body implements Comparable {
     protected String type;
     protected String name;
     protected String size;
-    Map<TerrainType, Integer> terrain;
     MagneticField magneticField;
     String density;
     /**Body numeric information*/
@@ -157,9 +156,5 @@ public abstract class Body implements Comparable {
 
     public String getSystemName() {
         return systemName;
-    }
-
-    public Map<TerrainType, Integer> getTerrain() {
-        return terrain;
     }
 }

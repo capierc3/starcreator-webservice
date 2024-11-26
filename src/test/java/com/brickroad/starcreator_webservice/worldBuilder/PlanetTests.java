@@ -165,11 +165,11 @@ public class PlanetTests {
 
     private void assertLiquidAmtAndType(Planet planet) {
         if (planet.getAtmosphere().compositeContainsType(AtmosphereType.EARTH_LIKE)) {
-            assertTrue(planet.getLiquidType().equalsIgnoreCase("H2O"));
+            assertTrue(planet.getSurface().getLiquidType().equalsIgnoreCase("H2O"));
         }
-        assertNotNull(planet.getLiquidType());
-        assertTrue(planet.getLiquidAmt() >= 0);
-        assertTrue(planet.getLiquidAmt() <= 100);
+        assertNotNull(planet.getSurface().getLiquidType());
+        assertTrue(planet.getSurface().getLiquidAmt() >= 0);
+        assertTrue(planet.getSurface().getLiquidAmt() <= 100);
     }
 
     private void assertMagnetField(Planet planet) {
@@ -178,9 +178,7 @@ public class PlanetTests {
 
     private void assertTerrain(Planet planet) {
         AtomicInteger percent = new AtomicInteger();
-        planet.getTerrain().values().forEach(atmoPercent -> {
-            percent.set(percent.get() + atmoPercent);
-        });
+        planet.getSurface().getSurfaceComposite().forEach(sc -> percent.set(percent.get() + sc.getPercent()));
         assertEquals(100, percent.intValue(), "Total terrain should be 100%");
     }
 

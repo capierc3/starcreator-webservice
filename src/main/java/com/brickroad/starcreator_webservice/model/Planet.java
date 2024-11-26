@@ -5,9 +5,9 @@ import com.brickroad.starcreator_webservice.model.enums.PlanetType;
 import com.brickroad.starcreator_webservice.model.enums.TerrainType;
 import com.brickroad.starcreator_webservice.model.planets.Atmosphere;
 import com.brickroad.starcreator_webservice.model.planets.MagneticField;
+import com.brickroad.starcreator_webservice.model.planets.Surface;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
-import java.util.HashMap;
 import java.util.random.RandomGenerator;
 
 import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.*;
@@ -22,10 +22,9 @@ public class Planet extends Body {
     private double tiltDegree;
     private double rotation;
     private String rotationDir;
-    private double liquidAmt;
-    private String liquidType;
     private String[] orbitingBodies;
     private final Atmosphere atmosphere;
+    private final Surface surface;
     private final String systemName;
     private final PlanetType planetType;
 
@@ -43,6 +42,7 @@ public class Planet extends Body {
         }
         systemName = name;
         atmosphere = new Atmosphere();
+        surface = new Surface();
         findSize();
         findAtmosphereComposite();
         findDensityAndGravity();
@@ -99,17 +99,17 @@ public class Planet extends Body {
 
     private void findLiquid(){
         int roll = RandomUtils.rollDice(1,12);
-        liquidAmt = RandomUtils.getRandomFromArray(LAND_COVER_LIQUID.get(roll));
+        surface.setLiquidAmt(RandomUtils.getRandomFromArray(LAND_COVER_LIQUID.get(roll)));
         if (atmosphere.compositeContainsType(AtmosphereType.EARTH_LIKE)){
-            liquidType = "H2O";
+            surface.setLiquidType("H2O");
         } else {
             String[] types = {"H20","Ammonia","Bromine","Caesium","Francium","Gallium","Liquid Nitrogen",
                     "Liquid Oxygen","Mercury","Rubidium"};
             roll = RandomUtils.rollDice(1,20);
             if (roll<=11){
-                liquidType = types[0];
+                surface.setLiquidType(types[0]);
             } else {
-                liquidType = types[roll-11];
+                surface.setLiquidType(types[roll-11]);
             }
         }
     }
@@ -212,7 +212,6 @@ public class Planet extends Body {
     }
 
     private void findTerrainComposite() {
-        terrain = new HashMap<>();
         int percentRemaining = 100;
         while (percentRemaining > 0) {
             int percentFound;
@@ -222,21 +221,13 @@ public class Planet extends Body {
                 percentFound = 1;
             }
             TerrainType randomType = TerrainType.getRandom();
-            if (terrain.containsKey(randomType)) {
-                terrain.compute(randomType, (_, v) -> v + percentFound);
+            if (surface.compositeContainsType(randomType)) {
+                surface.compositeUpdatePercent(randomType,percentFound);
             } else {
-                terrain.put(randomType, percentFound);
+                surface.addComposite(randomType, percentFound);
             }
             percentRemaining = percentRemaining - percentFound;
         }
-    }
-
-    private String printOrbit(){
-        StringBuilder sb = new StringBuilder();
-        for (String s:orbitingBodies) {
-            sb.append("\t").append(s).append("\n");
-        }
-        return sb.toString();
     }
 
     public String getAxisTilt() {
@@ -253,14 +244,6 @@ public class Planet extends Body {
 
     public String getRotationDir() {
         return rotationDir;
-    }
-
-    public double getLiquidAmt() {
-        return liquidAmt;
-    }
-
-    public String getLiquidType() {
-        return liquidType;
     }
 
     public String[] getOrbitingBodies() {
@@ -281,5 +264,13 @@ public class Planet extends Body {
 
     public Atmosphere getAtmosphere() {
         return atmosphere;
+    }
+
+    public int getPlanetSize() {
+        return planetSize;
+    }
+
+    public Surface getSurface() {
+        return surface;
     }
 }
