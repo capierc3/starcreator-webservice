@@ -12,7 +12,7 @@
 	<artifactId>starcreator-webservice</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>starcreator-webservice</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Webservice to create galaxies</description>
 	<url/>
 	<licenses>
 		<license/>
