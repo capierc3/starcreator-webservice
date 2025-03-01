@@ -15,6 +15,8 @@ import java.util.random.RandomGenerator;
 
 public class RandomUtils {
 
+    private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
     public static int rollD100() {
         return rollDice(100);
     }
@@ -118,9 +120,8 @@ public class RandomUtils {
         }
     }
 
-    public static String getRandomLetter(int maxLetter) {
-        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        return Character.toString(alphabet.toCharArray()[rollRange(0,maxLetter - 1)]);
+    public static String getRandomLetter(int maxIndex) {
+        return String.valueOf(ALPHABET.charAt(rollRange(0, maxIndex - 1)));
     }
 
 

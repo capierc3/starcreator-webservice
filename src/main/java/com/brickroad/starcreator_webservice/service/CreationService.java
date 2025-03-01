@@ -1,10 +1,14 @@
 package com.brickroad.starcreator_webservice.service;
 
+import com.brickroad.starcreator_webservice.model.StarSystem;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.Star;
 import com.brickroad.starcreator_webservice.request.PlanetRequest;
 import com.brickroad.starcreator_webservice.request.StarRequest;
+import com.brickroad.starcreator_webservice.request.SystemRequest;
 import org.springframework.stereotype.Service;
+
+import java.util.Objects;
 
 @Service
 public class CreationService {
@@ -19,6 +23,10 @@ public class CreationService {
         } else {
             return PlanetCreator.generateRandomPlanet("","");
         }
+    }
+
+    public StarSystem createStarSystem(SystemRequest systemRequest) {
+        return SystemCreator.createStarSystem(Objects.requireNonNullElseGet(systemRequest, SystemRequest::new));
     }
 
 }

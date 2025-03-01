@@ -28,7 +28,7 @@ public class Sector {
     private int z;
     /**Shows if sector is the origin or main sector*/
     boolean origin;
-    public enum Population {POPULATED, COLONIES, RESEARCH, NONE}
+    enum Population {POPULATED, COLONIES, RESEARCH, NONE}
 
 
     /**
@@ -63,7 +63,7 @@ public class Sector {
             boolean placed = false;
             while (!placed) {
                 if (grid[row][col] == null) {
-                    grid[row][col] = new StarSystem(name,population,col,row,x,y,z);
+                    //grid[row][col] = new StarSystem(name,population,col,row,x,y,z);
                     placed = true;
                 } else {
                     row = RandomUtils.rollDice(1,10) - 1;
