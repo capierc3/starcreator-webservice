@@ -70,8 +70,8 @@ public abstract class Body implements Comparable {
                 "\nLocation: "+location+
                 "\nDistance to Sun: "+(distanceSun*498.66)+"ls"+
                 "\n                 "+distanceSun+"AU"+
-                "\n                 "+(String.format("%.2f", SpaceTravel.TimeTo(distanceSun,1, SpaceTravel.distUnits.AU, SpaceTravel.timeUnits.Hours,false)))+" hours at 1g"+
-                "\n                 "+(String.format("%.2f",SpaceTravel.TimeTo(distanceSun,1, SpaceTravel.distUnits.AU, SpaceTravel.timeUnits.Days,false)))+" days at 1g"+
+                "\n                 "+(String.format("%.2f", SpaceTravel.TimeToTravel(distanceSun,1, SpaceTravel.DistUnits.AU, SpaceTravel.TimeUnits.HOURS,false)))+" hours at 1g"+
+                "\n                 "+(String.format("%.2f",SpaceTravel.TimeToTravel(distanceSun,1, SpaceTravel.DistUnits.AU, SpaceTravel.TimeUnits.DAYS,false)))+" days at 1g"+
                 "\nTemperature: "+temp+"\u00B0" + "F"+
         "\nOrbit Length: "+String.format("%.2f",orbitLength)+" earth years";
     }
