@@ -58,7 +58,7 @@ public class StarTests {
         assertTrue(star.getSolarRadius() >= star.getStarType().getRadius()[0], "Radius should be greater than the star type min");
         assertTrue(star.getSolarRadius() <= star.getStarType().getRadius()[1], "Radius should be less than the star type max");
         assertTrue((star.getTemperature() / 1000)  >= star.getStarType().getTemperature()[0], "Temperature should be greater than the star type min");
-        assertTrue((star.getTemperature()) <= star.getStarType().getTemperature()[1], "Temperature should be less than the star type max");
+        assertTrue((star.getTemperature() / 1000) <= star.getStarType().getTemperature()[1], "Temperature should be less than the star type max");
     }
 
 
