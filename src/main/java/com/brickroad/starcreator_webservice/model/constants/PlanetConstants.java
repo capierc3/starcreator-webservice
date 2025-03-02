@@ -10,9 +10,6 @@ public class PlanetConstants {
     public static final LinkedHashMap<String, Integer[]> TILTS = new LinkedHashMap<>();
     public static final LinkedHashMap<Integer, Integer[]> LAND_COVER_LIQUID = new LinkedHashMap<>();
 
-    public static final String SYSTEM_NAMES_PREFIX_TXT = "static/SystemNamesPrefix.txt";
-    public static final String SYSTEM_NAMES_SUFFIX_TXT = "static/SystemNamesSuffix.txt";
-
     static {
         DENSITY_RATINGS.put("Negligible", new Double[]{0.0, 0.0});
         DENSITY_RATINGS.put("Very Low", new Double[]{0.01, 0.04});

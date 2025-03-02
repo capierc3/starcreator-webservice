@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.SYSTEM_NAMES_PREFIX_TXT;
 import static com.brickroad.starcreator_webservice.model.planets.MagneticField.MAGNETIC_FIELD;
 import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomLetter;
 import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomStringFromTxt;
@@ -69,7 +68,7 @@ public class RandomUtilsTest {
     @Test
     void testRandomStringFromTxt() {
         for (int i = 0; i < 1000; i++) {
-            assertNotEquals(getRandomStringFromTxt(SYSTEM_NAMES_PREFIX_TXT),"ERROR",
+            assertNotEquals("ERROR", getRandomStringFromTxt(CreatorUtils.SYSTEM_NAMES_PREFIX_TXT),
                     "File should be found and not error out");
         }
     }

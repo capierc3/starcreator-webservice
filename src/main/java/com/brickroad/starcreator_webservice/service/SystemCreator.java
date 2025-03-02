@@ -3,14 +3,11 @@ package com.brickroad.starcreator_webservice.service;
 import com.brickroad.starcreator_webservice.model.*;
 import com.brickroad.starcreator_webservice.model.enums.Population;
 import com.brickroad.starcreator_webservice.request.SystemRequest;
+import com.brickroad.starcreator_webservice.utils.CreatorUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
-
-import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.SYSTEM_NAMES_PREFIX_TXT;
-import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.SYSTEM_NAMES_SUFFIX_TXT;
-import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomStringFromTxt;
 
 public class SystemCreator {
 
@@ -18,7 +15,7 @@ public class SystemCreator {
 
     public static StarSystem createStarSystem(SystemRequest systemRequest) {
         system = new StarSystem();
-        system.setName(StringUtils.isAnyEmpty(systemRequest.getName()) ? generateName() : systemRequest.getName());
+        system.setName(StringUtils.isAnyEmpty(systemRequest.getName()) ? CreatorUtils.generateSystemName() : systemRequest.getName());
         system.setPopulation(systemRequest.getPopulation() == null ? Population.getRandom() : systemRequest.getPopulation());
         system.setStars(generateStars(systemRequest.getStarCount()));
         system.setBodies(generateBodies());
@@ -29,13 +26,6 @@ public class SystemCreator {
 //        createTemp();
 //        id = sectorName.toCharArray()[0]+name.toCharArray()[0]+ x + y + Double.toString(z);
         return system;
-    }
-
-
-    private static String generateName(){
-        return getRandomStringFromTxt(SYSTEM_NAMES_PREFIX_TXT) + " " +
-                getRandomStringFromTxt(SYSTEM_NAMES_SUFFIX_TXT) + " ";
-
     }
 
     private static Star[] generateStars(int starCount){
@@ -52,18 +42,18 @@ public class SystemCreator {
         }
 
         Star[] stars = new Star[starCount];
-        stars[0] = new Star(system.getName());
-        if (starCount != 1) {
-            for (int i = 1; i < stars.length; i++) {
-                if (RandomUtils.flipCoin() == 1) {
-                    stars[i] = new Star(stars[i - 1].getTypeNum(), i + 1, system.getName());
-                } else {
-                    if (RandomUtils.flipCoin() == 1) {
-                        stars[i] = new Star(stars[i - 1].getTypeNum() - 1, i + 1, system.getName());
-                    } else stars[i] = new Star(stars[i - 1].getTypeNum() + 1, i + 1, system.getName());
-                }
-            }
-        }
+        stars[0] = StarCreator.createStar(system.getName());
+//        if (starCount != 1) {
+//            for (int i = 1; i < stars.length; i++) {
+//                if (RandomUtils.flipCoin() == 1) {
+//                    stars[i] = new Star(stars[i - 1].getTypeNum(), i + 1, system.getName());
+//                } else {
+//                    if (RandomUtils.flipCoin() == 1) {
+//                        stars[i] = new Star(stars[i - 1].getTypeNum() - 1, i + 1, system.getName());
+//                    } else stars[i] = new Star(stars[i - 1].getTypeNum() + 1, i + 1, system.getName());
+//                }
+//            }
+//        }
         return stars;
     }
 

@@ -5,6 +5,7 @@ import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
 import com.brickroad.starcreator_webservice.model.enums.TerrainType;
 import com.brickroad.starcreator_webservice.model.planets.MagneticField;
+import com.brickroad.starcreator_webservice.utils.CreatorUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -50,13 +51,7 @@ public class PlanetCreator {
     }
 
     private static String findName() {
-        return new StringBuilder()
-                .append(getRandomStringFromTxt(SYSTEM_NAMES_PREFIX_TXT))
-                .append(" ")
-                .append(getRandomStringFromTxt(SYSTEM_NAMES_SUFFIX_TXT))
-                .append(" ")
-                .append(getRandomLetter(10))
-                .toString();
+        return CreatorUtils.generateSystemName() + " " + getRandomLetter(10);
     }
 
     private static void findSize(){
