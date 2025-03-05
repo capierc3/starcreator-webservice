@@ -3,6 +3,7 @@ Feature: As a cool person I want to make sure requests to get a new planet is wo
   @RunMe
   Scenario Outline: A basic planet creation request is sent and returns with matching values
     Given a planet basic creation request is created
+    And the testing server is LOCALHOST
     And the planet name is <name>
     And the planet type is <type>
     When the request is submitted

@@ -15,7 +15,4 @@ import static io.cucumber.core.options.Constants.*;
 @ConfigurationParameter(key = PLUGIN_PUBLISH_QUIET_PROPERTY_NAME, value = "true")
 @ConfigurationParameter(key = FILTER_TAGS_PROPERTY_NAME, value = "@RunMe and not @Skip")
 @ConfigurationParameter(key = PLUGIN_PROPERTY_NAME,value = "pretty, html:target/cucumber-report/cucumber.html")
-public class CucumberTestRunner {
-
-
-}
+public class CucumberTestRunner {}
