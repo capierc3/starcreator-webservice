@@ -1,4 +1,4 @@
-Feature: As a cool person I want to make sure requests to get a new planet is working as intended.
+Feature: As a Lonely drifter I want to make sure requests to get a new planet is working as intended.
 
   @RunMe
   Scenario Outline: A basic planet creation request is sent and returns with matching values
@@ -6,8 +6,8 @@ Feature: As a cool person I want to make sure requests to get a new planet is wo
     And the testing server is LOCALHOST
     And the planet name is <name>
     And the planet type is <type>
-    When the request is submitted
-    Then the response is valid
+    When the planet request is submitted
+    Then the planet response is valid
     And the returned planet's name is <name>
     And the returned planet's type is <type>
 

@@ -25,11 +25,6 @@ public class PlanetCreationSteps extends AbstractCreationSteps {
         requestPayload.put("type", "Terrestrial Planet");
     }
 
-    @Given("the testing server is {}")
-    public void setTestingServer(Servers testingServer) {
-        this.testingServer = testingServer.getUrl();
-    }
-
     @Given("the planet name is {string}")
     public void setPlanetName(String newName) {
         if (requestPayload != null) {
@@ -50,7 +45,7 @@ public class PlanetCreationSteps extends AbstractCreationSteps {
         }
     }
 
-    @When("the request is submitted")
+    @When("the planet request is submitted")
     public void submitRequest() {
         response = RestAssured
                 .given()
@@ -60,7 +55,7 @@ public class PlanetCreationSteps extends AbstractCreationSteps {
 
     }
 
-    @Then("the response is valid")
+    @Then("the planet response is valid")
     public void assertResponse() {
         assertThat("API response status code should be 200", response.getStatusCode(), is(200));
         assertNotNull(response.jsonPath().getObject("name", String.class), "Planet name should not be null");
