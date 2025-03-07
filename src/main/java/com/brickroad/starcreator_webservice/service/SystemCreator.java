@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.service;
 
 import com.brickroad.starcreator_webservice.model.*;
 import com.brickroad.starcreator_webservice.model.enums.Population;
+import com.brickroad.starcreator_webservice.model.enums.StarType;
 import com.brickroad.starcreator_webservice.request.SystemRequest;
 import com.brickroad.starcreator_webservice.utils.CreatorUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
@@ -43,17 +44,20 @@ public class SystemCreator {
 
         Star[] stars = new Star[starCount];
         stars[0] = StarCreator.createStar(system.getName());
-//        if (starCount != 1) {
-//            for (int i = 1; i < stars.length; i++) {
-//                if (RandomUtils.flipCoin() == 1) {
-//                    stars[i] = new Star(stars[i - 1].getTypeNum(), i + 1, system.getName());
-//                } else {
-//                    if (RandomUtils.flipCoin() == 1) {
-//                        stars[i] = new Star(stars[i - 1].getTypeNum() - 1, i + 1, system.getName());
-//                    } else stars[i] = new Star(stars[i - 1].getTypeNum() + 1, i + 1, system.getName());
-//                }
-//            }
-//        }
+        if (starCount != 1) {
+            stars[0].setName(system.getName() + " 1");
+            for (int i = 1; i < stars.length; i++) {
+                if (RandomUtils.flipCoin() == 1) {
+                    stars[i] = StarCreator.createStar(stars[i-1].getStarType(), (system.getName() + " " + (i+1)));
+                } else {
+                    if (RandomUtils.flipCoin() == 1) {
+                        stars[i] = StarCreator.createStar(StarType.getStarTypeBelow(stars[i-1].getStarType()), (system.getName() + " " + (i+1)));
+                    } else {
+                        stars[i] = StarCreator.createStar(StarType.getStarTypeAbove(stars[i-1].getStarType()), (system.getName() + " " + (i+1)));
+                    }
+                }
+            }
+        }
         return stars;
     }
 

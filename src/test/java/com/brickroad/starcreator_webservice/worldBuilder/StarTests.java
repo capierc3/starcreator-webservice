@@ -52,6 +52,14 @@ public class StarTests {
         assertStarData(star);
     }
 
+    @Test
+    public void testStarTypeEnums() {
+        assertEquals(StarType.MAIN_SEQ_A, StarType.getStarTypeBelow(StarType.MAIN_SEQ_F),  "Star type should be MAIN_SEQ_A");
+        assertEquals(StarType.MAIN_SEQ_G, StarType.getStarTypeAbove(StarType.MAIN_SEQ_F),  "Star type should be MAIN_SEQ_G");
+        assertEquals(StarType.SUPER_GIANT, StarType.getStarTypeBelow(StarType.PROTO),  "Star type should be PROTO");
+        assertEquals(StarType.PROTO, StarType.getStarTypeAbove(StarType.SUPER_GIANT),  "Star type should be SUPER_GIANT");
+    }
+
     private void assertStarData(Star star) {
         assertTrue(star.getSolarMass() >= star.getStarType().getMass()[0], "Mass should be greater than the star type min");
         assertTrue(star.getSolarMass() <= star.getStarType().getMass()[1], "Mass should be less than the star type max");
@@ -60,6 +68,5 @@ public class StarTests {
         assertTrue((star.getTemperature() / 1000)  >= star.getStarType().getTemperature()[0], "Temperature should be greater than the star type min");
         assertTrue((star.getTemperature() / 1000) <= star.getStarType().getTemperature()[1], "Temperature should be less than the star type max");
     }
-
 
 }

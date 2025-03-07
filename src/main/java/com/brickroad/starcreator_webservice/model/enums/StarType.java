@@ -64,4 +64,22 @@ public enum StarType {
         }
         throw new IllegalStateException("Failed to select a weighted random Star Type.");
     }
+
+    public static StarType getStarTypeBelow(StarType starType) {
+        return StarType.values()[Math.floorMod((getStarTypeIndex(starType) - 1),StarType.values().length)];
+    }
+
+    public static StarType getStarTypeAbove(StarType starType) {
+        return StarType.values()[(getStarTypeIndex(starType) + 1) % StarType.values().length];
+    }
+
+    private static int getStarTypeIndex(StarType starType) {
+        for (int i = 0; i < StarType.values().length; i++) {
+            if (starType.equals(StarType.values()[i])) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
 }
