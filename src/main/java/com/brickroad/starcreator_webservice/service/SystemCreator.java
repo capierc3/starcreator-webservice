@@ -43,17 +43,17 @@ public class SystemCreator {
         }
 
         Star[] stars = new Star[starCount];
-        stars[0] = StarCreator.createStar(system.getName());
+        stars[0] = StarCreator.createStar(null,system.getName(),false);
         if (starCount != 1) {
             stars[0].setName(system.getName() + " 1");
             for (int i = 1; i < stars.length; i++) {
                 if (RandomUtils.flipCoin() == 1) {
-                    stars[i] = StarCreator.createStar(stars[i-1].getStarType(), (system.getName() + " " + (i+1)));
+                    stars[i] = StarCreator.createStar(stars[i-1].getStarType(), (system.getName() + " " + (i+1)),  false);
                 } else {
                     if (RandomUtils.flipCoin() == 1) {
-                        stars[i] = StarCreator.createStar(StarType.getStarTypeBelow(stars[i-1].getStarType()), (system.getName() + " " + (i+1)));
+                        stars[i] = StarCreator.createStar(StarType.getStarTypeBelow(stars[i-1].getStarType()), (system.getName() + " " + (i+1)),  false);
                     } else {
-                        stars[i] = StarCreator.createStar(StarType.getStarTypeAbove(stars[i-1].getStarType()), (system.getName() + " " + (i+1)));
+                        stars[i] = StarCreator.createStar(StarType.getStarTypeAbove(stars[i-1].getStarType()), (system.getName() + " " + (i+1)), false);
                     }
                 }
             }

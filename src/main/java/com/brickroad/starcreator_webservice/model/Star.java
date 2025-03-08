@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.model;
 
+import com.brickroad.starcreator_webservice.model.enums.HabitableZone;
 import com.brickroad.starcreator_webservice.model.enums.StarType;
 
 
@@ -11,6 +12,9 @@ public class Star {
     private double solarMass;
     private double solarRadius;
     private double temperature;
+    private double minHabitableZone;
+    private double maxHabitableZone;
+    private HabitableZone lifeSupporting;
 
     public Star() {}
 
@@ -60,5 +64,29 @@ public class Star {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public double getMinHabitableZone() {
+        return minHabitableZone;
+    }
+
+    public void setMinHabitableZone(double minHabitableZone) {
+        this.minHabitableZone = minHabitableZone;
+    }
+
+    public double getMaxHabitableZone() {
+        return maxHabitableZone;
+    }
+
+    public void setMaxHabitableZone(double maxHabitableZone) {
+        this.maxHabitableZone = maxHabitableZone;
+    }
+
+    public HabitableZone getLifeSupporting() {
+        return lifeSupporting;
+    }
+
+    public void setLifeSupporting(HabitableZone lifeSupporting) {
+        this.lifeSupporting = lifeSupporting;
     }
 }

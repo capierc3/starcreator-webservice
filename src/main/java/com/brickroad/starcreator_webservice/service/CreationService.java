@@ -14,14 +14,7 @@ import java.util.Objects;
 public class CreationService {
 
     public Star createStar(StarRequest input) {
-        if (input.getName() != null && input.getType() != null) {
-            return StarCreator.createStar(input.getType(), input.getName());
-        } else if (input.getName() != null && input.getType() == null) {
-            return StarCreator.createStar(input.getName());
-        } else if (input.getName() == null && input.getType() != null) {
-            return StarCreator.createStar(input.getType());
-        }
-        return StarCreator.createStar();
+        return StarCreator.createStar(input.getType(), input.getName(), input.isHabitable());
     }
 
     public Planet createPlanet(PlanetRequest planetRequest) {

@@ -1,30 +1,41 @@
 package com.brickroad.starcreator_webservice.cucumber.steps;
 
 import com.brickroad.starcreator_webservice.model.enums.StarType;
+import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.restassured.RestAssured;
 
+import java.util.Arrays;
 import java.util.HashMap;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class StarCreationSteps extends AbstractCreationSteps {
 
     private static final String GET_STAR = "/api/v1/star";
 
     @Given("a basic star creation request is created")
-    public void createRequest() {
+    public void createBasicStarRequest() {
         if (testingServer == null) {
             testingServer = Servers.LOCALHOST.getUrl();
         }
         requestPayload = new HashMap<>();
         requestPayload.put("name", "Omicron Persei");
         requestPayload.put("type", "MAIN_SEQ_M");
+    }
+
+    @Given("a new star creation request is started")
+    public void createNewStarRequest() {
+        if (testingServer == null) {
+            testingServer = Servers.LOCALHOST.getUrl();
+        }
+        requestPayload = new HashMap<>();
     }
 
     @Given("the star's name is {string}")
@@ -35,6 +46,11 @@ public class StarCreationSteps extends AbstractCreationSteps {
     @Given("the star's type is {}")
     public void setType(StarType type) {
         requestPayload.put("type", type.toString());
+    }
+
+    @Given("the star is habitable")
+    public void setHabitable() {
+        requestPayload.put("habitable", true);
     }
 
     @When("the star request is submitted")
@@ -63,6 +79,9 @@ public class StarCreationSteps extends AbstractCreationSteps {
         assertThat("The returned Star's type should match", response.jsonPath().getString("starType"), containsString(type));
     }
 
-
-
+    @And("the star type is habitable")
+    public void theStarTypeIsHabitable() {
+        assertTrue(Arrays.stream(Arrays.copyOfRange(StarType.values(), 4, 9))
+                .anyMatch(starType -> starType.name().equalsIgnoreCase(response.jsonPath().getString("starType"))));
+    }
 }
