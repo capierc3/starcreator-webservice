@@ -1,12 +1,13 @@
 package com.brickroad.starcreator_webservice.request;
 
 import com.brickroad.starcreator_webservice.model.enums.Population;
+import com.brickroad.starcreator_webservice.model.enums.SystemType;
 
 public class SystemRequest {
 
     private String name;
     private Population population;
-    private int starCount;
+    private SystemType systemType;
 
     public String getName() {
         if(name == null) {
@@ -19,10 +20,6 @@ public class SystemRequest {
         return population;
     }
 
-    public int getStarCount() {
-        return starCount;
-    }
-
     public void setName(String name) {
         this.name = name;
     }
@@ -31,7 +28,11 @@ public class SystemRequest {
         this.population = population;
     }
 
-    public void setStarCount(int starCount) {
-        this.starCount = starCount;
+    public SystemType getSystemType() {
+        return systemType;
+    }
+
+    public void setSystemType(SystemType systemType) {
+        this.systemType = systemType;
     }
 }

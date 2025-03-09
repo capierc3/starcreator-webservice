@@ -3,12 +3,17 @@ package com.brickroad.starcreator_webservice.service;
 import com.brickroad.starcreator_webservice.model.*;
 import com.brickroad.starcreator_webservice.model.enums.Population;
 import com.brickroad.starcreator_webservice.model.enums.StarType;
+import com.brickroad.starcreator_webservice.model.enums.SystemType;
 import com.brickroad.starcreator_webservice.request.SystemRequest;
 import com.brickroad.starcreator_webservice.utils.CreatorUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
+import java.util.List;
+
+import static com.brickroad.starcreator_webservice.model.enums.SystemType.MAX_LOW_MASS;
+import static com.brickroad.starcreator_webservice.model.enums.SystemType.getRandomSystemType;
 
 public class SystemCreator {
 
@@ -18,8 +23,8 @@ public class SystemCreator {
         system = new StarSystem();
         system.setName(StringUtils.isAnyEmpty(systemRequest.getName()) ? CreatorUtils.generateSystemName() : systemRequest.getName());
         system.setPopulation(systemRequest.getPopulation() == null ? Population.getRandom() : systemRequest.getPopulation());
-        system.setStars(generateStars(systemRequest.getStarCount()));
-        system.setBodies(generateBodies());
+        generateStars(systemRequest.getSystemType());
+//        system.setBodies(generateBodies());
 //        createBodies();
 //        createSize();
 //        placeBodies();
@@ -29,36 +34,29 @@ public class SystemCreator {
         return system;
     }
 
-    private static Star[] generateStars(int starCount){
-
-        if (starCount == 0) {
-            int roll = RandomUtils.rollDice(1, 20);
-            if (roll < 14) {
-                starCount = 1;
-            } else if (roll < 19) {
-                starCount = 2;
-            } else if (roll < 20) {
-                starCount = 3;
-            } else starCount = 4;
+    private static void generateStars(SystemType systemType) {
+        ArrayList<Star> stars = new ArrayList<>();
+        Star star = StarCreator.createStar(null,system.getName(),false);
+        while (SystemType.TRINARY.equals(systemType) && star.getSolarMass() < MAX_LOW_MASS) {
+            star = StarCreator.createStar(null,system.getName(),false);
         }
-
-        Star[] stars = new Star[starCount];
-        stars[0] = StarCreator.createStar(null,system.getName(),false);
-        if (starCount != 1) {
-            stars[0].setName(system.getName() + " 1");
-            for (int i = 1; i < stars.length; i++) {
+        stars.add(star);
+        system.setSystemType(systemType == null ? getRandomSystemType(star) : systemType);
+        if (system.getSystemType().getStarCount() != 1) {
+            stars.getFirst().setName(system.getName() + " 1");
+            for (int i = 1; i < system.getSystemType().getStarCount(); i++) {
                 if (RandomUtils.flipCoin() == 1) {
-                    stars[i] = StarCreator.createStar(stars[i-1].getStarType(), (system.getName() + " " + (i+1)),  false);
+                    stars.add(StarCreator.createStar(stars.getLast().getStarType(), (system.getName() + " " + (i+1)),  false));
                 } else {
                     if (RandomUtils.flipCoin() == 1) {
-                        stars[i] = StarCreator.createStar(StarType.getStarTypeBelow(stars[i-1].getStarType()), (system.getName() + " " + (i+1)),  false);
+                        stars.add(StarCreator.createStar(StarType.getStarTypeBelow(stars.getLast().getStarType()), (system.getName() + " " + (i+1)),  false));
                     } else {
-                        stars[i] = StarCreator.createStar(StarType.getStarTypeAbove(stars[i-1].getStarType()), (system.getName() + " " + (i+1)), false);
+                        stars.add(StarCreator.createStar(StarType.getStarTypeAbove(stars.getLast().getStarType()), (system.getName() + " " + (i+1)), false));
                     }
                 }
             }
         }
-        return stars;
+        system.setStars(stars);
     }
 
     private static ArrayList<Body> generateBodies() {

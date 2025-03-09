@@ -1,5 +1,7 @@
-package com.brickroad.starcreator_webservice.utils;
+package com.brickroad.starcreator_webservice.junit.utils;
 
+import com.brickroad.starcreator_webservice.utils.CreatorUtils;
+import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;

@@ -1,4 +1,4 @@
-package com.brickroad.starcreator_webservice.worldBuilder;
+package com.brickroad.starcreator_webservice.junit.service;
 
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class PlanetTests {
+public class PlanetCreatorTests {
 
     private static Stream<Arguments> testPrams() {
         return Stream.of(

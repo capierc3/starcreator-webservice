@@ -1,21 +1,16 @@
 package com.brickroad.starcreator_webservice.model;
 
 import com.brickroad.starcreator_webservice.model.enums.Population;
+import com.brickroad.starcreator_webservice.model.enums.SystemType;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.service.PlanetCreator;
-import com.brickroad.starcreator_webservice.utils.SpaceTravel;
-import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Scanner;
+import java.util.List;
 
 public class StarSystem {
 
     private String name;
-    private Star[] stars;
+    private ArrayList<Star> stars;
     private ArrayList<Planet> planets;
     private ArrayList<Body> bodies;
     private ArrayList<Body> orderSystem;
@@ -24,6 +19,8 @@ public class StarSystem {
     private double habitLow;
     private double habitHigh;
     private Population population;
+    private SystemType systemType;
+    private double eccentricity;
     double x,y,z;
     String id;
 
@@ -35,11 +32,11 @@ public class StarSystem {
         this.name = name;
     }
 
-    public Star[] getStars() {
+    public ArrayList<Star> getStars() {
         return stars;
     }
 
-    public void setStars(Star[] stars) {
+    public void setStars(ArrayList<Star> stars) {
         this.stars = stars;
     }
 
@@ -137,5 +134,21 @@ public class StarSystem {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public SystemType getSystemType() {
+        return systemType;
+    }
+
+    public void setSystemType(SystemType systemType) {
+        this.systemType = systemType;
+    }
+
+    public double getEccentricity() {
+        return eccentricity;
+    }
+
+    public void setEccentricity(double eccentricity) {
+        this.eccentricity = eccentricity;
     }
 }

@@ -1,4 +1,4 @@
-package com.brickroad.starcreator_webservice.worldBuilder;
+package com.brickroad.starcreator_webservice.junit.service;
 
 import com.brickroad.starcreator_webservice.model.Star;
 import com.brickroad.starcreator_webservice.model.enums.HabitableZone;
@@ -11,7 +11,7 @@ import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class StarTests {
+public class StarCreatorTests {
 
     private static final String NAME = "Omicron Persei";
     private static final String MAIN_SEQ_G_DESCRIPTION = "Sun-like";

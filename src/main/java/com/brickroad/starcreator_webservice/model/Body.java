@@ -1,7 +1,7 @@
 package com.brickroad.starcreator_webservice.model;
 
 import com.brickroad.starcreator_webservice.model.planets.MagneticField;
-import com.brickroad.starcreator_webservice.utils.SpaceTravel;
+import com.brickroad.starcreator_webservice.utils.SpaceUtils;
 
 /**
  * Abstract class that holds all shared variables and methods for the different types of Bodies.
@@ -70,8 +70,8 @@ public abstract class Body implements Comparable {
                 "\nLocation: "+location+
                 "\nDistance to Sun: "+(distanceSun*498.66)+"ls"+
                 "\n                 "+distanceSun+"AU"+
-                "\n                 "+(String.format("%.2f", SpaceTravel.TimeToTravel(distanceSun,1, SpaceTravel.DistUnits.AU, SpaceTravel.TimeUnits.HOURS,false)))+" hours at 1g"+
-                "\n                 "+(String.format("%.2f",SpaceTravel.TimeToTravel(distanceSun,1, SpaceTravel.DistUnits.AU, SpaceTravel.TimeUnits.DAYS,false)))+" days at 1g"+
+                "\n                 "+(String.format("%.2f", SpaceUtils.TimeToTravel(distanceSun,1, SpaceUtils.DistUnits.AU, SpaceUtils.TimeUnits.HOURS,false)))+" hours at 1g"+
+                "\n                 "+(String.format("%.2f", SpaceUtils.TimeToTravel(distanceSun,1, SpaceUtils.DistUnits.AU, SpaceUtils.TimeUnits.DAYS,false)))+" days at 1g"+
                 "\nTemperature: "+temp+"\u00B0" + "F"+
         "\nOrbit Length: "+String.format("%.2f",orbitLength)+" earth years";
     }
