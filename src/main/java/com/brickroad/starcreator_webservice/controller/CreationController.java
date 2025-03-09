@@ -1,9 +1,11 @@
 package com.brickroad.starcreator_webservice.controller;
 
+import com.brickroad.starcreator_webservice.model.StarSystem;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.Star;
 import com.brickroad.starcreator_webservice.request.PlanetRequest;
 import com.brickroad.starcreator_webservice.request.StarRequest;
+import com.brickroad.starcreator_webservice.request.SystemRequest;
 import com.brickroad.starcreator_webservice.service.CreationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -50,6 +52,15 @@ public class CreationController {
     public ResponseEntity<Star> createStar(@RequestBody StarRequest starRequest) {
         return ResponseEntity.ok(creationService.createStar(starRequest));
     }
+
+    @Operation(summary = "Generate system", description = "Generates a random system based", tags = {"System Creation"})
+    @ApiResponse(responseCode = "200", description = "System Generated", content = {@Content(mediaType = "application/json",schema = @Schema(implementation = StarSystem.class))})
+    @GetMapping("/system")
+    public ResponseEntity<StarSystem> createSystem(@RequestBody SystemRequest systemRequest) {
+        return ResponseEntity.ok(creationService.createStarSystem(systemRequest));
+    }
+
+
 
 
 
