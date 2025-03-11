@@ -3,6 +3,7 @@ package com.brickroad.starcreator_webservice.model.enums;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
 import static com.brickroad.starcreator_webservice.model.enums.HabitableZone.*;
+import static com.brickroad.starcreator_webservice.utils.CreatorUtils.getWeightedEnumIndex;
 
 public enum StarType {
     PROTO("Collapsing gas cloud", .08, 200, 1, 5, 3, 100, NOT_VIABLE),
@@ -46,11 +47,11 @@ public enum StarType {
     }
 
     public static StarType getWeightedRandom() {
-        return getRandom(WEIGHTS);
+        return StarType.values()[getWeightedEnumIndex(WEIGHTS)];
     }
 
     public static StarType getHabitableRandom() {
-        return getRandom(HABITABLE_WEIGHTS);
+        return StarType.values()[getWeightedEnumIndex(HABITABLE_WEIGHTS)];
     }
 
     public static StarType getStarTypeBelow(StarType starType) {
@@ -97,21 +98,4 @@ public enum StarType {
         }
         return -1;
     }
-
-    private static StarType getRandom(int[] weights) {
-        int totalWeight = 0;
-        for (int weight : weights) {
-            totalWeight += weight;
-        }
-        int random = RandomUtils.rollRange(1, totalWeight);
-        int cumulativeWeight = 0;
-        for (int i = 0; i < weights.length; i++) {
-            cumulativeWeight += weights[i];
-            if (random <= cumulativeWeight) {
-                return StarType.values()[i];
-            }
-        }
-        throw new IllegalStateException("Failed to select a weighted random Star Type.");
-    }
-
 }

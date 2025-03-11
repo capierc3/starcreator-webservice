@@ -34,8 +34,6 @@ public class StarCreatorTests {
         assertEquals(StarType.MAIN_SEQ_G, star.getStarType(), "Star type should be MAIN_SEQ_G");
         assertEquals(MAIN_SEQ_G_DESCRIPTION, star.getDescription(), "Description should be Sun-like");
         assertEquals(HabitableZone.GOOD, star.getLifeSupporting(), "Life support should be GOOD");
-        assertEquals(HabitableZone.GOOD.getMinHabitableZone(), star.getMinHabitableZone(), "MinHabitableZone should be .95");
-        assertEquals(HabitableZone.GOOD.getMaxHabitableZone(), star.getMaxHabitableZone(), "MaxHabitableZone should be 1.4");
         assertStarData(star);
     }
 

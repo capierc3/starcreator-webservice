@@ -9,6 +9,10 @@ public class SpaceUtils {
     private static final BigDecimal METERS_TO_AU = new BigDecimal("149597870691.0");
     private static final double GRAVITY = 9.8;
     private static final double AU_TO_LS = 498.66;
+    public static final double STEFAN_BOLTZMANN_LAW = 5.67037442;
+    public static final double ONE_SOLAR_RADIUS_IN_METERS = 6.955 * Math.pow(10,8);
+    public static final double SUNS_TEMPERATURE = 5778;
+    public static final double SUNS_LUMINOSITY = 3.828;
 
     public enum DistUnits {METER,AU,LY,LS}
     public enum TimeUnits {DAYS,HOURS,MINUTES,SECONDS}
@@ -42,11 +46,10 @@ public class SpaceUtils {
         return ls/498.66;
     }
 
-    public static double distanceToBarycenter(Star star1, Star star2){
+    public static double distanceToBarycenter(Star star1, Star star2, double distApart) {
         double combinedMass = star1.getSolarMass() + star2.getSolarMass();
         double massRatio = star1.getSolarMass() / combinedMass;
-        double distanceApart = 0; //TODO
-        return massRatio * distanceApart;
+        return massRatio * distApart;
     }
 
 }

@@ -12,9 +12,11 @@ public class Star {
     private double solarMass;
     private double solarRadius;
     private double temperature;
+    private double luminosity;
     private double minHabitableZone;
     private double maxHabitableZone;
     private HabitableZone lifeSupporting;
+    private double distToBarycenter;
 
     public Star() {}
 
@@ -88,5 +90,21 @@ public class Star {
 
     public void setLifeSupporting(HabitableZone lifeSupporting) {
         this.lifeSupporting = lifeSupporting;
+    }
+
+    public double getDistToBarycenter() {
+        return distToBarycenter;
+    }
+
+    public void setDistToBarycenter(double distToBarycenter) {
+        this.distToBarycenter = distToBarycenter;
+    }
+
+    public double getLuminosity() {
+        return luminosity;
+    }
+
+    public void setLuminosity(double luminosity) {
+        this.luminosity = luminosity;
     }
 }
