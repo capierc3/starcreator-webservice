@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.model;
 
+import com.brickroad.starcreator_webservice.model.enums.BinaryType;
 import com.brickroad.starcreator_webservice.model.enums.Population;
 import com.brickroad.starcreator_webservice.model.enums.SystemType;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
@@ -20,7 +21,11 @@ public class StarSystem {
     private double habitHigh;
     private Population population;
     private SystemType systemType;
+    private BinaryType binaryType;
     private double eccentricity;
+    private double periastron;
+    private double apastron;
+    private double semiMajorAxis;
     double x,y,z;
     String id;
 
@@ -150,5 +155,37 @@ public class StarSystem {
 
     public void setEccentricity(double eccentricity) {
         this.eccentricity = eccentricity;
+    }
+
+    public BinaryType getBinaryType() {
+        return binaryType;
+    }
+
+    public void setBinaryType(BinaryType binaryType) {
+        this.binaryType = binaryType;
+    }
+
+    public double getPeriastron() {
+        return periastron;
+    }
+
+    public void setPeriastron(double periastron) {
+        this.periastron = periastron;
+    }
+
+    public double getApastron() {
+        return apastron;
+    }
+
+    public void setApastron(double apastron) {
+        this.apastron = apastron;
+    }
+
+    public double getSemiMajorAxis() {
+        return semiMajorAxis;
+    }
+
+    public void setSemiMajorAxis(double semiMajorAxis) {
+        this.semiMajorAxis = semiMajorAxis;
     }
 }
