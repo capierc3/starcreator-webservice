@@ -78,10 +78,14 @@ public class StarCreatorTests {
 
     @Test
     public void testStarTypeEnums() {
-        assertEquals(StarType.MAIN_SEQ_A, StarType.getStarTypeBelow(StarType.MAIN_SEQ_F),  "Star type should be MAIN_SEQ_A");
-        assertEquals(StarType.MAIN_SEQ_G, StarType.getStarTypeAbove(StarType.MAIN_SEQ_F),  "Star type should be MAIN_SEQ_G");
-        assertEquals(StarType.SUPER_GIANT, StarType.getStarTypeBelow(StarType.PROTO),  "Star type should be PROTO");
-        assertEquals(StarType.PROTO, StarType.getStarTypeAbove(StarType.SUPER_GIANT),  "Star type should be SUPER_GIANT");
+        assertEquals(StarType.MAIN_SEQ_A, StarType.getLowerMassStarType(StarType.MAIN_SEQ_A, 0),  "Star type should be MAIN_SEQ_A");
+        assertEquals(StarType.MAIN_SEQ_A, StarType.getLowerMassStarType(StarType.MAIN_SEQ_F, 1),  "Star type should be MAIN_SEQ_F");
+        assertEquals(StarType.MAIN_SEQ_A, StarType.getLowerMassStarType(StarType.MAIN_SEQ_M, 4),  "Star type should be MAIN_SEQ_M");
+        assertEquals(StarType.T_TAURI, StarType.getLowerMassStarType(StarType.NEUTRON,1),  "Star type should be NEUTRON");
+        assertEquals(StarType.MAIN_SEQ_G, StarType.getHigherMassStarType(StarType.MAIN_SEQ_G, 0),  "Star type should be MAIN_SEQ_G");
+        assertEquals(StarType.MAIN_SEQ_G, StarType.getHigherMassStarType(StarType.MAIN_SEQ_F, 1),  "Star type should be MAIN_SEQ_F");
+        assertEquals(StarType.MAIN_SEQ_G, StarType.getHigherMassStarType(StarType.MAIN_SEQ_O, 4),  "Star type should be MAIN_SEQ_O");
+        assertEquals(StarType.NEUTRON, StarType.getHigherMassStarType(StarType.T_TAURI,1),  "Star type should be T Tauri");
     }
 
     private void assertStarData(Star star) {
@@ -89,8 +93,8 @@ public class StarCreatorTests {
         assertTrue(star.getSolarMass() <= star.getStarType().getMaxMass(), "Mass should be less than the star type max");
         assertTrue(star.getSolarRadius() >= star.getStarType().getMinRadius(), "Radius should be greater than the star type min");
         assertTrue(star.getSolarRadius() <= star.getStarType().getMaxRadius(), "Radius should be less than the star type max");
-        assertTrue((star.getTemperature() / 1000)  >= star.getStarType().getMinTemperature(), "Temperature should be greater than the star type min");
-        assertTrue((star.getTemperature() / 1000) <= star.getStarType().getMaxTemperature(), "Temperature should be less than the star type max");
+        assertTrue((star.getTemperature() / 100)  >= star.getStarType().getMinTemperature(), "Temperature should be greater than the star type min");
+        assertTrue((star.getTemperature() / 100) <= star.getStarType().getMaxTemperature(), "Temperature should be less than the star type max");
     }
 
 }

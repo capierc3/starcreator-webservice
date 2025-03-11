@@ -4,7 +4,7 @@ import com.brickroad.starcreator_webservice.model.Star;
 
 import static com.brickroad.starcreator_webservice.utils.CreatorUtils.MAX_LOW_MASS;
 import static com.brickroad.starcreator_webservice.utils.CreatorUtils.MIN_HIGH_MASS;
-import static com.brickroad.starcreator_webservice.utils.CreatorUtils.getWeightedEnumIndex;
+import static com.brickroad.starcreator_webservice.utils.CreatorUtils.getWeightedIndex;
 
 public enum BinaryType {
 
@@ -33,11 +33,11 @@ public enum BinaryType {
 
     public static BinaryType getRandomBinaryType(Star star) {
         if (star.getSolarMass() < MAX_LOW_MASS) {
-            return BinaryType.values()[getWeightedEnumIndex(LOW_MASS_WEIGHTS)];
+            return BinaryType.values()[getWeightedIndex(LOW_MASS_WEIGHTS)];
         } else if (star.getSolarMass() > MIN_HIGH_MASS) {
-            return BinaryType.values()[getWeightedEnumIndex(HIGH_MASS_WEIGHTS)];
+            return BinaryType.values()[getWeightedIndex(HIGH_MASS_WEIGHTS)];
         } else {
-            return BinaryType.values()[getWeightedEnumIndex(NORMAL_WEIGHTS)];
+            return BinaryType.values()[getWeightedIndex(NORMAL_WEIGHTS)];
         }
     }
 

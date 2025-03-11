@@ -1,13 +1,11 @@
 package com.brickroad.starcreator_webservice.model.enums;
 
-import com.brickroad.starcreator_webservice.utils.RandomUtils;
-
 import static com.brickroad.starcreator_webservice.model.enums.HabitableZone.*;
-import static com.brickroad.starcreator_webservice.utils.CreatorUtils.getWeightedEnumIndex;
+import static com.brickroad.starcreator_webservice.utils.CreatorUtils.getWeightedIndex;
 
 public enum StarType {
-    PROTO("Collapsing gas cloud", .08, 200, 1, 5, 3, 100, NOT_VIABLE),
-    T_TAURI("Pre-main sequence", .08, 3, 3, 6, 1, 5, NOT_VIABLE),
+    NEUTRON("Neutron", 1.1, 2.3, 100, 100000, 0.000014, 0.00002, NOT_VIABLE),
+    SUPER_GIANT("Super Giant", 8, 100, 3, 50, 30, 1500, NOT_VIABLE),
     MAIN_SEQ_O("Massive Blue", 16, 32, 300, 500, 6, 15, NOT_VIABLE),
     MAIN_SEQ_B("Massive Blue-White", 2.1, 16, 100, 300, 2, 6, NOT_VIABLE),
     MAIN_SEQ_A("White Star", 1.4, 2.1, 75, 100, 1.4, 2, POOR),
@@ -16,8 +14,8 @@ public enum StarType {
     MAIN_SEQ_K("Orange Dwarf", .45, .8, 37, 52, .7, .9, EXCELLENT),
     MAIN_SEQ_M("Red Dwarf", .08, .45, 25, 37, .1, .6, MIXED),
     WHITE_DWARF("White Dwarf", .17, 1, 4, 150, .008, .02, NOT_VIABLE),
-    NEUTRON("Neutron", 1.1, 2.3, 100, 100000, 0.000014, 0.00002, NOT_VIABLE),
-    SUPER_GIANT("Super Giant", 8, 100, 3, 50, 30, 1500, NOT_VIABLE);
+    PROTO("Collapsing gas cloud", .08, 200, 1, 5, 3, 100, NOT_VIABLE),
+    T_TAURI("Pre-main sequence", .08, 3, 3, 6, 1, 5, NOT_VIABLE);
 
     private final String description;
     private final double minMass;
@@ -47,19 +45,19 @@ public enum StarType {
     }
 
     public static StarType getWeightedRandom() {
-        return StarType.values()[getWeightedEnumIndex(WEIGHTS)];
+        return StarType.values()[getWeightedIndex(WEIGHTS)];
     }
 
     public static StarType getHabitableRandom() {
-        return StarType.values()[getWeightedEnumIndex(HABITABLE_WEIGHTS)];
+        return StarType.values()[getWeightedIndex(HABITABLE_WEIGHTS)];
     }
 
-    public static StarType getStarTypeBelow(StarType starType) {
-        return StarType.values()[Math.floorMod((getStarTypeIndex(starType) - 1),StarType.values().length)];
+    public static StarType getLowerMassStarType(StarType starType, int amtLower) {
+        return StarType.values()[Math.floorMod((getStarTypeIndex(starType) - amtLower),StarType.values().length)];
     }
 
-    public static StarType getStarTypeAbove(StarType starType) {
-        return StarType.values()[(getStarTypeIndex(starType) + 1) % StarType.values().length];
+    public static StarType getHigherMassStarType(StarType starType, int amtHigher) {
+        return StarType.values()[(getStarTypeIndex(starType) + amtHigher) % StarType.values().length];
     }
 
     public double getMinMass() {

@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import static com.brickroad.starcreator_webservice.model.enums.BinaryType.getRandomBinaryType;
 import static com.brickroad.starcreator_webservice.model.enums.SystemType.getRandomSystemType;
 import static com.brickroad.starcreator_webservice.utils.CreatorUtils.MAX_LOW_MASS;
+import static com.brickroad.starcreator_webservice.utils.CreatorUtils.getWeightedIndex;
 
 public class SystemCreator {
 
@@ -22,6 +23,7 @@ public class SystemCreator {
 
     private static final double CIRCULAR_ORBIT = 0d;
     private static final int HEADS = 1;
+    private static final int[] BINARY_STAR_TYPE_DIFFERENCES = new int[]{30,29,14,15,5,4,3};
 
     public static StarSystem createStarSystem(SystemRequest systemRequest) {
         system = new StarSystem();
@@ -49,33 +51,31 @@ public class SystemCreator {
         if (system.getSystemType().getStarCount() != 1) {
             stars.getFirst().setName(system.getName() + " 1");
             for (int i = 1; i < system.getSystemType().getStarCount(); i++) {
-                if (RandomUtils.flipCoin() == HEADS) {
-                    stars.add(StarCreator.createStar(stars.getLast().getStarType(), (system.getName() + " " + (i+1)),  false));
+                int starTypeDifference = getWeightedIndex(BINARY_STAR_TYPE_DIFFERENCES);
+                boolean higherMass = RandomUtils.flipCoin() == HEADS;
+                if (higherMass) {
+                    stars.add(StarCreator.createStar(
+                            StarType.getHigherMassStarType(stars.getLast().getStarType(),starTypeDifference),
+                            (system.getName() + " " + (i+1)),  false));
                 } else {
-                    if (RandomUtils.flipCoin() == HEADS) {
-                        stars.add(StarCreator.createStar(StarType.getStarTypeBelow(stars.getLast().getStarType()), (system.getName() + " " + (i+1)),  false));
-                    } else {
-                        stars.add(StarCreator.createStar(StarType.getStarTypeAbove(stars.getLast().getStarType()), (system.getName() + " " + (i+1)), false));
-                    }
+                    stars.add(StarCreator.createStar(
+                            StarType.getLowerMassStarType(stars.getLast().getStarType(),starTypeDifference),
+                            (system.getName() + " " + (i+1)),  false));
                 }
             }
         }
         if (system.getSystemType().equals(SystemType.BINARY)) {
-            //Find distance apart
             system.setBinaryType(getRandomBinaryType(star));
             system.setSemiMajorAxis(RandomUtils.rollRange(system.getBinaryType().getAuMin(),system.getBinaryType().getAuMax()));
-            //Find barycenter
             stars.getFirst().setDistToBarycenter(SpaceUtils.distanceToBarycenter(stars.getFirst(), stars.getLast(), system.getSemiMajorAxis()));
             stars.getLast().setDistToBarycenter(SpaceUtils.distanceToBarycenter(stars.getLast(), stars.getFirst(), system.getSemiMajorAxis()));
-            //find eccentricities
             if (RandomUtils.rollD100() > system.getBinaryType().getPercentChanceEccentricity()) {
                 system.setEccentricity(RandomUtils.rollRange(system.getBinaryType().getMinEccentricity(),system.getBinaryType().getMaxEccentricity()));
+                system.setPeriastron(system.getSemiMajorAxis() * (1 - system.getEccentricity()));
+                system.setApastron(system.getSemiMajorAxis() * (1 + system.getEccentricity()));
             } else {
                 system.setEccentricity(CIRCULAR_ORBIT);
             }
-            system.setPeriastron(system.getSemiMajorAxis() * (1 - system.getEccentricity()));
-            system.setApastron(system.getSemiMajorAxis() * (1 + system.getEccentricity()));
-            //find separation
         }
         system.setStars(stars);
     }

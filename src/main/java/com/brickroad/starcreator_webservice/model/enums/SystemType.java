@@ -22,11 +22,11 @@ public enum SystemType {
 
     public static SystemType getRandomSystemType(Star star) {
         if (star.getSolarMass() < MAX_LOW_MASS) {
-            return SystemType.values()[getWeightedEnumIndex(LOW_MASS_WEIGHTS)];
+            return SystemType.values()[getWeightedIndex(LOW_MASS_WEIGHTS)];
         } else if (star.getSolarMass() > MIN_HIGH_MASS) {
-            return SystemType.values()[getWeightedEnumIndex(HIGH_MASS_WEIGHTS)];
+            return SystemType.values()[getWeightedIndex(HIGH_MASS_WEIGHTS)];
         } else {
-            return SystemType.values()[getWeightedEnumIndex(SUN_LIKE_WEIGHTS)];
+            return SystemType.values()[getWeightedIndex(SUN_LIKE_WEIGHTS)];
         }
     }
 

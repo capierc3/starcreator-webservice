@@ -23,7 +23,7 @@ public class CreatorUtils {
         return getRandomStringFromTxt(SYSTEM_NAMES_PREFIX_TXT);
     }
 
-    public static int getWeightedEnumIndex(int[] weights){
+    public static int getWeightedIndex(int[] weights){
         int totalWeight = 0;
         for (int weight : weights) {
             totalWeight += weight;
