@@ -26,7 +26,7 @@ public enum StarType {
     private final double maxRadius;
     private final HabitableZone habitableZone;
 
-    private final static int[] WEIGHTS = {1000,100,1,1000,6000,30000,70000,120000,750000,60000,1000,1};
+    private final static int[] WEIGHTS = {100,10,1,100,600,3000,7000,12000,75000,6000,100,1};
     private final static int[] HABITABLE_WEIGHTS = {0,0,0,0,6,30,70,120,750,0,0,0};
 
     StarType(String description, double minMass, double maxMass, double minTemperature, double maxTemperature, double minRadius, double maxRadius,  HabitableZone habitableZone) {

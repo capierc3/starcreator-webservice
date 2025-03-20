@@ -13,9 +13,14 @@ public class SpaceUtils {
     public static final double ONE_SOLAR_RADIUS_IN_METERS = 6.955 * Math.pow(10,8);
     public static final double SUNS_TEMPERATURE = 5778;
     public static final double SUNS_LUMINOSITY = 3.828;
+    public static final double SUNS_RADIUS_IN_KM = 695700;
+    public static final double SUNS_RADIUS_IN_AU = .00465;
+    public static final double SUBLIMATION_TEMP = 1500;
+    public static final double MASS_OF_SON = 333000;
 
-    public enum DistUnits {METER,AU,LY,LS}
+    public enum DistUnits {KM, METER,AU,LY,LS}
     public enum TimeUnits {DAYS,HOURS,MINUTES,SECONDS}
+    public enum IceLineGas {H20, CO2, METHANE, CO}
 
     public static double TimeToTravel(double distance,double speed, DistUnits dUnit,TimeUnits tUnits,boolean sling){
         if (!sling) {
@@ -50,6 +55,16 @@ public class SpaceUtils {
         double combinedMass = star1.getSolarMass() + star2.getSolarMass();
         double massRatio = star1.getSolarMass() / combinedMass;
         return massRatio * distApart;
+    }
+
+    public static double solarRadiusToStellarRadius(double solarRadius, DistUnits dUnit) {
+        if (dUnit == DistUnits.AU) {
+            return solarRadius * SUNS_RADIUS_IN_AU;
+        } else if (dUnit == DistUnits.KM) {
+            return solarRadius * SUNS_RADIUS_IN_KM;
+        } else {
+            return 0;
+        }
     }
 
 }

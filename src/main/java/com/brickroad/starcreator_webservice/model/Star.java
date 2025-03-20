@@ -17,6 +17,14 @@ public class Star {
     private double maxHabitableZone;
     private HabitableZone lifeSupporting;
     private double distToBarycenter;
+    private double innerDisk;
+    private double snowLine;
+    private double pebbleIsoLine;
+    private double iceLineMethane;
+    private double iceLineCO;
+    private double iceLineCO2;
+    private double stabilityBoundary;
+    private double oortClouds;
 
     public Star() {}
 
@@ -106,5 +114,69 @@ public class Star {
 
     public void setLuminosity(double luminosity) {
         this.luminosity = luminosity;
+    }
+
+    public double getInnerDisk() {
+        return innerDisk;
+    }
+
+    public void setInnerDisk(double innerDisk) {
+        this.innerDisk = innerDisk;
+    }
+
+    public double getSnowLine() {
+        return snowLine;
+    }
+
+    public void setSnowLine(double snowLine) {
+        this.snowLine = snowLine;
+    }
+
+    public double getIceLineMethane() {
+        return iceLineMethane;
+    }
+
+    public void setIceLineMethane(double iceLineMethane) {
+        this.iceLineMethane = iceLineMethane;
+    }
+
+    public double getStabilityBoundary() {
+        return stabilityBoundary;
+    }
+
+    public void setStabilityBoundary(double stabilityBoundary) {
+        this.stabilityBoundary = stabilityBoundary;
+    }
+
+    public double getOortClouds() {
+        return oortClouds;
+    }
+
+    public void setOortClouds(double oortClouds) {
+        this.oortClouds = oortClouds;
+    }
+
+    public double getPebbleIsoLine() {
+        return pebbleIsoLine;
+    }
+
+    public void setPebbleIsoLine(double pebbleIsoLine) {
+        this.pebbleIsoLine = pebbleIsoLine;
+    }
+
+    public double getIceLineCO() {
+        return iceLineCO;
+    }
+
+    public void setIceLineCO(double iceLineCO) {
+        this.iceLineCO = iceLineCO;
+    }
+
+    public double getIceLineCO2() {
+        return iceLineCO2;
+    }
+
+    public void setIceLineCO2(double iceLineCO2) {
+        this.iceLineCO2 = iceLineCO2;
     }
 }
