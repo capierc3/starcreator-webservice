@@ -1,5 +1,7 @@
 package com.brickroad.starcreator_webservice.model.constants;
 
+import io.cucumber.java.it.Ma;
+
 import java.util.LinkedHashMap;
 
 public class PlanetConstants {
@@ -9,6 +11,10 @@ public class PlanetConstants {
     public static final LinkedHashMap<String, Integer[]> ATMOSPHERIC_PRESSURE = new LinkedHashMap<>();
     public static final LinkedHashMap<String, Integer[]> TILTS = new LinkedHashMap<>();
     public static final LinkedHashMap<Integer, Integer[]> LAND_COVER_LIQUID = new LinkedHashMap<>();
+    public static final double EARTH_MASS = 5.972 * Math.pow(10,24);
+    public static final double EARTH_RADIUS = 6.371 * Math.pow(10,6);
+    public static final double EARTH_DENSITY = 5.51;// g cm^3
+    public static final double EARTH_GRAVITY = 9.81;
 
     static {
         DENSITY_RATINGS.put("Negligible", new Double[]{0.0, 0.0});

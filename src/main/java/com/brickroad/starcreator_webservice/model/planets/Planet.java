@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.model.planets;
 
 import com.brickroad.starcreator_webservice.model.Body;
+import com.brickroad.starcreator_webservice.model.enums.PlanetSubType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -19,6 +20,10 @@ public class Planet extends Body {
     private Surface surface;
     private String systemName;
     private PlanetType planetType;
+    private double mass;
+    private double densityDouble;
+    private PlanetSubType subType;
+    private double gravityInGs;
 
     public Planet(){
         super();
@@ -114,5 +119,37 @@ public class Planet extends Body {
 
     public void setPlanetType(PlanetType planetType) {
         this.planetType = planetType;
+    }
+
+    public double getMass() {
+        return mass;
+    }
+
+    public void setMass(double mass) {
+        this.mass = mass;
+    }
+
+    public double getDensityDouble() {
+        return densityDouble;
+    }
+
+    public void setDensityDouble(double densityDouble) {
+        this.densityDouble = densityDouble;
+    }
+
+    public PlanetSubType getSubType() {
+        return subType;
+    }
+
+    public void setSubType(PlanetSubType subType) {
+        this.subType = subType;
+    }
+
+    public double getGravityInGs() {
+        return gravityInGs;
+    }
+
+    public void setGravityInGs(double gravityInGs) {
+        this.gravityInGs = gravityInGs;
     }
 }

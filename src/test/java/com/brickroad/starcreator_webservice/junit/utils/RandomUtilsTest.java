@@ -2,13 +2,19 @@ package com.brickroad.starcreator_webservice.junit.utils;
 
 import com.brickroad.starcreator_webservice.utils.CreatorUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.SpaceUtils;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.Arrays;
+
 import static com.brickroad.starcreator_webservice.model.planets.MagneticField.MAGNETIC_FIELD;
+import static com.brickroad.starcreator_webservice.utils.CreatorUtils.getWeightedIndex;
 import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomLetter;
 import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomStringFromTxt;
+import static com.brickroad.starcreator_webservice.utils.SpaceUtils.solarRadiusToStellarRadius;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class RandomUtilsTest {
@@ -82,6 +88,11 @@ public class RandomUtilsTest {
             String letter = getRandomLetter(maxLetter);
             assertTrue(acceptableValues.contains(letter), letter + " is not allowed");
         }
+    }
+
+    @RepeatedTest(1)
+    void test() {
+
     }
 
 }

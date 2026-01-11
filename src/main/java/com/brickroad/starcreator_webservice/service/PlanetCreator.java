@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.service;
 
+import com.brickroad.starcreator_webservice.model.enums.PlanetSubType;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
@@ -7,18 +8,54 @@ import com.brickroad.starcreator_webservice.model.enums.TerrainType;
 import com.brickroad.starcreator_webservice.model.planets.MagneticField;
 import com.brickroad.starcreator_webservice.utils.CreatorUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import io.cucumber.java.it.Ma;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.random.RandomGenerator;
 
 import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.*;
 import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.SIZE_VALUES;
-import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomLetter;
-import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomStringFromTxt;
+import static com.brickroad.starcreator_webservice.utils.RandomUtils.*;
 
 public class PlanetCreator {
 
     private static Planet planet;
+
+    public static Planet generatePlanet() {
+        planet = new Planet();
+        planet.setPlanetType(PlanetType.TERRESTRIAL);
+        planet.setType(planet.getPlanetType().getName());
+        planet.setMass(RandomUtils.rollRange(planet.getPlanetType().getMinMass(), planet.getPlanetType().getMaxMass()));
+        //find radius based on mass with some wiggle
+        double massRange = planet.getPlanetType().getMaxMass() - planet.getPlanetType().getMinMass();
+        double massPercentile = (planet.getMass() - planet.getPlanetType().getMinMass()) / massRange;
+        double wiggle = RandomUtils.rollDice(25) / 100d;
+        if (RandomUtils.flipCoin() == 1) {
+            wiggle = wiggle * - 1;
+        }
+        double radiusPercentile = massPercentile + wiggle;
+        if (radiusPercentile > 1) {
+            radiusPercentile =  1 - (radiusPercentile - 1);
+        }
+        if (radiusPercentile < 0) {
+            radiusPercentile = radiusPercentile * -1;
+        }
+        double radiusRange = planet.getPlanetType().getMaxRadius() - planet.getPlanetType().getMinRadius();
+        double radius = (radiusPercentile * radiusRange) + planet.getPlanetType().getMinRadius();
+        planet.setRadius(radius);
+
+        double density = planet.getRadius() * EARTH_RADIUS;
+        density = Math.pow(density, 3);
+        density = density * (4d/3) * Math.PI;
+        density = (planet.getMass() * EARTH_MASS) / density;
+        planet.setDensityDouble(density / 1000);
+        if (PlanetType.TERRESTRIAL.equals(planet.getPlanetType())) {
+            planet.setSubType(PlanetSubType.getPlanetTypeByDensity(planet.getDensityDouble()));
+        }
+        planet.setGravityInGs(planet.getMass() / (Math.pow(planet.getRadius(),2)));
+        planet.setGravity(planet.getGravityInGs() * EARTH_GRAVITY);
+        return planet;
+    }
 
     public static Planet generateRandomPlanet(String type, String name) {
         planet = new Planet();
@@ -39,7 +76,7 @@ public class PlanetCreator {
         findDensityAndGravity();
         findAtmosphericPressure();
         findTiltRotate();
-        if (!planet.getType().equalsIgnoreCase(PlanetType.GAS.getName())){
+        if (!planet.getType().equalsIgnoreCase(PlanetType.GAS_GIANT.getName())){
             findLiquid();
             findTerrainComposite();
         }
@@ -124,9 +161,8 @@ public class PlanetCreator {
     }
 
     private static void findAtmosphericPressure() {
-        double pressureRating = (
-                RandomUtils.rollDice(1, 10) - 3) + (planet.getPlanetSize() / 2.0) + (planet.getDensityRating() / 2.0);
-        if (Math.floor(pressureRating) >= (ATMOSPHERIC_PRESSURE.keySet().size() - 1)){
+        double pressureRating = (RandomUtils.rollD10() - 3) + (planet.getPlanetSize() / 2.0) + (planet.getDensityRating() / 2.0);
+        if (Math.floor(pressureRating) >= (ATMOSPHERIC_PRESSURE.size() - 1)){
             planet.getAtmosphere().setAtmosphereThickness((String) ATMOSPHERIC_PRESSURE.keySet().toArray()[ATMOSPHERIC_PRESSURE.keySet().toArray().length - 1]);
             planet.getAtmosphere().setAtmosphericPressure(pressureRating * ATMOSPHERIC_PRESSURE.get(planet.getAtmosphere().getAtmosphereThickness())[0]);
         } else {

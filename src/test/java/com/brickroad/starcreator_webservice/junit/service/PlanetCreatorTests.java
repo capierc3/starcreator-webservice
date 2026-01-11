@@ -20,7 +20,7 @@ public class PlanetCreatorTests {
 
     private static Stream<Arguments> testPrams() {
         return Stream.of(
-                Arguments.of(PlanetType.GAS.getName(), "Gas Test"),
+                Arguments.of(PlanetType.GAS_GIANT.getName(), "Gas Test"),
                 Arguments.of(PlanetType.TERRESTRIAL.getName(), "Terrestrial Test"),
                 Arguments.of(PlanetType.DWARF.getName(), "Dwarf Test")
         );
@@ -56,9 +56,36 @@ public class PlanetCreatorTests {
 
     @Test
     void randomTest() {
-//        for (int i = 0; i < 11; i++) {
-//
-//        }
+        int count = 10;
+        double gs = 0;
+        double high = 0;
+        double low = 100000;
+        double under1 = 0;
+        double over2 = 0;
+        for (int i = 0; i < count; i++) {
+            Planet  planet = PlanetCreator.generatePlanet();
+            gs += planet.getGravityInGs();
+            if (planet.getGravityInGs() < 1) {
+                under1++;
+            }
+            if (planet.getGravityInGs() > 2) {
+                over2++;
+            }
+            if (planet.getGravityInGs() > high) {
+                high = planet.getGravityInGs();
+            }
+            if (planet.getGravityInGs() < low) {
+                low = planet.getGravityInGs();
+            }
+        }
+
+//        System.out.println(gs/count);
+//        System.out.println(high);
+//        System.out.println(low);
+//        System.out.println(under1 + " : " + under1/count);
+//        double inbetween = count - (under1 + over2);
+//        System.out.println(inbetween+ " : " + inbetween/count);
+//        System.out.println(over2+ " : " + over2/count);
     }
 
     private void assertPlanetRandomValues(Planet planet) {
@@ -66,7 +93,7 @@ public class PlanetCreatorTests {
         assertPlanetGravity(planet);
         assertAtmosphere(planet);
         assertTiltAndRotation(planet);
-        if (!planet.getPlanetType().equals(PlanetType.GAS)) {
+        if (!planet.getPlanetType().equals(PlanetType.GAS_GIANT)) {
             assertLiquidAmtAndType(planet);
             assertTerrain(planet);
         }
@@ -74,7 +101,7 @@ public class PlanetCreatorTests {
     }
 
     private void assertPlanetSize(Planet planet) {
-        if (planet.getPlanetType().equals(PlanetType.GAS)) {
+        if (planet.getPlanetType().equals(PlanetType.GAS_GIANT)) {
             assertTrue(planet.getCircumference() > 3999, "Gas Planet to small");
             assertTrue(planet.getCircumference() < 500001, "Dwarf Planet to big");
         } else if (planet.getPlanetType().equals(PlanetType.DWARF)) {
