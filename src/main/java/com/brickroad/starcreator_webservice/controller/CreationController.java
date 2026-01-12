@@ -1,10 +1,13 @@
 package com.brickroad.starcreator_webservice.controller;
 
+import com.brickroad.starcreator_webservice.model.factions.Faction;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.Star;
+import com.brickroad.starcreator_webservice.request.FactionRequest;
 import com.brickroad.starcreator_webservice.request.PlanetRequest;
 import com.brickroad.starcreator_webservice.request.StarRequest;
 import com.brickroad.starcreator_webservice.service.CreationService;
+import com.brickroad.starcreator_webservice.service.FactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -25,7 +28,7 @@ public class CreationController {
     private final CreationService creationService;
 
     @Autowired
-    public CreationController(CreationService creationService) {
+    public CreationController(CreationService creationService, FactionService factionService) {
         this.creationService = creationService;
     }
 
@@ -35,7 +38,6 @@ public class CreationController {
     String home() throws IOException {
         return IOUtils.toString(Objects.requireNonNull(ClassLoader.getSystemResourceAsStream("static/welcome.txt")),StandardCharsets.UTF_8);
     }
-
 
     @Operation(summary = "Generate planet", description = "Generates a random planet based on name and type", tags = {"Planet Creation"})
     @ApiResponse(responseCode = "200", description = "Planet Generated", content = {@Content(mediaType = "application/json",schema = @Schema(implementation = Planet.class))})
