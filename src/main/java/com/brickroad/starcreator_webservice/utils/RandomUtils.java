@@ -1,14 +1,19 @@
 package com.brickroad.starcreator_webservice.utils;
 
 import org.apache.commons.io.FileUtils;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.StreamUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.random.RandomGenerator;
@@ -109,11 +114,12 @@ public class RandomUtils {
 
     public static String getRandomStringFromTxt(String fileName) {
         try {
-            URL fileURL = ClassLoader.getSystemResource(fileName);
-            Path filePath = Paths.get(fileURL.toURI());
-            List<String> stringList = FileUtils.readLines(filePath.toFile(), Charset.defaultCharset());
+            ClassPathResource resource = new ClassPathResource(fileName);
+            InputStream inputStream = resource.getInputStream();
+            String fileContent = StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
+            List<String> stringList = Arrays.asList(fileContent.split("\n"));
             return stringList.get(rollRange(0, stringList.size() - 1));
-        } catch (IOException | URISyntaxException e) {
+        } catch (IOException e) {
             return "ERROR";
         }
     }
