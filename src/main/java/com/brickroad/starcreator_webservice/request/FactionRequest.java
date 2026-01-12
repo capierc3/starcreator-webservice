@@ -5,6 +5,7 @@ public class FactionRequest {
     private String name;
     private String type;
     private String alignment;
+    private boolean ai_created;
     private int count;
 
     public String getName() {
@@ -37,5 +38,13 @@ public class FactionRequest {
 
     public void setCount(int count) {
         this.count = count;
+    }
+
+    public boolean isAi_created() {
+        return ai_created;
+    }
+
+    public void setAi_created(boolean ai_created) {
+        this.ai_created = ai_created;
     }
 }
