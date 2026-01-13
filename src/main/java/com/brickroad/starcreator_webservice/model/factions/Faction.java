@@ -18,11 +18,11 @@ public class Faction {
     private String description;
     private String alignment;
     private int influence;
-    private boolean ai_created;
+    private boolean aiCreated;
 
     @ManyToOne
     @JoinColumn(name = "government_type")
-    private GovernmentType government_type;
+    private GovernmentType governmentType;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -90,19 +90,15 @@ public class Faction {
     }
 
     public GovernmentType getGovernmentType() {
-        return government_type;
-    }
-
-    public void setGovernmentTypeId(GovernmentType governmentType) {
-        this.government_type = government_type;
+        return governmentType;
     }
 
     public boolean isAi_created() {
-        return ai_created;
+        return aiCreated;
     }
 
     public void setAi_created(boolean ai_created) {
-        this.ai_created = ai_created;
+        this.aiCreated = ai_created;
     }
 
     public LocalDateTime getCreatedAt() {
