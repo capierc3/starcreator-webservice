@@ -24,9 +24,7 @@ public class PromptService {
         Prompt prompt = new Prompt();
 
         prompt.setMainFaction(factionRepo.getRandomFaction());
-        prompt.setMainGovernment(governmentTypeRepo.findById(prompt.getMainFaction().getGovernmentTypeId()));
         prompt.setSecondaryFaction(factionRepo.getRandomFaction());
-        prompt.setSecondaryGovernment(governmentTypeRepo.findById(prompt.getSecondaryFaction().getGovernmentTypeId()));
         prompt.setPlanet(creationService.createPlanet(null));
 
         TarotDeck deck = new TarotDeck();

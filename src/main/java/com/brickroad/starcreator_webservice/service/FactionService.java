@@ -54,8 +54,4 @@ public class FactionService {
         return factionRepo.getRandomFaction();
     }
 
-    public GovernmentType getGovernmentType(Faction faction) {
-        return governmentTypeRepo.findById(faction.getGovernmentTypeId());
-    }
-
 }
