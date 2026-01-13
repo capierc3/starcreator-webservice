@@ -22,7 +22,7 @@ FROM eclipse-temurin:23-jre-alpine
 WORKDIR /app
 
 # Copy the built JAR from build stage
-COPY --from=build /app/target/starcreator-webservice-0.1.0-SNAPSHOT.jar app.jar
+COPY --from=build /app/target/starcreator-webservice-*.jar app.jar
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
