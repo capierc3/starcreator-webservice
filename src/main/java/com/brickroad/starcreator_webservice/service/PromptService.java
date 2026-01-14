@@ -10,13 +10,11 @@ import org.springframework.stereotype.Service;
 public class PromptService {
 
     private final FactionRepo factionRepo;
-    private final GovernmentTypeRepo governmentTypeRepo;
     private final CreationService creationService;
 
     public PromptService(FactionRepo factionRepo, CreationService creationService, GovernmentTypeRepo governmentTypeRepo) {
         this.factionRepo = factionRepo;
         this.creationService = creationService;
-        this.governmentTypeRepo = governmentTypeRepo;
     }
 
     public Prompt createPrompt() {
@@ -24,9 +22,7 @@ public class PromptService {
         Prompt prompt = new Prompt();
 
         prompt.setMainFaction(factionRepo.getRandomFaction());
-        prompt.setMainGovernment(governmentTypeRepo.findById(prompt.getMainFaction().getGovernmentTypeId()));
         prompt.setSecondaryFaction(factionRepo.getRandomFaction());
-        prompt.setSecondaryGovernment(governmentTypeRepo.findById(prompt.getSecondaryFaction().getGovernmentTypeId()));
         prompt.setPlanet(creationService.createPlanet(null));
 
         TarotDeck deck = new TarotDeck();

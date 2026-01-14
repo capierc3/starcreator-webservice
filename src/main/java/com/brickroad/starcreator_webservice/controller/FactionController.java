@@ -59,10 +59,7 @@ public class FactionController {
 
     private ResponseEntity<FactionResponse> createResponse(Faction faction, List<Faction> factionList) {
         FactionResponse response = new FactionResponse();
-        if (faction != null) {
-            response.setFaction(faction);
-            response.setGovernmentType(factionService.getGovernmentType(faction));
-        }
+        response.setFaction(faction);
         response.setFactions(factionList);
         return ResponseEntity.ok(response);
     }

@@ -3,7 +3,7 @@ package com.brickroad.starcreator_webservice.model.factions;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "government_type_ref")
+@Table(name = "government_type", schema = "ref")
 public class GovernmentType {
 
     @Id

@@ -7,6 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "factions", schema = "ud")
 public class Faction {
 
     @Id
@@ -18,8 +19,11 @@ public class Faction {
     private String description;
     private String alignment;
     private int influence;
-    private int government_type;
-    private boolean ai_created;
+    private boolean aiCreated;
+
+    @ManyToOne
+    @JoinColumn(name = "government_type")
+    private GovernmentType governmentType;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -86,20 +90,16 @@ public class Faction {
         this.influence = influence;
     }
 
-    public int getGovernmentTypeId() {
-        return government_type;
-    }
-
-    public void setGovernmentTypeId(int governmentTypeId) {
-        this.government_type = governmentTypeId;
+    public GovernmentType getGovernmentType() {
+        return governmentType;
     }
 
     public boolean isAi_created() {
-        return ai_created;
+        return aiCreated;
     }
 
     public void setAi_created(boolean ai_created) {
-        this.ai_created = ai_created;
+        this.aiCreated = ai_created;
     }
 
     public LocalDateTime getCreatedAt() {

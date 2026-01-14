@@ -1,16 +1,13 @@
 package com.brickroad.starcreator_webservice.model.Prompts;
 
 import com.brickroad.starcreator_webservice.model.factions.Faction;
-import com.brickroad.starcreator_webservice.model.factions.GovernmentType;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.utils.TarotCard;
 
 public class Prompt {
 
     private Faction mainFaction;
-    private GovernmentType mainGovernment;
     private Faction secondaryFaction;
-    private GovernmentType secondaryGovernment;
     private Planet planet;
     private TarotCard hero;
     private TarotCard villain;
@@ -22,11 +19,9 @@ public class Prompt {
     private TarotCard climax;
     private TarotCard resolutionConsequence;
 
-    public Prompt(Faction mainFaction, GovernmentType mainGovernment, Faction secondaryFaction, GovernmentType secondaryGovernment, Planet planet) {
+    public Prompt(Faction mainFaction, Faction secondaryFaction, Planet planet) {
         this.mainFaction = mainFaction;
-        this.mainGovernment = mainGovernment;
         this.secondaryFaction = secondaryFaction;
-        this.secondaryGovernment = secondaryGovernment;
         this.planet = planet;
     }
 
@@ -40,28 +35,12 @@ public class Prompt {
         this.mainFaction = mainFaction;
     }
 
-    public GovernmentType getMainGovernment() {
-        return mainGovernment;
-    }
-
-    public void setMainGovernment(GovernmentType mainGovernment) {
-        this.mainGovernment = mainGovernment;
-    }
-
     public Faction getSecondaryFaction() {
         return secondaryFaction;
     }
 
     public void setSecondaryFaction(Faction secondaryFaction) {
         this.secondaryFaction = secondaryFaction;
-    }
-
-    public GovernmentType getSecondaryGovernment() {
-        return secondaryGovernment;
-    }
-
-    public void setSecondaryGovernment(GovernmentType secondaryGovernment) {
-        this.secondaryGovernment = secondaryGovernment;
     }
 
     public Planet getPlanet() {
