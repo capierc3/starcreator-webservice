@@ -14,15 +14,15 @@ public interface FactionRepo extends JpaRepository<Faction, Long> {
 
     Faction findByName(String name);
 
-    @Query(value = "SELECT * FROM faction ORDER BY RANDOM() LIMIT 1", nativeQuery = true)
+    @Query(value = "SELECT * FROM ud.factions ORDER BY RANDOM() LIMIT 1", nativeQuery = true)
     Faction getRandomFaction();
 
-    @Query(value = "SELECT * FROM faction WHERE type = :type ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
+    @Query(value = "SELECT * FROM ud.factions WHERE type = :type ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
     List<Faction> findAllByType(@Param("type") String Type, @Param("limit") int count);
 
-    @Query(value = "SELECT * FROM faction WHERE alignment = :alignment ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
+    @Query(value = "SELECT * FROM ud.factions WHERE alignment = :alignment ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
     List<Faction> findAllByAlignment(@Param("alignment") String alignment, @Param("limit") int count);
 
-    @Query(value = "SELECT * FROM faction WHERE type = :type AND alignment = :alignment ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
+    @Query(value = "SELECT * FROM ud.factions WHERE type = :type AND alignment = :alignment ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
     List<Faction> findByTypeAndAlignment(@Param("type") String type, @Param("alignment") String alignment,@Param("limit") int count);
 }
