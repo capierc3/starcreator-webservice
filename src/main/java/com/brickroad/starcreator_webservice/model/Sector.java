@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.model;
 
+import com.brickroad.starcreator_webservice.model.starSystems.StarSystem_old;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
 import java.io.File;
@@ -17,7 +18,7 @@ public class Sector {
     private String id;
 
     /** Gird that holds all the Systems in the Sector*/
-    private StarSystem[][] grid;
+    private StarSystem_old[][] grid;
     /**Amount of systems in the sector*/
     private int amtSystems;
     /** String that holds the name**/
@@ -54,7 +55,7 @@ public class Sector {
         } else {
             this.origin = false;
         }
-        grid = new StarSystem[10][10];
+        grid = new StarSystem_old[10][10];
         findName();
         amtSystems = RandomUtils.rollDice(1,10)+20;
         for (int i = 0; i < amtSystems; i++) {
@@ -63,7 +64,7 @@ public class Sector {
             boolean placed = false;
             while (!placed) {
                 if (grid[row][col] == null) {
-                    grid[row][col] = new StarSystem(name,population,col,row,x,y,z);
+                    grid[row][col] = new StarSystem_old(name,population,col,row,x,y,z);
                     placed = true;
                 } else {
                     row = RandomUtils.rollDice(1,10) - 1;
@@ -111,7 +112,7 @@ public class Sector {
      * Getter that returns the grid array that holds all the Sector's Systems
      * @return StarSystem[][] grid
      */
-    public StarSystem[][] getGrid() {
+    public StarSystem_old[][] getGrid() {
         return grid;
     }
 

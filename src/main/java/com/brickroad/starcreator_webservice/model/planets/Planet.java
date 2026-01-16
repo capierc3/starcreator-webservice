@@ -1,10 +1,11 @@
 package com.brickroad.starcreator_webservice.model.planets;
 
 import com.brickroad.starcreator_webservice.model.Body;
+import com.brickroad.starcreator_webservice.model.CelestialBody;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-public class Planet extends Body {
+public class Planet extends CelestialBody {
 
     @JsonIgnore
     private int planetSize;
@@ -98,12 +99,10 @@ public class Planet extends Body {
         this.surface = surface;
     }
 
-    @Override
     public String getSystemName() {
         return systemName;
     }
 
-    @Override
     public void setSystemName(String systemName) {
         this.systemName = systemName;
     }

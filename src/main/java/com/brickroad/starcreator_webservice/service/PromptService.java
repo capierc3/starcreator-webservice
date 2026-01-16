@@ -1,8 +1,8 @@
 package com.brickroad.starcreator_webservice.service;
 
-import com.brickroad.starcreator_webservice.database.repos.FactionRepo;
-import com.brickroad.starcreator_webservice.database.repos.GovernmentTypeRepo;
-import com.brickroad.starcreator_webservice.model.Prompts.Prompt;
+import com.brickroad.starcreator_webservice.repos.FactionRepo;
+import com.brickroad.starcreator_webservice.repos.GovernmentTypeRepo;
+import com.brickroad.starcreator_webservice.model.prompts.Prompt;
 import com.brickroad.starcreator_webservice.utils.TarotDeck;
 import org.springframework.stereotype.Service;
 

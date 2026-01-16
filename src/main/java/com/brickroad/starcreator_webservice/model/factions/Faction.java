@@ -1,10 +1,14 @@
 package com.brickroad.starcreator_webservice.model.factions;
 
+import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "factions", schema = "ud")
@@ -20,6 +24,9 @@ public class Faction {
     private String alignment;
     private int influence;
     private boolean aiCreated;
+
+    @OneToMany(mappedBy = "faction", cascade = CascadeType.ALL)
+    private Set<FactionPresence> systemPresences = new HashSet<>();
 
     @ManyToOne
     @JoinColumn(name = "government_type")
@@ -116,5 +123,19 @@ public class Faction {
 
     public void setModifiedOn(LocalDateTime modifiedOn) {
         this.modifiedOn = modifiedOn;
+    }
+
+    public Set<StarSystem> getSystems() {
+        return systemPresences.stream()
+                .map(FactionPresence::getSystem)
+                .collect(Collectors.toSet());
+    }
+
+    // Helper to get controlled systems
+    public Set<StarSystem> getControlledSystems() {
+        return systemPresences.stream()
+                .filter(FactionPresence::getIsControlling)
+                .map(FactionPresence::getSystem)
+                .collect(Collectors.toSet());
     }
 }

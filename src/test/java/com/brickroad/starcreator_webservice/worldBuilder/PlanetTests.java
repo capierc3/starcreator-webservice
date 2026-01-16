@@ -3,7 +3,7 @@ package com.brickroad.starcreator_webservice.worldBuilder;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
 import com.brickroad.starcreator_webservice.model.enums.PlanetType;
-import com.brickroad.starcreator_webservice.service.PlanetCreator;
+import com.brickroad.starcreator_webservice.model.planets.PlanetCreator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;

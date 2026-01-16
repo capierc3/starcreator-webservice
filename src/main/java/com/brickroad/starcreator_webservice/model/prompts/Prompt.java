@@ -1,4 +1,4 @@
-package com.brickroad.starcreator_webservice.model.Prompts;
+package com.brickroad.starcreator_webservice.model.prompts;
 
 import com.brickroad.starcreator_webservice.model.factions.Faction;
 import com.brickroad.starcreator_webservice.model.planets.Planet;

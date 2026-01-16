@@ -1,14 +1,17 @@
-package com.brickroad.starcreator_webservice.model;
+package com.brickroad.starcreator_webservice.model.starSystems;
 
+import com.brickroad.starcreator_webservice.model.Asteroid;
+import com.brickroad.starcreator_webservice.model.Body;
+import com.brickroad.starcreator_webservice.model.OtherBody;
+import com.brickroad.starcreator_webservice.model.Sector;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.service.PlanetCreator;
+import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.utils.SpaceTravel;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Scanner;
 
 /**
@@ -17,7 +20,7 @@ import java.util.Scanner;
  * @author Chase Pierce
  * @version 1.0
  */
-public class StarSystem {
+public class StarSystem_old {
 
     /**Name of the system**/
     private String name;
@@ -26,7 +29,7 @@ public class StarSystem {
     private ArrayList<Planet> planets;
     private ArrayList<Body> bodies;
     private ArrayList<Body> orderSystem;
-    private ArrayList<StarSystem> nearBySystems;
+    private ArrayList<StarSystem_old> nearBySystems;
     /**Size of the system in AUs**/
     private double size;
     /**Information on the habitable zone of the system if it has one.**/
@@ -41,7 +44,7 @@ public class StarSystem {
     /**
      * Empty Constructor for use with the database creation only
      */
-    public StarSystem(){
+    public StarSystem_old(){
 
     }
     /**
@@ -50,7 +53,7 @@ public class StarSystem {
      * @param x location int for x.
      * @param y location int for y.
      */
-    public StarSystem(String sectorName, Sector.Population population, int x, int y,int secX, int secY, int secZ) {
+    public StarSystem_old(String sectorName, Sector.Population population, int x, int y, int secX, int secY, int secZ) {
         this.population = population;
         findName();
         int starCount;
@@ -161,11 +164,11 @@ public class StarSystem {
             } else if (roll <=9){
                 bodies.add(new OtherBody("Oort Cloud",name));
             } else if (roll <=12){
-                planets.add(PlanetCreator.generateRandomPlanet("Dwarf Planet",name));
+                //planets.add(PlanetCreator.generateRandomPlanet("Dwarf Planet",name));
             } else if (roll <=16){
-                planets.add(PlanetCreator.generateRandomPlanet("Gas Planet",name));
+                //planets.add(PlanetCreator.generateRandomPlanet("Gas Planet",name));
             } else {
-                planets.add(PlanetCreator.generateRandomPlanet("Terrestrial Planet",name));
+                //planets.add(PlanetCreator.generateRandomPlanet("Terrestrial Planet",name));
             }
         }
     }
@@ -175,68 +178,68 @@ public class StarSystem {
      * bodies Distance to Sun variable for the created AU distance.
      */
     private void placeBodies(){
-        String[] sTypes = {"M", "K", "G", "F", "A", "B", "O"};
-        double[][] goldilocks = {
-                {.51, 200.85},
-                {107, 480},
-                {351, 872.9},
-                {607, 1890},
-                {1357, 4948},
-                {3731, 41133},
-                {32565, 99018},
-        };
-        String sType = "";
-        int typeLoc = 0;
-        boolean main = false;
-        for (Star s : stars) {
-            if (s.type.contains("Main Sequence")) {
-                main = true;
-                for (int i = 0; i < sTypes.length; i++) {
-                    sType = s.type.replace("Main Sequence(", "");
-                    sType = sType.replace(")", "");
-                    if (sType.equalsIgnoreCase(sTypes[i])) {
-                        if (typeLoc < i) {
-                            typeLoc = i;
-                        }
-                    }
-                }
-            }
-        }
-        ArrayList<String> fullTypes = new ArrayList<>() {{
-            add("Anomaly");
-            add("Structure/Item");
-            add("Dwarf Planet");}};
-        ArrayList<String> hotHabitTypes = new ArrayList<>(Arrays.asList("Single/Group","Belt","Terrestrial Planet"));
-        ArrayList<Double> placedLocs = new ArrayList<>();
-        double lsSize = SpaceTravel.AUtoLS(size);
-        if (main){
-            habitLow = goldilocks[typeLoc][0];
-            habitHigh = goldilocks[typeLoc][1];
-        } else {
-            habitLow = 0;
-            habitHigh = lsSize/2;
-        }
-        for (Body b:bodies) {
-            if (fullTypes.contains(b.type)){
-                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,0,lsSize));
-            } else if (hotHabitTypes.contains(b.type)){
-                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,0,habitHigh+((habitHigh-habitLow)/2)));
-            } else {
-                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,habitHigh,lsSize));
-            }
-        }
-        for (Body b:planets) {
-            if (fullTypes.contains(b.type)){
-                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,0,lsSize));
-            } else if (hotHabitTypes.contains(b.type)){
-                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,0,habitHigh+((habitHigh-habitLow)/2)));
-            } else {
-                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,habitHigh,lsSize));
-            }
-        }
-        orderSystem = bodies;
-        orderSystem.addAll(planets);
-        orderSystem.sort(Body::compareTo);
+//        String[] sTypes = {"M", "K", "G", "F", "A", "B", "O"};
+//        double[][] goldilocks = {
+//                {.51, 200.85},
+//                {107, 480},
+//                {351, 872.9},
+//                {607, 1890},
+//                {1357, 4948},
+//                {3731, 41133},
+//                {32565, 99018},
+//        };
+//        String sType = "";
+//        int typeLoc = 0;
+//        boolean main = false;
+//        for (Star s : stars) {
+//            if (s.type.contains("Main Sequence")) {
+//                main = true;
+//                for (int i = 0; i < sTypes.length; i++) {
+//                    sType = s.type.replace("Main Sequence(", "");
+//                    sType = sType.replace(")", "");
+//                    if (sType.equalsIgnoreCase(sTypes[i])) {
+//                        if (typeLoc < i) {
+//                            typeLoc = i;
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        ArrayList<String> fullTypes = new ArrayList<>() {{
+//            add("Anomaly");
+//            add("Structure/Item");
+//            add("Dwarf Planet");}};
+//        ArrayList<String> hotHabitTypes = new ArrayList<>(Arrays.asList("Single/Group","Belt","Terrestrial Planet"));
+//        ArrayList<Double> placedLocs = new ArrayList<>();
+//        double lsSize = SpaceTravel.AUtoLS(size);
+//        if (main){
+//            habitLow = goldilocks[typeLoc][0];
+//            habitHigh = goldilocks[typeLoc][1];
+//        } else {
+//            habitLow = 0;
+//            habitHigh = lsSize/2;
+//        }
+//        for (Body b:bodies) {
+//            if (fullTypes.contains(b.type)){
+//                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,0,lsSize));
+//            } else if (hotHabitTypes.contains(b.type)){
+//                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,0,habitHigh+((habitHigh-habitLow)/2)));
+//            } else {
+//                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,habitHigh,lsSize));
+//            }
+//        }
+//        for (Body b:planets) {
+//            if (fullTypes.contains(b.type)){
+//                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,0,lsSize));
+//            } else if (hotHabitTypes.contains(b.type)){
+//                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,0,habitHigh+((habitHigh-habitLow)/2)));
+//            } else {
+//                b.distanceSun = SpaceTravel.LStoAU(placeInSystem(placedLocs,habitHigh,lsSize));
+//            }
+//        }
+//        orderSystem = bodies;
+//        orderSystem.addAll(planets);
+//        orderSystem.sort(Body::compareTo);
     }
 
     /**
@@ -262,20 +265,20 @@ public class StarSystem {
      */
     private void createStars(int starCount){
         stars = new Star[starCount];
-        if (starCount==1){
-            stars[0] = new Star(name);
-        } else {
-            stars[0] = new Star(name);
-            for (int i = 1; i < stars.length; i++) {
-                if (RandomUtils.flipCoin() == 1) {
-                    stars[i] = new Star(stars[i - 1].getTypeNum(),i+1,name);
-                } else {
-                    if (RandomUtils.flipCoin() == 1){
-                        stars[i] = new Star(stars[i-1].getTypeNum()-1,i+1,name);
-                    } else stars[i] = new Star(stars[i-1].getTypeNum()+1,i+1,name);
-                }
-            }
-        }
+//        if (starCount==1){
+//            stars[0] = new Star(name);
+//        } else {
+//            stars[0] = new Star(name);
+//            for (int i = 1; i < stars.length; i++) {
+//                if (RandomUtils.flipCoin() == 1) {
+//                    stars[i] = new Star(stars[i - 1].getTypeNum(),i+1,name);
+//                } else {
+//                    if (RandomUtils.flipCoin() == 1){
+//                        stars[i] = new Star(stars[i-1].getTypeNum()-1,i+1,name);
+//                    } else stars[i] = new Star(stars[i-1].getTypeNum()+1,i+1,name);
+//                }
+//            }
+//        }
     }
 
     /**
@@ -402,7 +405,7 @@ public class StarSystem {
         return z;
     }
 
-    public ArrayList<StarSystem> getNearBySystems() {
+    public ArrayList<StarSystem_old> getNearBySystems() {
         return nearBySystems;
     }
 
