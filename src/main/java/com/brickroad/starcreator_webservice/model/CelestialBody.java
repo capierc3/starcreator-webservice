@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -21,6 +22,7 @@ public class CelestialBody {
 
     @ManyToOne
     @JoinColumn(name = "system_id")
+    @JsonBackReference
     private com.brickroad.starcreator_webservice.model.starSystems.StarSystem system;
 
     private Double distanceFromStar;

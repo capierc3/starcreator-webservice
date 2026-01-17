@@ -1,26 +1,19 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
 import com.brickroad.starcreator_webservice.model.stars.Star;
-import com.brickroad.starcreator_webservice.model.stars.StarCreator;
+import com.brickroad.starcreator_webservice.Creators.StarCreator;
 import com.brickroad.starcreator_webservice.model.stars.StarTypeRef;
 import com.brickroad.starcreator_webservice.repos.StarTypeRefRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;

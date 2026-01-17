@@ -1,9 +1,7 @@
 package com.brickroad.starcreator_webservice.model.stars;
 
 import com.brickroad.starcreator_webservice.model.CelestialBody;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "star", schema = "ud")
@@ -23,6 +21,16 @@ public class Star extends CelestialBody {
     private Boolean isVariable;
     @Column(name = "variability_period_days")
     private Double variabilityPeriod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "star_role")
+    private StarRole starRole;
+
+    public enum StarRole {
+        PRIMARY,      // Main star
+        SECONDARY,    // Companion star
+        TERTIARY      // Third star in trinary
+    }
 
     public Star() {}
 
@@ -120,5 +128,13 @@ public class Star extends CelestialBody {
 
     public void setVariabilityPeriod(Double variabilityPeriod) {
         this.variabilityPeriod = variabilityPeriod;
+    }
+
+    public StarRole getStarRole() {
+        return starRole;
+    }
+
+    public void setStarRole(StarRole starRole) {
+        this.starRole = starRole;
     }
 }

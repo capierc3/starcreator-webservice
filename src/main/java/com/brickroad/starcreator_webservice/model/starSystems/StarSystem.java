@@ -1,13 +1,18 @@
 package com.brickroad.starcreator_webservice.model.starSystems;
 
 import com.brickroad.starcreator_webservice.model.CelestialBody;
+import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.factions.Faction;
 import com.brickroad.starcreator_webservice.model.factions.FactionPresence;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.sectors.Sector;
 import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -27,9 +32,11 @@ public class StarSystem {
     private Sector sector;
 
     @OneToMany(mappedBy = "system")
+    @JsonManagedReference
     private Set<Star> stars = new HashSet<>();
 
     @OneToMany(mappedBy = "system")
+    @JsonManagedReference
     private Set<CelestialBody> bodies = new HashSet<>();
 
     @OneToMany(mappedBy = "system", cascade = CascadeType.ALL)
@@ -41,6 +48,19 @@ public class StarSystem {
 
     private Double habitableHigh;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "binary_configuration")
+    private BinaryConfiguration binaryConfiguration;
+
+    @Column(name = "primary_star_id")
+    private Long primaryStarId;  // Which star is the "main" one
+
+    @Column(name = "binary_separation_au")
+    private Double binarySeparationAu;  // Distance between stars
+
+    @Column(name = "binary_orbital_period_days")
+    private Double binaryOrbitalPeriodDays;
+
     private String description;
 
     @Column(nullable = false)
@@ -49,6 +69,14 @@ public class StarSystem {
     private int y;
     @Column(nullable = false)
     private int z;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "modified_at")
+    private LocalDateTime modifiedAt;
 
     public void setId(Long id) {
         this.id = id;
@@ -163,5 +191,53 @@ public class StarSystem {
 
     public void setStars(Set<Star> stars) {
         this.stars = stars;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getModifiedAt() {
+        return modifiedAt;
+    }
+
+    public void setModifiedAt(LocalDateTime modifiedAt) {
+        this.modifiedAt = modifiedAt;
+    }
+
+    public BinaryConfiguration getBinaryConfiguration() {
+        return binaryConfiguration;
+    }
+
+    public void setBinaryConfiguration(BinaryConfiguration binaryConfiguration) {
+        this.binaryConfiguration = binaryConfiguration;
+    }
+
+    public Long getPrimaryStarId() {
+        return primaryStarId;
+    }
+
+    public void setPrimaryStarId(Long primaryStarId) {
+        this.primaryStarId = primaryStarId;
+    }
+
+    public Double getBinarySeparationAu() {
+        return binarySeparationAu;
+    }
+
+    public void setBinarySeparationAu(Double binarySeparationAu) {
+        this.binarySeparationAu = binarySeparationAu;
+    }
+
+    public Double getBinaryOrbitalPeriodDays() {
+        return binaryOrbitalPeriodDays;
+    }
+
+    public void setBinaryOrbitalPeriodDays(Double binaryOrbitalPeriodDays) {
+        this.binaryOrbitalPeriodDays = binaryOrbitalPeriodDays;
     }
 }

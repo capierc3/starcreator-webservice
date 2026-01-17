@@ -1,5 +1,7 @@
-package com.brickroad.starcreator_webservice.model.stars;
+package com.brickroad.starcreator_webservice.Creators;
 
+import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.brickroad.starcreator_webservice.model.stars.StarTypeRef;
 import com.brickroad.starcreator_webservice.repos.StarTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class StarCreator {
@@ -29,37 +32,73 @@ public class StarCreator {
     }
 
     public Star generateStar() {
-
-        Star star = new Star();
         StarTypeRef type = selectStarTypeByRarity();
+        return generateStarByType(type);
+    }
 
-        double mass = RandomUtils.rollRange(type.getMinMass(), type.getMaxMass());
-        double radius = calculateRadius(mass, type);
-        radius = addVariance(radius);
+    public Star generateStarByType(StarTypeRef type) {
+        Star star = new Star();
 
-        star.setName(generateRandomName());
-        star.setSolarMass(mass);
-        star.setSolarRadius(radius);
-        star.setType(type.getName());
-        star.setSpectralType(type.getSpectralClass());
-        star.setMass(ConversionFormulas.solarMassToKG(mass));
-        star.setRadius(ConversionFormulas.solarRadiusToKM(radius));
-        star.setCircumference(ConversionFormulas.radiusToCircumference(star.getRadius()));
-        star.setSolarLuminosity(calculateLuminosity(mass, type));
-        star.setSurfaceTemp(calculateSurfaceTemp(type, mass));
-        star.setAgeMY(calculateStarAge(mass, type));
-        star.setMetallicity(RandomUtils.rollRange(-0.5, 0.3));
-        star.setRotationDays(calculateRotationPeriod(mass, star.getAgeMY()));
-        star.setColorIndex(determineColor(star.getSurfaceTemp()));
-        star.setIsVariable(isStarVariable(type));
-        if (star.isVariable()) {
-            star.setVariabilityPeriod(RandomUtils.rollRange(0.1, 100)); // Days
-        }
+        // Generate base properties
+        double solarMass = RandomUtils.rollRange(type.getMinMass(), type.getMaxMass());
+        double solarRadius = calculateRadius(solarMass, type);
+        solarRadius = addVariance(solarRadius);
 
-        star.setCreatedAt(LocalDateTime.now());
-        star.setModifiedAt(LocalDateTime.now());
+        // Populate star with all properties
+        populateStar(star, type, solarMass, solarRadius);
 
         return star;
+    }
+
+    public Star generateCompanionStar(Star primary) {
+        List<StarTypeRef> compatibleTypes = getCompatibleStarTypes(primary);
+        StarTypeRef companionType = selectFromList(compatibleTypes);
+
+        Star companion = generateStarByType(companionType);
+
+        // Match ages and metallicity (binary stars form together)
+        companion.setAgeMY(primary.getAgeMY() + RandomUtils.rollRange(-500, 500));
+        companion.setMetallicity(primary.getMetallicity() + RandomUtils.rollRange(-0.1, 0.1));
+
+        return companion;
+    }
+
+    private void populateStar(Star star, StarTypeRef type, double solarMass, double solarRadius) {
+        // Basic identification
+        star.setName(generateRandomName());
+        star.setType(type.getName());
+        star.setSpectralType(type.getSpectralClass());
+
+        // Solar units
+        star.setSolarMass(solarMass);
+        star.setSolarRadius(solarRadius);
+
+        // Convert to standard units
+        star.setMass(ConversionFormulas.solarMassToKG(solarMass));
+        star.setRadius(ConversionFormulas.solarRadiusToKM(solarRadius));
+        star.setCircumference(ConversionFormulas.radiusToCircumference(star.getRadius()));
+
+        // Physical properties
+        star.setSolarLuminosity(calculateLuminosity(solarMass, type));
+        star.setSurfaceTemp(calculateSurfaceTemp(type, solarMass));
+        star.setColorIndex(determineColor(star.getSurfaceTemp()));
+
+        // Age and composition
+        star.setAgeMY(calculateStarAge(solarMass, type));
+        star.setMetallicity(RandomUtils.rollRange(-0.5, 0.3));
+
+        // Rotation
+        star.setRotationDays(calculateRotationPeriod(solarMass, star.getAgeMY()));
+
+        // Variability
+        star.setIsVariable(isStarVariable(type));
+        if (star.isVariable()) {
+            star.setVariabilityPeriod(RandomUtils.rollRange(0.1, 100));
+        }
+
+        // Timestamps
+        star.setCreatedAt(LocalDateTime.now());
+        star.setModifiedAt(LocalDateTime.now());
     }
 
     private StarTypeRef selectStarTypeByRarity() {
@@ -184,6 +223,55 @@ public class StarCreator {
         if (typeName.contains("giant")) return Math.random() < 0.3;
         if (typeName.contains("proto") || typeName.contains("t tauri")) return Math.random() < 0.5;
         return Math.random() < 0.05; // 5% of main sequence stars are variable
+    }
+
+    private List<StarTypeRef> getCompatibleStarTypes(Star primary) {
+        String primaryTypeName = primary.getType().toLowerCase();
+
+        // Filter out incompatible combinations
+        return cachedStarTypes.stream()
+                .filter(type -> {
+                    String typeName = type.getName().toLowerCase();
+
+                    // Proto-stars and T Tauri only with each other
+                    if (primaryTypeName.contains("proto") || primaryTypeName.contains("t tauri")) {
+                        return typeName.contains("proto") || typeName.contains("t tauri");
+                    }
+
+                    // White dwarfs and neutron stars only with main sequence or each other
+                    if (primaryTypeName.contains("white dwarf") || primaryTypeName.contains("neutron")) {
+                        return typeName.contains("main sequence") ||
+                                typeName.contains("white dwarf") ||
+                                typeName.contains("neutron");
+                    }
+
+                    // Giants only with main sequence or other giants
+                    if (primaryTypeName.contains("giant")) {
+                        return typeName.contains("main sequence") || typeName.contains("giant");
+                    }
+
+                    // Main sequence can pair with anything except proto/T Tauri
+                    return !typeName.contains("proto") && !typeName.contains("t tauri");
+                })
+                .collect(Collectors.toList());
+    }
+
+    private StarTypeRef selectFromList(List<StarTypeRef> types) {
+        int totalWeight = types.stream()
+                .mapToInt(StarTypeRef::getRarityWeight)
+                .sum();
+
+        int random = (int) (Math.random() * totalWeight);
+
+        int currentWeight = 0;
+        for (StarTypeRef type : types) {
+            currentWeight += type.getRarityWeight();
+            if (random < currentWeight) {
+                return type;
+            }
+        }
+
+        return types.getFirst();
     }
 
     private String generateRandomName() {
