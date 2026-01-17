@@ -16,7 +16,7 @@ services:
     image: starcreator-web:dev
     container_name: starcreator-web-dev
     ports:
-      - "9001:8080"
+      - "9002:8080"
     environment:
       - SPRING_PROFILE=dev
     restart: unless-stopped
