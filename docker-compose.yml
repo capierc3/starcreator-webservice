@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  web-prod:
+    build: .
+    image: starcreator-web:prod
+    container_name: starcreator-web-prod
+    ports:
+      - "9000:8080"
+    environment:
+      - SPRING_PROFILE=prod
+    restart: unless-stopped
+
+  web-dev:
+    build: .
+    image: starcreator-web:dev
+    container_name: starcreator-web-dev
+    ports:
+      - "9001:8080"
+    environment:
+      - SPRING_PROFILE=dev
+    restart: unless-stopped
