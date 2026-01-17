@@ -1,4 +1,4 @@
-package com.brickroad.starcreator_webservice.database.repos;
+package com.brickroad.starcreator_webservice.repos;
 
 import com.brickroad.starcreator_webservice.model.factions.Faction;
 import org.springframework.data.jpa.repository.JpaRepository;
