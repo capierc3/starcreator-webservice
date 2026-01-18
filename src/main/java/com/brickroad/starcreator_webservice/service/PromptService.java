@@ -23,7 +23,7 @@ public class PromptService {
 
         prompt.setMainFaction(factionRepo.getRandomFaction());
         prompt.setSecondaryFaction(factionRepo.getRandomFaction());
-        prompt.setPlanet(creationService.createPlanet(null));
+        prompt.setPlanet(creationService.createPlanet());
 
         TarotDeck deck = new TarotDeck();
         deck.shuffle();

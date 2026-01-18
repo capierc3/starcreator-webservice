@@ -1,21 +1,5 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
-import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.model.enums.AtmosphereType;
-import com.brickroad.starcreator_webservice.model.enums.PlanetType;
-import com.brickroad.starcreator_webservice.model.planets.PlanetCreator;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-
-import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
-
-import static com.brickroad.starcreator_webservice.model.constants.PlanetConstants.*;
-import static org.junit.jupiter.api.Assertions.*;
-
 public class PlanetTests {
 
 //    private static Stream<Arguments> testPrams() {
