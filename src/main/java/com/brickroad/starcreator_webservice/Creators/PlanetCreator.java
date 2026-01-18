@@ -65,6 +65,10 @@ public class PlanetCreator {
         int numPlanets = determineNumberOfPlanets(parentStar);
         double frostLine = calculateFrostLine(parentStar);
 
+        double maxSystemDistance = 50.0;
+        if (parentStar.getSystem() != null && parentStar.getSystem().getSizeAu() != null) {
+            maxSystemDistance = parentStar.getSystem().getSizeAu();
+        }
         double currentDistance = RandomUtils.rollRange(0.1, 0.5);
         for (int i = 0; i < numPlanets; i++) {
             PlanetTypeRef type = selectPlanetTypeByDistance(currentDistance, frostLine, hz);
@@ -72,7 +76,7 @@ public class PlanetCreator {
             Planet planet = generatePlanetByType(type, parentStar, i + 1, currentDistance);
             planets.add(planet);
 
-            currentDistance = calculateNextOrbitDistance(currentDistance, i);
+            currentDistance = calculateNextOrbitDistance(currentDistance, i, numPlanets, maxSystemDistance);
         }
 
         return planets;
@@ -109,13 +113,13 @@ public class PlanetCreator {
 
         populateRotationProperties(planet, type, parentStar);
 
+        populateAtmosphereProperties(planet, type);
+
         if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
             planet.setSurfaceTemp(calculateSurfaceTemperature(parentStar, planet.getSemiMajorAxisAU(), planet.getAlbedo()));
         } else {
             planet.setSurfaceTemp(RandomUtils.rollRange(100.0, 400));
         }
-
-        populateAtmosphereProperties(planet, type);
 
         planet.setCoreType(type.getTypicalCoreType());
         planet.setGeologicalActivity(determineGeologicalActivity(earthMass, planet.getAgeMY()));
@@ -287,11 +291,14 @@ public class PlanetCreator {
         return periodYears * 365.25; // Convert to days
     }
 
-    private double calculateSurfaceTemperature(Star star, double distanceAU, double albedo) {
+    private double calculateSurfaceTemperature(Star star, double distanceAU, Double albedo) {
+        double effectiveAlbedo = (albedo != null) ? albedo : 0.3;
+
         double starTempK = star.getSurfaceTemp();
-        double starRadiusAU = (star.getRadius() * 1e6) / AU_TO_KM;
+        double starRadiusAU = star.getRadius() / AU_TO_KM;
         double distanceRatio = starRadiusAU / (2 * distanceAU);
-        return starTempK * Math.sqrt(distanceRatio) * Math.pow(1 - albedo, 0.25);
+
+        return starTempK * Math.sqrt(distanceRatio) * Math.pow(1 - effectiveAlbedo, 0.25);
     }
 
     private HabitableZone calculateHabitableZone(Star star) {
@@ -352,13 +359,23 @@ public class PlanetCreator {
         return selectFromList(suitableTypes);
     }
 
-    private double calculateNextOrbitDistance(double currentDistance, int planetIndex) {
+    private double calculateNextOrbitDistance(double currentDistance, int planetIndex, int totalPlanets, double maxSystemDistance) {
 
-        double spacing = 1.4 + (0.3 * Math.pow(1.5, planetIndex));
+        double remainingSpace = maxSystemDistance - currentDistance;
+        int remainingPlanets = totalPlanets - planetIndex - 1;
+
+        if (remainingPlanets <= 0) {
+            return currentDistance * 1.5;
+        }
+
+        double targetSpacing = Math.pow(remainingSpace / currentDistance, 1.0 / (remainingPlanets + 1));
+        targetSpacing = Math.max(1.3, Math.min(2.0, targetSpacing));
+        double spacing = targetSpacing * RandomUtils.rollRange(0.85, 1.15);
+
         double nextDistance = currentDistance * spacing;
-
-        nextDistance *= RandomUtils.rollRange(0.85, 1.15);
-
+        if (nextDistance > maxSystemDistance * 0.9) {
+            nextDistance = maxSystemDistance * RandomUtils.rollRange(0.85, 0.95);
+        }
         return nextDistance;
     }
 

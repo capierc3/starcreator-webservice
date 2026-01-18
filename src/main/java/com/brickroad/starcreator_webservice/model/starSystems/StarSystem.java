@@ -37,7 +37,7 @@ public class StarSystem {
 
     @OneToMany(mappedBy = "system")
     @JsonManagedReference
-    private Set<CelestialBody> bodies = new HashSet<>();
+    private List<CelestialBody> bodies = new ArrayList<>();
 
     @OneToMany(mappedBy = "system", cascade = CascadeType.ALL)
     private Set<FactionPresence> factionPresences = new HashSet<>();
@@ -171,11 +171,15 @@ public class StarSystem {
                 .findFirst();
     }
 
-    public Set<Planet> getPlanets() {
+    public Set<CelestialBody> getPlanets() {
         return bodies.stream()
                 .filter(body -> body instanceof Planet)
                 .map(body -> (Planet) body)
                 .collect(Collectors.toSet());
+    }
+
+    public void setPlanets(List<CelestialBody> bodies) {
+        this.bodies = bodies;
     }
 
     public List<CelestialBody> getOrderedBodies() {
