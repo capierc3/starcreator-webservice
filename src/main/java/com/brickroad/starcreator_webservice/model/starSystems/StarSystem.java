@@ -7,6 +7,7 @@ import com.brickroad.starcreator_webservice.model.factions.FactionPresence;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.sectors.Sector;
 import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -171,6 +172,7 @@ public class StarSystem {
                 .findFirst();
     }
 
+    @JsonIgnore
     public Set<CelestialBody> getPlanets() {
         return bodies.stream()
                 .filter(body -> body instanceof Planet)
@@ -180,13 +182,6 @@ public class StarSystem {
 
     public void setPlanets(List<CelestialBody> bodies) {
         this.bodies = bodies;
-    }
-
-    public List<CelestialBody> getOrderedBodies() {
-        return bodies.stream()
-                .sorted(Comparator.comparing(CelestialBody::getDistanceFromStar,
-                        Comparator.nullsLast(Comparator.naturalOrder())))
-                .collect(Collectors.toList());
     }
 
     public Set<Star> getStars() {

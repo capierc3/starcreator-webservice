@@ -1,12 +1,5 @@
 package com.brickroad.starcreator_webservice.model;
 
-import com.brickroad.starcreator_webservice.model.starSystems.StarSystem_old;
-import com.brickroad.starcreator_webservice.utils.RandomUtils;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.Scanner;
-
 /**
  * Class that has the utilities to build Sectors that are 10X10. Also holds the information of the sector.
  *
