@@ -43,7 +43,7 @@ public class CreationController {
     @ApiResponse(responseCode = "200", description = "Planet Generated", content = {@Content(mediaType = "application/json",schema = @Schema(implementation = Planet.class))})
     @GetMapping("/planet")
     public ResponseEntity<Planet> createPlanet(@RequestBody(required = false) PlanetRequest planetRequest) {
-        return ResponseEntity.ok(creationService.createPlanet(planetRequest));
+        return ResponseEntity.ok(creationService.createPlanet());
     }
 
     @Operation(summary = "Generate star", description = "Generates a random star based on type", tags = {"Star Creation"})

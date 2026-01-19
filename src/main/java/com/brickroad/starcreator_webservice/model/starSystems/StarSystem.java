@@ -7,6 +7,7 @@ import com.brickroad.starcreator_webservice.model.factions.FactionPresence;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.sectors.Sector;
 import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -37,7 +38,7 @@ public class StarSystem {
 
     @OneToMany(mappedBy = "system")
     @JsonManagedReference
-    private Set<CelestialBody> bodies = new HashSet<>();
+    private List<CelestialBody> bodies = new ArrayList<>();
 
     @OneToMany(mappedBy = "system", cascade = CascadeType.ALL)
     private Set<FactionPresence> factionPresences = new HashSet<>();
@@ -171,18 +172,16 @@ public class StarSystem {
                 .findFirst();
     }
 
-    public Set<Planet> getPlanets() {
+    @JsonIgnore
+    public Set<CelestialBody> getPlanets() {
         return bodies.stream()
                 .filter(body -> body instanceof Planet)
                 .map(body -> (Planet) body)
                 .collect(Collectors.toSet());
     }
 
-    public List<CelestialBody> getOrderedBodies() {
-        return bodies.stream()
-                .sorted(Comparator.comparing(CelestialBody::getDistanceFromStar,
-                        Comparator.nullsLast(Comparator.naturalOrder())))
-                .collect(Collectors.toList());
+    public void setPlanets(List<CelestialBody> bodies) {
+        this.bodies = bodies;
     }
 
     public Set<Star> getStars() {

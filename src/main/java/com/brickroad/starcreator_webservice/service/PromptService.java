@@ -3,7 +3,9 @@ package com.brickroad.starcreator_webservice.service;
 import com.brickroad.starcreator_webservice.repos.FactionRepo;
 import com.brickroad.starcreator_webservice.repos.GovernmentTypeRepo;
 import com.brickroad.starcreator_webservice.model.prompts.Prompt;
-import com.brickroad.starcreator_webservice.utils.TarotDeck;
+import com.brickroad.starcreator_webservice.request.StarSystemRequest;
+import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.TarotSpread;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,19 +25,12 @@ public class PromptService {
 
         prompt.setMainFaction(factionRepo.getRandomFaction());
         prompt.setSecondaryFaction(factionRepo.getRandomFaction());
-        prompt.setPlanet(creationService.createPlanet(null));
-
-        TarotDeck deck = new TarotDeck();
-        deck.shuffle();
-        prompt.setHero(deck.drawCard(true));
-        prompt.setVillain(deck.drawCard(false));
-        prompt.setStatusQuo(deck.drawCard(false));
-        prompt.setIncitingIncident(deck.drawCard(false));
-        prompt.setRisingTension(deck.drawCard(false));
-        prompt.setFalseResolution(deck.drawCard(false));
-        prompt.setHiddenObstacle(deck.drawCard(false));
-        prompt.setClimax(deck.drawCard(false));
-        prompt.setResolutionConsequence(deck.drawCard(false));
+        prompt.setSystem(creationService.createStarSystem(new StarSystemRequest()));
+        if (!prompt.getSystem().getPlanets().isEmpty()) {
+            int randPlanetIdx = RandomUtils.rollRange(0,prompt.getSystem().getPlanets().size() - 1);
+            prompt.setPlanet(prompt.getSystem().getPlanets().stream().skip(randPlanetIdx).findFirst().orElse(null));
+        }
+        prompt.setStorySpread(new TarotSpread());
 
         return prompt;
     }
