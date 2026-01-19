@@ -89,6 +89,15 @@ public class Planet extends CelestialBody {
     @Column(name = "atmosphere_classification", length = 50)
     private String atmosphereClassification;
 
+    @Column(name = "interior_composition", length = 500)
+    private String interiorComposition;
+
+    @Column(name = "envelope_composition", length = 500)
+    private String envelopeComposition;
+
+    @Column(name = "composition_classification", length = 50)
+    private String compositionClassification;
+
     public Planet() {}
 
     // Getters and Setters
@@ -315,5 +324,24 @@ public class Planet extends CelestialBody {
 
     public void setAtmosphereClassification(String atmosphereClassification) {
         this.atmosphereClassification = atmosphereClassification;
+    }
+
+    public String getInteriorComposition() { return interiorComposition; }
+
+    public void setInteriorComposition(String interiorComposition) {
+        this.interiorComposition = interiorComposition;
+    }
+    public String getEnvelopeComposition() { return envelopeComposition; }
+
+    public void setEnvelopeComposition(String envelopeComposition) {
+        this.envelopeComposition = envelopeComposition;
+    }
+
+    public String getCompositionClassification() {
+        return compositionClassification;
+    }
+
+    public void setCompositionClassification(String compositionClassification) {
+        this.compositionClassification = compositionClassification;
     }
 }

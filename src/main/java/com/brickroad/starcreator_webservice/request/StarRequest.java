@@ -1,7 +1,5 @@
 package com.brickroad.starcreator_webservice.request;
 
-import com.brickroad.starcreator_webservice.model.enums.PlanetType;
-
 public class StarRequest {
 
     private String name;

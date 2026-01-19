@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.Creators;
 
 import com.brickroad.starcreator_webservice.model.atmospheres.*;
+import com.brickroad.starcreator_webservice.model.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.repos.AtmosphereTemplateRefRepository;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import jakarta.annotation.PostConstruct;
