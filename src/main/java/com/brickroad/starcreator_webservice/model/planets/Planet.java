@@ -82,10 +82,12 @@ public class Planet extends CelestialBody {
     @Column(name = "age_millions_years")
     private Double ageMY;
 
-    // Parent star relationship - planets orbit stars, not just systems
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "star_id")
     private com.brickroad.starcreator_webservice.model.stars.Star parentStar;
+
+    @Column(name = "atmosphere_classification", length = 50)
+    private String atmosphereClassification;
 
     public Planet() {}
 
@@ -305,5 +307,13 @@ public class Planet extends CelestialBody {
 
     public void setOrbitalPosition(Integer position) {
         setOrbitalOrder(position);
+    }
+
+    public String getAtmosphereClassification() {
+        return atmosphereClassification;
+    }
+
+    public void setAtmosphereClassification(String atmosphereClassification) {
+        this.atmosphereClassification = atmosphereClassification;
     }
 }

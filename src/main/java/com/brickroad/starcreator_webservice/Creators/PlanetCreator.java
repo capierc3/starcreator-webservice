@@ -24,13 +24,15 @@ public class PlanetCreator {
     @Autowired
     private PlanetTypeRefRepository planetTypeRefRepository;
 
+    @Autowired
+    private AtmosphereCreator atmosphereCreator;
+
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
 
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
     private static final double GRAVITATIONAL_CONSTANT = 6.674e-11;
-    private static final double AU_TO_KM = 1.496e8;
 
     @PostConstruct
     public void init() {
@@ -137,7 +139,7 @@ public class PlanetCreator {
             planet.setSurfaceTemp(RandomUtils.rollRange(100.0, 400));
         }
 
-        populateAtmosphereProperties(planet, type);
+        populateAtmosphereProperties(planet, type, parentStar);
 
         planet.setCoreType(type.getTypicalCoreType());
         planet.setGeologicalActivity(determineGeologicalActivity(earthMass, planet.getAgeMY()));
@@ -217,13 +219,17 @@ public class PlanetCreator {
 
             rotationHours = baseRotation * tidalBrakingFactor;
             rotationHours *= RandomUtils.rollRange(0.8, 1.2);
+
+            double minRotation = getMinimumRotationPeriod(planet, type);
+            rotationHours = Math.max(rotationHours, minRotation);
+
             rotationHours = Math.min(rotationHours, 2000.0);
         }
 
         planet.setRotationPeriodHours(rotationHours);
 
         if (type.getName().toLowerCase().contains("gas giant")) {
-            planet.setAxialTilt(RandomUtils.rollRange(0, 30.0)); // Jupiter: 3.1°, Saturn: 26.7°
+            planet.setAxialTilt(RandomUtils.rollRange(0, 30.0));
         } else {
             double tilt = RandomUtils.rollRange(0, 45);
             if (Math.random() < 0.05) {
@@ -231,6 +237,37 @@ public class PlanetCreator {
             }
             planet.setAxialTilt(tilt);
         }
+    }
+
+    private double getMinimumRotationPeriod(Planet planet, PlanetTypeRef type) {
+        String planetType = type.getName().toLowerCase();
+        double earthMass = planet.getEarthMass();
+
+        if (planetType.contains("gas giant") || planetType.contains("hot jupiter") ||
+                planetType.contains("super-jupiter")) {
+            return 9.0;
+        }
+        if (planetType.contains("ice giant") || planetType.contains("mini-neptune") ||
+                planetType.contains("sub-neptune")) {
+            return 10.0;
+        }
+        if (planetType.contains("terrestrial") || planetType.contains("super-earth") ||
+                planetType.contains("ocean world") || planetType.contains("desert")) {
+            if (earthMass > 2.0) {
+                return 3.0;
+            }
+            return 4.0;
+        }
+        if (planetType.contains("dwarf") || earthMass < 0.3) {
+            return 1.0;
+        }
+        if (planetType.contains("ice world")) {
+            return 2.0;
+        }
+        if (planetType.contains("lava") || planetType.contains("hot rocky")) {
+            return 1.0;
+        }
+        return 2.0;
     }
 
     private static double getBaseRotation(Planet planet, PlanetTypeRef type) {
@@ -247,22 +284,41 @@ public class PlanetCreator {
         return baseRotation;
     }
 
-    private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type) {
-        if (!type.getCanHaveAtmosphere()) {
+    private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type, Star parentStar) {
+        if (!type.getCanHaveAtmosphere() || planet.getEarthMass() < 0.1) {
             planet.setAtmosphereComposition("None");
+            planet.setAtmosphereClassification("NONE");
             planet.setSurfacePressure(0.0);
+            planet.setAlbedo(type.getTypicalAlbedo());
             return;
         }
 
-        planet.setAtmosphereComposition(generateAtmosphereComposition(planet));
+        PlanetaryAtmosphere atmosphere = atmosphereCreator.generateAtmosphere(
+                planet.getPlanetType(),
+                planet.getSurfaceTemp(),
+                planet.getEarthMass(),
+                planet.getSemiMajorAxisAU()
+        );
+        planet.setAtmosphereComposition(atmosphere.toCompactString());
+        planet.setAtmosphereClassification(atmosphere.getClassification().name());
 
-        if (planet.getEarthMass() < 0.5) {
-            planet.setSurfacePressure(RandomUtils.rollRange(0.0, 0.1));
-        } else if (planet.getEarthMass() < 2.0) {
-            planet.setSurfacePressure(RandomUtils.rollRange(0.3, 5.0));
-        } else {
-            planet.setSurfacePressure(RandomUtils.rollRange(1.0, 100.0));
-        }
+        double pressure = atmosphereCreator.calculateSurfacePressure(
+                planet.getEarthMass(),
+                planet.getSurfaceTemp(),
+                atmosphere
+        );
+        planet.setSurfacePressure(pressure);
+
+        double baseAlbedo = type.getTypicalAlbedo();
+        baseAlbedo = switch (atmosphere.getClassification()) {
+            case EARTH_LIKE -> 0.3;
+            case VENUS_LIKE -> 0.75;
+            case JOVIAN, ICE_GIANT -> 0.5;
+            case NONE -> 0.1;
+            default -> baseAlbedo;
+        };
+
+        planet.setAlbedo(addVariance(baseAlbedo));
     }
 
     private void populateAlbedo(Planet planet, PlanetTypeRef type) {
@@ -272,16 +328,6 @@ public class PlanetCreator {
         }
         double baseAlbedo = type.getTypicalAlbedo();
         planet.setAlbedo(addVariance(baseAlbedo));
-    }
-
-    private String generateAtmosphereComposition(Planet planet) {
-        PlanetaryAtmosphere atmosphere = AtmosphereCreator.generateAtmosphere(
-                planet.getPlanetType(),
-                planet.getSurfaceTemp(),
-                planet.getEarthMass(),
-                planet.getSemiMajorAxisAU()
-        );
-        return atmosphere.toCompactString() + " - " + atmosphere.getPrimaryEffect();
     }
 
     private double calculateRadius(double mass, PlanetTypeRef type) {

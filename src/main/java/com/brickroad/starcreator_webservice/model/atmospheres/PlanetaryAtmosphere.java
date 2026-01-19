@@ -29,6 +29,10 @@ public record PlanetaryAtmosphere(List<AtmosphereComponent> components, Atmosphe
                 .sum();
     }
 
+    public AtmosphereClassification getClassification() {
+        return classification;
+    }
+
     public String getPrimaryEffect() {
         if (isBreathable()) return "Breathable";
         if (getToxicPercentage() > 10) return "Toxic";
