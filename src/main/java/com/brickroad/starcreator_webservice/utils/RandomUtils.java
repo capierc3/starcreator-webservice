@@ -77,11 +77,17 @@ public class RandomUtils {
     }
 
     public static int rollRange(int low, int high) {
+        if (low == high) {
+            return low;
+        }
         RandomGenerator randomGenerator = RandomGenerator.getDefault();
         return randomGenerator.nextInt(low, (high + 1));
     }
 
     public static double rollRange(double low, double high) {
+        if (low == high) {
+            return low;
+        }
         RandomGenerator randomGenerator = RandomGenerator.getDefault();
         return randomGenerator.nextDouble(low, high);
     }

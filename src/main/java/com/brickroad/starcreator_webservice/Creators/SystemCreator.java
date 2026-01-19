@@ -3,19 +3,16 @@ package com.brickroad.starcreator_webservice.Creators;
 import com.brickroad.starcreator_webservice.model.CelestialBody;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
+import com.brickroad.starcreator_webservice.model.sectors.Sector;
 import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
 import com.brickroad.starcreator_webservice.model.stars.Star;
-import com.brickroad.starcreator_webservice.repos.SectorRepository;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class SystemCreator {
@@ -29,11 +26,12 @@ public class SystemCreator {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private SectorRepository sectorRepository;
-
     public StarSystem generateSystem() {
         StarSystem system = new StarSystem();
+        Sector sector = new Sector();
+        sector.setName(generateRandomSectorName());
+        system.setSector(sector);
+
         system.setName(generateRandomSystemName());
 
         system.setX(RandomUtils.rollRange(-100, 100));
@@ -50,6 +48,7 @@ public class SystemCreator {
 
         Set<Star> stars = generateStarsForConfiguration(config, system);
         system.setStars(stars);
+        assignStarNames(system, stars);
 
         if (starCount > 1) {
             calculateBinaryOrbitalPeriod(system, stars);
@@ -67,10 +66,43 @@ public class SystemCreator {
 
         List<CelestialBody> planets = generatePlanetsForSystem(system, stars, config);
         system.setPlanets(planets);
+        assignPlanetNames(planets);
 
         system.setDescription(generateDescription(system));
 
         return system;
+    }
+
+    private void assignStarNames(StarSystem system, Set<Star> stars) {
+        String systemName = system.getName();
+
+        if (stars.size() == 1) {
+            stars.iterator().next().setName(systemName);
+        } else {
+            List<Star> starList = new ArrayList<>(stars);
+            starList.sort(Comparator.comparing(s -> s.getStarRole().ordinal()));
+
+            char suffix = 'A';
+            for (Star star : starList) {
+                star.setName(systemName + " " + suffix);
+                suffix++;
+            }
+        }
+    }
+
+    private void assignPlanetNames(List<CelestialBody> planets) {
+        for (CelestialBody body : planets) {
+            if (body instanceof Planet planet) {
+                Star parentStar = planet.getParentStar();
+                Integer orbitalPosition = planet.getOrbitalPosition();
+
+                if (parentStar != null && parentStar.getName() != null && orbitalPosition != null) {
+                    planet.setName(parentStar.getName() + " " + orbitalPosition);
+                } else {
+                    planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
+                }
+            }
+        }
     }
 
     private void calculateBinarySeparation(StarSystem system, BinaryConfiguration config) {
@@ -192,6 +224,10 @@ public class SystemCreator {
 
     private String generateRandomSystemName() {
         return jdbcTemplate.queryForObject("SELECT suffix FROM ref.name_suffix ORDER BY RANDOM() LIMIT 1",String.class);
+    }
+
+    private String generateRandomSectorName() {
+        return jdbcTemplate.queryForObject("SELECT prefix FROM ref.name_prefix ORDER BY RANDOM() LIMIT 1",String.class);
     }
 
     private int generateStarCount() {

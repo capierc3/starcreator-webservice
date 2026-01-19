@@ -1,9 +1,10 @@
 package com.brickroad.starcreator_webservice.Creators;
 
-import com.brickroad.starcreator_webservice.model.atmospheres.PlanetaryAtmosphere;
+import com.brickroad.starcreator_webservice.model.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.planets.PlanetTypeRef;
+import com.brickroad.starcreator_webservice.model.planets.PlanetaryComposition;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.repos.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -26,6 +27,9 @@ public class PlanetCreator {
 
     @Autowired
     private AtmosphereCreator atmosphereCreator;
+
+    @Autowired
+    private CompositionCreator compositionCreator;
 
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
@@ -102,7 +106,6 @@ public class PlanetCreator {
 
     private void populatePlanet(Planet planet, PlanetTypeRef type, double earthMass, double earthRadius, Star parentStar) {
 
-        planet.setName(generatePlanetName());
         planet.setPlanetType(type.getName());
 
         if (parentStar != null) {
@@ -142,9 +145,12 @@ public class PlanetCreator {
         populateAtmosphereProperties(planet, type, parentStar);
 
         planet.setCoreType(type.getTypicalCoreType());
+        populateCompositionProperties(planet);
         planet.setGeologicalActivity(determineGeologicalActivity(earthMass, planet.getAgeMY()));
+
         planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
         planet.setNumberOfMoons(calculateMoonAmount(type, parentStar));
+
         planet.setMagneticFieldStrength(calculateMagneticField(planet));
 
         if (parentStar != null) {
@@ -451,10 +457,27 @@ public class PlanetCreator {
                         type.getFormationZone().equals(zone))
                 .collect(Collectors.toList());
 
-        if (suitableTypes.isEmpty()) {
-            return selectPlanetTypeByRarity();
+        List<PlanetTypeRef> distanceFilteredTypes = suitableTypes.stream()
+                .filter(type -> {
+                    if (type.getMinFormationDistanceAU() == null ||
+                            type.getMaxFormationDistanceAU() == null) {
+                        return true;
+                    }
+
+                    // Check if current distance is within allowed range
+                    return distanceAU >= type.getMinFormationDistanceAU() &&
+                            distanceAU <= type.getMaxFormationDistanceAU();
+                })
+                .collect(Collectors.toList());
+
+
+        if (!distanceFilteredTypes.isEmpty()) {
+            return selectFromList(distanceFilteredTypes);
         }
-        return selectFromList(suitableTypes);
+        if (!suitableTypes.isEmpty()) {
+            return selectFromList(suitableTypes);
+        }
+        return selectPlanetTypeByRarity();
     }
 
     private double calculateNextOrbitDistance(double currentDistance, int planetIndex, int totalPlanets, double maxSystemDistance) {
@@ -546,16 +569,15 @@ public class PlanetCreator {
         return value * factor;
     }
 
-    private String generatePlanetName() {
-        // For now, generate simple names
-        // You can expand this to use your database tables
-        String[] prefixes = {"Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Theta"};
-        String[] suffixes = {"Prime", "Secundus", "Tertius", "Majoris", "Minoris"};
-
-        String prefix = prefixes[RandomUtils.rollRange(0, prefixes.length - 1)];
-        String suffix = suffixes[RandomUtils.rollRange(0, suffixes.length - 1)];
-
-        return prefix + " " + suffix + " " + RandomUtils.rollRange(1, 999);
+    private void populateCompositionProperties(Planet planet) {
+        PlanetaryComposition composition = compositionCreator.generateComposition(
+                planet.getPlanetType(),
+                planet.getSemiMajorAxisAU(),
+                planet.getCoreType()
+        );
+        planet.setInteriorComposition(composition.toInteriorString());
+        planet.setEnvelopeComposition(composition.toEnvelopeString());
+        planet.setCompositionClassification(composition.getClassification().name());
     }
 
     private static class HabitableZone {

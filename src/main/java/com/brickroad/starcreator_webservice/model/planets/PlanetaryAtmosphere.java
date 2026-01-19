@@ -1,4 +1,8 @@
-package com.brickroad.starcreator_webservice.model.atmospheres;
+package com.brickroad.starcreator_webservice.model.planets;
+
+import com.brickroad.starcreator_webservice.model.atmospheres.AtmosphereClassification;
+import com.brickroad.starcreator_webservice.model.atmospheres.AtmosphereComponent;
+import com.brickroad.starcreator_webservice.model.atmospheres.AtmosphereGas;
 
 import java.util.ArrayList;
 import java.util.List;
