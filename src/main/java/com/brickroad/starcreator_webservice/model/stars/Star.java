@@ -22,6 +22,9 @@ public class Star extends CelestialBody {
     @Column(name = "variability_period_days")
     private Double variabilityPeriod;
 
+    private Double habitableZoneInnerAU;
+    private Double habitableZoneOuterAU;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "star_role")
     private StarRole starRole;
@@ -136,5 +139,21 @@ public class Star extends CelestialBody {
 
     public void setStarRole(StarRole starRole) {
         this.starRole = starRole;
+    }
+
+    public Double getHabitableZoneInnerAU() {
+        return habitableZoneInnerAU;
+    }
+
+    public void setHabitableZoneInnerAU(Double habitableZoneInnerAU) {
+        this.habitableZoneInnerAU = habitableZoneInnerAU;
+    }
+
+    public Double getHabitableZoneOuterAU() {
+        return habitableZoneOuterAU;
+    }
+
+    public void setHabitableZoneOuterAU(Double habitableZoneOuterAU) {
+        this.habitableZoneOuterAU = habitableZoneOuterAU;
     }
 }

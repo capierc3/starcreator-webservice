@@ -1,11 +1,13 @@
 package com.brickroad.starcreator_webservice.Creators;
 
+import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.planets.PlanetTypeRef;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.repos.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -60,15 +62,12 @@ public class PlanetCreator {
 
     public List<Planet> generatePlanetarySystem(Star parentStar) {
         List<Planet> planets = new ArrayList<>();
-        HabitableZone hz = calculateHabitableZone(parentStar);
+        HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
 
         int numPlanets = determineNumberOfPlanets(parentStar);
         double frostLine = calculateFrostLine(parentStar);
 
-        double maxSystemDistance = 50.0;
-        if (parentStar.getSystem() != null && parentStar.getSystem().getSizeAu() != null) {
-            maxSystemDistance = parentStar.getSystem().getSizeAu();
-        }
+        double maxSystemDistance = getMaxSystemDistance(parentStar);
         double currentDistance = RandomUtils.rollRange(0.1, 0.5);
         for (int i = 0; i < numPlanets; i++) {
             PlanetTypeRef type = selectPlanetTypeByDistance(currentDistance, frostLine, hz);
@@ -80,6 +79,22 @@ public class PlanetCreator {
         }
 
         return planets;
+    }
+
+    private static double getMaxSystemDistance(Star parentStar) {
+        double maxSystemDistance = 50.0;
+        if (parentStar.getSystem() != null && parentStar.getSystem().getSizeAu() != null) {
+            maxSystemDistance = parentStar.getSystem().getSizeAu();
+
+            BinaryConfiguration config = parentStar.getSystem().getBinaryConfiguration();
+            if (config == BinaryConfiguration.S_TYPE_WIDE) {
+                Double binarySep = parentStar.getSystem().getBinarySeparationAu();
+                if (binarySep != null) {
+                    maxSystemDistance = Math.min(maxSystemDistance, binarySep * 0.3);
+                }
+            }
+        }
+        return maxSystemDistance;
     }
 
     private void populatePlanet(Planet planet, PlanetTypeRef type, double earthMass, double earthRadius, Star parentStar) {
@@ -116,21 +131,19 @@ public class PlanetCreator {
         populateAtmosphereProperties(planet, type);
 
         if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
-            planet.setSurfaceTemp(calculateSurfaceTemperature(parentStar, planet.getSemiMajorAxisAU(), planet.getAlbedo()));
+            planet.setSurfaceTemp(TemperatureCalculator.calculatePlanetTemperature(parentStar, planet.getSemiMajorAxisAU(), planet.getAlbedo()));
         } else {
             planet.setSurfaceTemp(RandomUtils.rollRange(100.0, 400));
         }
 
         planet.setCoreType(type.getTypicalCoreType());
         planet.setGeologicalActivity(determineGeologicalActivity(earthMass, planet.getAgeMY()));
-
-        planet.setHasRings(type.getCanHaveRings() && (Math.random() < type.getRingProbability()));
-        planet.setNumberOfMoons(RandomUtils.rollRange(type.getMinMoons(), type.getMaxMoons()));
-
+        planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
+        planet.setNumberOfMoons(calculateMoonAmount(type, parentStar));
         planet.setMagneticFieldStrength(calculateMagneticField(planet));
 
         if (parentStar != null) {
-            HabitableZone hz = calculateHabitableZone(parentStar);
+            HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
             planet.setHabitableZonePosition(determineHabitableZonePosition(
                     planet.getSemiMajorAxisAU(), hz
             ));
@@ -142,6 +155,26 @@ public class PlanetCreator {
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());
+    }
+
+    private int calculateMoonAmount(PlanetTypeRef type, Star parentStar) {
+        int baseMoons = RandomUtils.rollRange(type.getMinMoons(), type.getMaxMoons());
+        if (parentStar != null) {
+            double metallicity = parentStar.getMetallicity();
+            double moonFactor;
+            if (metallicity < -0.5) {
+                moonFactor = 0.5; // Metal-poor: fewer moons
+            } else if (metallicity < 0.0) {
+                moonFactor = 0.75; // Below solar
+            } else if (metallicity < 0.3) {
+                moonFactor = 1.0; // Solar to enriched
+            } else {
+                moonFactor = 1.2; // Metal-rich: more moons
+            }
+            baseMoons = (int) Math.round(baseMoons * moonFactor);
+            baseMoons = Math.max(type.getMinMoons(), baseMoons); // At least the minimum
+        }
+        return baseMoons;
     }
 
     private void populateOrbitalParameters(Planet planet, Star star, double distanceAU, int position) {
@@ -291,33 +324,14 @@ public class PlanetCreator {
         return periodYears * 365.25; // Convert to days
     }
 
-    private double calculateSurfaceTemperature(Star star, double distanceAU, Double albedo) {
-        double effectiveAlbedo = (albedo != null) ? albedo : 0.3;
-
-        double starTempK = star.getSurfaceTemp();
-        double starRadiusAU = star.getRadius() / AU_TO_KM;
-        double distanceRatio = starRadiusAU / (2 * distanceAU);
-
-        return starTempK * Math.sqrt(distanceRatio) * Math.pow(1 - effectiveAlbedo, 0.25);
-    }
-
-    private HabitableZone calculateHabitableZone(Star star) {
-
-        double luminosity = star.getSolarLuminosity();
-        double innerEdge = Math.sqrt(luminosity / 1.1);
-        double outerEdge = Math.sqrt(luminosity / 0.53);
-
-        return new HabitableZone(innerEdge, outerEdge);
-    }
-
     private double calculateFrostLine(Star star) {
         return 2.7 * Math.sqrt(star.getSolarLuminosity());
     }
 
     private int determineNumberOfPlanets(Star star) {
-
         double mass = star.getSolarMass();
         double age = star.getAgeMY();
+        double metallicity = star.getMetallicity();
 
         int basePlanets;
         if (mass > 2.0) {
@@ -328,11 +342,31 @@ public class PlanetCreator {
             basePlanets = RandomUtils.rollRange(3, 10);
         }
 
+        double metallicityFactor = getMetallicityFactor(metallicity);
+        basePlanets = (int) Math.round(basePlanets * metallicityFactor);
+        basePlanets = Math.max(1, basePlanets);
+
         if (age > 8000) {
             basePlanets = Math.max(1, basePlanets - RandomUtils.rollRange(0, 2));
         }
 
         return basePlanets;
+    }
+
+    private static double getMetallicityFactor(double metallicity) {
+        double metallicityFactor;
+        if (metallicity < -1.0) {
+            metallicityFactor = 0.3;
+        } else if (metallicity < -0.5) {
+            metallicityFactor = 0.5;
+        } else if (metallicity < 0.0) {
+            metallicityFactor = 0.75;
+        } else if (metallicity < 0.3) {
+            metallicityFactor = 1.0;
+        } else {
+            metallicityFactor = 1.3;
+        }
+        return metallicityFactor;
     }
 
     private PlanetTypeRef selectPlanetTypeByDistance(double distanceAU, double frostLine, HabitableZone hz) {
@@ -469,4 +503,5 @@ public class PlanetCreator {
             this.outerEdge = outer;
         }
     }
+
 }

@@ -80,6 +80,8 @@ public class StarCreator {
 
         // Physical properties
         star.setSolarLuminosity(calculateLuminosity(solarMass, type));
+        star.setHabitableZoneInnerAU(Math.sqrt(star.getSolarLuminosity() / 1.1));
+        star.setHabitableZoneOuterAU(Math.sqrt(star.getSolarLuminosity() / 0.53));
         star.setSurfaceTemp(calculateSurfaceTemp(type, solarMass));
         star.setColorIndex(determineColor(star.getSurfaceTemp()));
 

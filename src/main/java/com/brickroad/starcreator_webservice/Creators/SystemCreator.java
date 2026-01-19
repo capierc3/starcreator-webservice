@@ -7,6 +7,7 @@ import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.repos.SectorRepository;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -217,14 +218,9 @@ public class SystemCreator {
         if (config == BinaryConfiguration.P_TYPE) {
             calculateCircumbinaryHabitableZone(system, stars);
         } else {
-            calculateSingleStarHabitableZone(system, primary);
+            system.setHabitableLow(primary.getHabitableZoneInnerAU());
+            system.setHabitableHigh(primary.getHabitableZoneOuterAU());;
         }
-    }
-
-    private void calculateSingleStarHabitableZone(StarSystem system, Star star) {
-        double luminosity = star.getSolarLuminosity();
-        system.setHabitableLow(Math.sqrt(luminosity / 1.1));
-        system.setHabitableHigh(Math.sqrt(luminosity / 0.53));
     }
 
     private void calculateCircumbinaryHabitableZone(StarSystem system, Set<Star> stars) {
@@ -351,7 +347,7 @@ public class SystemCreator {
                         .findFirst()
                         .orElseThrow();
 
-                List<Planet> circumbinaryPlanets = generateCircumbinaryPlanets(pTypePrimary, system.getBinarySeparationAu());
+                List<Planet> circumbinaryPlanets = generateCircumbinaryPlanets(system, pTypePrimary, system.getBinarySeparationAu());
                 allPlanets.addAll(circumbinaryPlanets);
                 break;
 
@@ -362,10 +358,9 @@ public class SystemCreator {
                         .findFirst()
                         .orElseThrow();
 
-                List<Planet> binaryPlanets = generateCircumbinaryPlanets(hierarchicalPrimary, system.getBinarySeparationAu());
+                List<Planet> binaryPlanets = generateCircumbinaryPlanets(system, hierarchicalPrimary, system.getBinarySeparationAu());
                 allPlanets.addAll(binaryPlanets);
 
-                // Generate planets around distant tertiary star
                 Star tertiary = stars.stream()
                         .filter(s -> s.getStarRole() == Star.StarRole.TERTIARY)
                         .findFirst()
@@ -381,7 +376,7 @@ public class SystemCreator {
         return allPlanets;
     }
 
-    private List<Planet> generateCircumbinaryPlanets(Star primary, double binarySeparation) {
+    private List<Planet> generateCircumbinaryPlanets(StarSystem system, Star primary, double binarySeparation) {
         List<Planet> planets = planetCreator.generatePlanetarySystem(primary);
 
         double minStableDistance = binarySeparation * 2.5;
@@ -394,7 +389,7 @@ public class SystemCreator {
                 planet.setOrbitalPeriodDays(orbitalPeriod);
 
                 if (planet.getAlbedo() != null) {
-                    double temp = calculateSurfaceTemperature(primary, newDistance, planet.getAlbedo());
+                    double temp = TemperatureCalculator.calculateCircumbinaryTemperature(system, newDistance, planet.getAlbedo());
                     planet.setSurfaceTemp(temp);
                 }
             }
@@ -406,15 +401,6 @@ public class SystemCreator {
     private double calculateOrbitalPeriod(double semiMajorAxisAU, double starMassSolar) {
         double periodYears = Math.sqrt(Math.pow(semiMajorAxisAU, 3) / starMassSolar);
         return periodYears * 365.25; // Convert to days
-    }
-
-    private double calculateSurfaceTemperature(Star star, double distanceAU, double albedo) {
-        double AU_TO_KM = 1.496e8;
-        double starTempK = star.getSurfaceTemp();
-        double starRadiusAU = (star.getRadius() * 1e6) / AU_TO_KM;
-        double distanceRatio = starRadiusAU / (2 * distanceAU);
-
-        return starTempK * Math.sqrt(distanceRatio) * Math.pow(1 - albedo, 0.25);
     }
 
 }
