@@ -106,7 +106,6 @@ public class PlanetCreator {
 
     private void populatePlanet(Planet planet, PlanetTypeRef type, double earthMass, double earthRadius, Star parentStar) {
 
-        planet.setName(generatePlanetName());
         planet.setPlanetType(type.getName());
 
         if (parentStar != null) {
@@ -568,18 +567,6 @@ public class PlanetCreator {
     private double addVariance(double value) {
         double factor = 1.0 + ((Math.random() - 0.5) * 2 * VARIANCE);
         return value * factor;
-    }
-
-    private String generatePlanetName() {
-        // For now, generate simple names
-        // You can expand this to use your database tables
-        String[] prefixes = {"Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Theta"};
-        String[] suffixes = {"Prime", "Secundus", "Tertius", "Majoris", "Minoris"};
-
-        String prefix = prefixes[RandomUtils.rollRange(0, prefixes.length - 1)];
-        String suffix = suffixes[RandomUtils.rollRange(0, suffixes.length - 1)];
-
-        return prefix + " " + suffix + " " + RandomUtils.rollRange(1, 999);
     }
 
     private void populateCompositionProperties(Planet planet) {

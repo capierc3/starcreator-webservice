@@ -64,41 +64,32 @@ public class StarCreator {
     }
 
     private void populateStar(Star star, StarTypeRef type, double solarMass, double solarRadius) {
-        // Basic identification
-        star.setName(generateRandomName());
         star.setType(type.getName());
         star.setSpectralType(type.getSpectralClass());
 
-        // Solar units
         star.setSolarMass(solarMass);
         star.setSolarRadius(solarRadius);
 
-        // Convert to standard units
         star.setMass(ConversionFormulas.solarMassToKG(solarMass));
         star.setRadius(ConversionFormulas.solarRadiusToKM(solarRadius));
         star.setCircumference(ConversionFormulas.radiusToCircumference(star.getRadius()));
 
-        // Physical properties
         star.setSolarLuminosity(calculateLuminosity(solarMass, type));
         star.setHabitableZoneInnerAU(Math.sqrt(star.getSolarLuminosity() / 1.1));
         star.setHabitableZoneOuterAU(Math.sqrt(star.getSolarLuminosity() / 0.53));
         star.setSurfaceTemp(calculateSurfaceTemp(type, solarMass));
         star.setColorIndex(determineColor(star.getSurfaceTemp()));
 
-        // Age and composition
         star.setAgeMY(calculateStarAge(solarMass, type));
         star.setMetallicity(RandomUtils.rollRange(-0.5, 0.3));
 
-        // Rotation
         star.setRotationDays(calculateRotationPeriod(solarMass, star.getAgeMY()));
 
-        // Variability
         star.setIsVariable(isStarVariable(type));
         if (star.isVariable()) {
             star.setVariabilityPeriod(RandomUtils.rollRange(0.1, 100));
         }
 
-        // Timestamps
         star.setCreatedAt(LocalDateTime.now());
         star.setModifiedAt(LocalDateTime.now());
     }
@@ -274,12 +265,5 @@ public class StarCreator {
         }
 
         return types.getFirst();
-    }
-
-    private String generateRandomName() {
-        String Sector = jdbcTemplate.queryForObject("SELECT prefix FROM ref.name_prefix ORDER BY RANDOM() LIMIT 1",
-                String.class);
-        String System = jdbcTemplate.queryForObject("SELECT suffix FROM ref.name_suffix ORDER BY RANDOM() LIMIT 1",String.class);
-        return Sector + " - " + System;
     }
 }
