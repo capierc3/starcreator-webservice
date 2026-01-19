@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.Creators;
 
+import com.brickroad.starcreator_webservice.model.atmospheres.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.planets.PlanetTypeRef;
@@ -128,13 +129,15 @@ public class PlanetCreator {
 
         populateRotationProperties(planet, type, parentStar);
 
-        populateAtmosphereProperties(planet, type);
+        populateAlbedo(planet, type);
 
         if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
             planet.setSurfaceTemp(TemperatureCalculator.calculatePlanetTemperature(parentStar, planet.getSemiMajorAxisAU(), planet.getAlbedo()));
         } else {
             planet.setSurfaceTemp(RandomUtils.rollRange(100.0, 400));
         }
+
+        populateAtmosphereProperties(planet, type);
 
         planet.setCoreType(type.getTypicalCoreType());
         planet.setGeologicalActivity(determineGeologicalActivity(earthMass, planet.getAgeMY()));
@@ -248,11 +251,10 @@ public class PlanetCreator {
         if (!type.getCanHaveAtmosphere()) {
             planet.setAtmosphereComposition("None");
             planet.setSurfacePressure(0.0);
-            planet.setAlbedo(type.getTypicalAlbedo());
             return;
         }
 
-        planet.setAtmosphereComposition(type.getTypicalAtmosphere());
+        planet.setAtmosphereComposition(generateAtmosphereComposition(planet));
 
         if (planet.getEarthMass() < 0.5) {
             planet.setSurfacePressure(RandomUtils.rollRange(0.0, 0.1));
@@ -261,9 +263,25 @@ public class PlanetCreator {
         } else {
             planet.setSurfacePressure(RandomUtils.rollRange(1.0, 100.0));
         }
+    }
 
+    private void populateAlbedo(Planet planet, PlanetTypeRef type) {
+        if (!type.getCanHaveAtmosphere()) {
+            planet.setAlbedo(type.getTypicalAlbedo());
+            return;
+        }
         double baseAlbedo = type.getTypicalAlbedo();
         planet.setAlbedo(addVariance(baseAlbedo));
+    }
+
+    private String generateAtmosphereComposition(Planet planet) {
+        PlanetaryAtmosphere atmosphere = AtmosphereCreator.generateAtmosphere(
+                planet.getPlanetType(),
+                planet.getSurfaceTemp(),
+                planet.getEarthMass(),
+                planet.getSemiMajorAxisAU()
+        );
+        return atmosphere.toCompactString() + " - " + atmosphere.getPrimaryEffect();
     }
 
     private double calculateRadius(double mass, PlanetTypeRef type) {
