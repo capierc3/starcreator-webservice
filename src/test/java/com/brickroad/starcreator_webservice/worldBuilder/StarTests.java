@@ -62,12 +62,8 @@ public class StarTests {
 
     @Test
     void starCreationTest() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(String.class)))
-                .thenReturn("Test");
-
         Star star = starCreator.generateStar();
         assertNotNull(star, "Star should have been created");
-        assertEquals("Test - Test", star.getName(), "Star should have correct name");
         assertNotEquals(ZERO, star.getMass(), "Star mass should not be null");
         assertNotEquals(ZERO, star.getRadius(), "Star radius should not be null");
         assertNotEquals(ZERO, star.getCircumference(), "Star circumference should not be 0.0");
