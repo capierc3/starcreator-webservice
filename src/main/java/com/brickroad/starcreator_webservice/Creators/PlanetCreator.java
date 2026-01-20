@@ -1,10 +1,8 @@
 package com.brickroad.starcreator_webservice.Creators;
 
-import com.brickroad.starcreator_webservice.model.planets.PlanetaryAtmosphere;
+
+import com.brickroad.starcreator_webservice.model.planets.*;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.model.planets.PlanetTypeRef;
-import com.brickroad.starcreator_webservice.model.planets.PlanetaryComposition;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.repos.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -30,6 +28,9 @@ public class PlanetCreator {
 
     @Autowired
     private CompositionCreator compositionCreator;
+
+    @Autowired
+    private GeologyCreator geologyCreator;
 
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
@@ -146,7 +147,7 @@ public class PlanetCreator {
 
         planet.setCoreType(type.getTypicalCoreType());
         populateCompositionProperties(planet);
-        planet.setGeologicalActivity(determineGeologicalActivity(earthMass, planet.getAgeMY()));
+        populateGeologicalProperties(planet);
 
         planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
         planet.setNumberOfMoons(calculateMoonAmount(type, parentStar));
@@ -514,20 +515,8 @@ public class PlanetCreator {
         }
     }
 
-    private String determineGeologicalActivity(double earthMass, double age) {
 
-        double activityScore = earthMass / (age / 1000.0);
 
-        if (activityScore > 2.0) {
-            return "Highly Active";
-        } else if (activityScore > 0.5) {
-            return "Moderately Active";
-        } else if (activityScore > 0.1) {
-            return "Low Activity";
-        } else {
-            return "Geologically Dead";
-        }
-    }
 
     private double calculateMagneticField(Planet planet) {
 
@@ -578,6 +567,11 @@ public class PlanetCreator {
         planet.setInteriorComposition(composition.toInteriorString());
         planet.setEnvelopeComposition(composition.toEnvelopeString());
         planet.setCompositionClassification(composition.getClassification().name());
+    }
+
+    private void populateGeologicalProperties(Planet planet) {
+        PlanetaryGeology geology = geologyCreator.generateGeology(planet);
+        planet.setGeologicalActivity(geology.toString());
     }
 
     private static class HabitableZone {
