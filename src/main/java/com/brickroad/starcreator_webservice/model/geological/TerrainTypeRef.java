@@ -65,6 +65,12 @@ public class TerrainTypeRef {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(name = "cratering_weight_boost")
+    private Integer crateringWeightBoost = 0;
+
+    @Column(name = "volcanic_weight_boost")
+    private Integer volcanicWeightBoost = 0;
+
     // Getters and Setters
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -119,6 +125,23 @@ public class TerrainTypeRef {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public Integer getCrateringWeightBoost() { return crateringWeightBoost != null ? crateringWeightBoost : 0; }
+    public void setCrateringWeightBoost(Integer crateringWeightBoost) { this.crateringWeightBoost = crateringWeightBoost; }
+
+    public Integer getVolcanicWeightBoost() { return volcanicWeightBoost != null ? volcanicWeightBoost : 0; }
+    public void setVolcanicWeightBoost(Integer volcanicWeightBoost) { this.volcanicWeightBoost = volcanicWeightBoost; }
+
+    public int getEffectiveWeight(boolean hasHeavyCratering, boolean hasVolcanism) {
+        int weight = rarityWeight != null ? rarityWeight : 100;
+        if (hasHeavyCratering) {
+            weight += getCrateringWeightBoost();
+        }
+        if (hasVolcanism) {
+            weight += getVolcanicWeightBoost();
+        }
+        return weight;
+    }
 
     public boolean isViableFor(Double surfaceTempK, Double pressureAtm, Boolean hasWater, Boolean hasAtmosphere) {
         if (requiresWater && (hasWater == null || !hasWater)) {

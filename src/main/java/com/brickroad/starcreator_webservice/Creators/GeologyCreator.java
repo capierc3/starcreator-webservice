@@ -319,37 +319,13 @@ public class GeologyCreator {
         double waterCoverage = planet.getWaterCoveragePercent() != null ?
                 planet.getWaterCoveragePercent() : 0;
         double landPercent = 100.0 - waterCoverage;
+        Double surfaceTemp = planet.getSurfaceTemp();
 
         if (isGasGiant(planetType)) {
             return terrains;
         }
 
-        Double surfaceTemp = planet.getSurfaceTemp();
-        Boolean hasAtmosphere = planet.getAtmosphereComposition() != null &&
-                !planet.getAtmosphereComposition().isEmpty() &&
-                !planet.getAtmosphereComposition().equals("None");
-        List<TerrainTypeRef> viableTerrains = terrainTypeRefRepository.findViableTerrainTypes(
-                surfaceTemp,
-                waterCoverage > 0,
-                hasAtmosphere
-        );
-
-        if (viableTerrains.isEmpty()) {
-            viableTerrains = new ArrayList<>(cachedTerrainTypes.values());
-        }
-
-        if (planet.getHasVolcanicActivity() == null) {
-            viableTerrains = viableTerrains.stream()
-                    .filter(t -> !t.getCategory().equals("VOLCANIC"))
-                    .collect(Collectors.toList());
-        }
-
-        // Ultimate Question of Life, the Universe, and Everything...
-        if (RandomUtils.rollRange(0, 1000000) != 42) {
-            viableTerrains = viableTerrains.stream()
-                    .filter(t -> !t.getCategory().equals("ARTIFICIAL"))
-                    .collect(Collectors.toList());
-        }
+        List<TerrainTypeRef> viableTerrains = getViableTerrains(planet, waterCoverage);
 
         if (waterCoverage > 1.0) {
             boolean waterIsFrozen = surfaceTemp != null && surfaceTemp < 273.0;
@@ -393,7 +369,7 @@ public class GeologyCreator {
             }
         }
 
-        return terrains;
+        return consolidateDuplicateTerrains(terrains);
     }
 
     private boolean isGasGiant(String planetType) {
@@ -405,6 +381,68 @@ public class GeologyCreator {
                         planetType.contains("Mini-Neptune") ||
                         planetType.contains("Sub-Neptune")
         );
+    }
+
+    private List<TerrainTypeRef> getViableTerrains(Planet planet, double waterCoverage) {
+        boolean hasAtmosphere = planet.getAtmosphereComposition() != null &&
+                !planet.getAtmosphereComposition().isEmpty() &&
+                !planet.getAtmosphereComposition().equals("None");
+        boolean hasHeavyCratering = "Heavy".equals(planet.getCrateringLevel()) ||
+                "Extreme".equals(planet.getCrateringLevel()) ||
+                (planet.getEstimatedVisibleCraters() != null && planet.getEstimatedVisibleCraters() > 10000);
+        boolean hasVolcanism = Boolean.TRUE.equals(planet.getHasVolcanicActivity());
+
+        List<TerrainTypeRef> viableTerrains = terrainTypeRefRepository.findViableTerrainTypes(
+                planet.getSurfaceTemp(),
+                waterCoverage > 0,
+                hasAtmosphere
+        );
+
+        if (viableTerrains.isEmpty()) {
+            viableTerrains = cachedTerrainTypes.values().stream()
+                    .filter(t -> "BARREN".equals(t.getCategory()) || "EXOTIC".equals(t.getCategory()))
+                    .filter(t -> t.isViableFor(planet.getSurfaceTemp(), planet.getSurfacePressure(), waterCoverage > 0, hasAtmosphere))
+                    .collect(Collectors.toList());
+        }
+
+        if (viableTerrains.isEmpty()) {
+            viableTerrains = cachedTerrainTypes.values().stream()
+                    .filter(t -> "BARREN".equals(t.getCategory()))
+                    .collect(Collectors.toList());
+        }
+
+        if (hasHeavyCratering || hasVolcanism) {
+            viableTerrains = applyGeologicalWeightBoosts(viableTerrains, hasHeavyCratering, hasVolcanism);
+        }
+
+        if (planet.getHasVolcanicActivity() == null) {
+            viableTerrains = viableTerrains.stream()
+                    .filter(t -> !t.getCategory().equals("VOLCANIC"))
+                    .collect(Collectors.toList());
+        }
+
+        // Ultimate Question of Life, the Universe, and Everything...
+        if (RandomUtils.rollRange(0, 1000000) != 42) {
+            viableTerrains = viableTerrains.stream()
+                    .filter(t -> !t.getCategory().equals("ARTIFICIAL"))
+                    .collect(Collectors.toList());
+        }
+
+        return viableTerrains;
+    }
+
+    private List<TerrainTypeRef> applyGeologicalWeightBoosts(List<TerrainTypeRef> terrains, boolean hasHeavyCratering, boolean hasVolcanism) {
+        List<TerrainTypeRef> weighted = new ArrayList<>();
+        for (TerrainTypeRef terrain : terrains) {
+            int effectiveWeight = terrain.getEffectiveWeight(hasHeavyCratering, hasVolcanism);
+            int baseWeight = terrain.getRarityWeight() != null ? terrain.getRarityWeight() : 100;
+
+            int copies = 1 + (effectiveWeight - baseWeight) / 50;
+            for (int i = 0; i < copies; i++) {
+                weighted.add(terrain);
+            }
+        }
+        return weighted.isEmpty() ? terrains : weighted;
     }
 
     private void distributePercentageAcrossCategories(List<PlanetaryTerrainDistribution> terrains, Planet planet, List<TerrainTypeRef> viableTerrains, double totalPercent) {
@@ -537,13 +575,19 @@ public class GeologyCreator {
             return;
         }
 
+        // Determine geological modifiers for weight calculation
+        boolean heavyCratering = "Heavy".equals(planet.getCrateringLevel()) ||
+                "Extreme".equals(planet.getCrateringLevel()) ||
+                (planet.getEstimatedVisibleCraters() != null && planet.getEstimatedVisibleCraters() > 10000);
+        boolean volcanism = Boolean.TRUE.equals(planet.getHasVolcanicActivity());
+
         List<TerrainTypeRef> shuffled = new ArrayList<>(categoryTerrains);
         Collections.shuffle(shuffled);
         int numTerrains = Math.min(shuffled.size(), RandomUtils.rollRange(1, 3));
         List<TerrainTypeRef> selectedTerrains = shuffled.subList(0, numTerrains);
 
         int totalWeight = selectedTerrains.stream()
-                .mapToInt(TerrainTypeRef::getRarityWeight)
+                .mapToInt(t -> t.getEffectiveWeight(heavyCratering, volcanism))
                 .sum();
 
         double remainingPercent = categoryPercent;
@@ -556,7 +600,7 @@ public class GeologyCreator {
                 percent = remainingPercent;
             } else {
                 if (totalWeight > 0) {
-                    double basePercent = (categoryPercent * terrain.getRarityWeight()) / (double) totalWeight;
+                    double basePercent = (categoryPercent * terrain.getEffectiveWeight(heavyCratering, volcanism)) / (double) totalWeight;
                     double variance = RandomUtils.rollRange(-0.2, 0.2);
                     percent = basePercent * (1.0 + variance);
                 } else {
@@ -642,5 +686,24 @@ public class GeologyCreator {
                 .filter(t -> t.getTerrainType().getCategory().equals("MOUNTAIN"))
                 .mapToDouble(PlanetaryTerrainDistribution::getCoveragePercent)
                 .sum();
+    }
+
+    private List<PlanetaryTerrainDistribution> consolidateDuplicateTerrains(List<PlanetaryTerrainDistribution> terrains) {
+        Map<Integer, PlanetaryTerrainDistribution> consolidated = new LinkedHashMap<>();
+
+        for (PlanetaryTerrainDistribution dist : terrains) {
+            Integer terrainId = dist.getTerrainType().getId();
+
+            if (consolidated.containsKey(terrainId)) {
+                // Add coverage to existing entry
+                PlanetaryTerrainDistribution existing = consolidated.get(terrainId);
+                double newCoverage = existing.getCoveragePercent() + dist.getCoveragePercent();
+                existing.setCoveragePercent(Math.round(newCoverage * 100.0) / 100.0);
+            } else {
+                consolidated.put(terrainId, dist);
+            }
+        }
+
+        return new ArrayList<>(consolidated.values());
     }
 }
