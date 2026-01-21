@@ -110,7 +110,7 @@ public class GeologyCreator {
 
         PlanetaryGeology geology;
         if (template == null) {
-            geology = generateBasicGeology(activityScore, isGasGiant, planet);
+            geology = generateBasicGeology(activityScore, isGasGiant);
         } else {
             geology = generateGeologyFromTemplate(template, planet, activityScore);
         }
@@ -144,10 +144,9 @@ public class GeologyCreator {
                 .activityLevel(template.getActivityLevel())
                 .activityScore(activityScore);
 
-        // Collect values from features for aggregation
         Double mountainCoverage = null;
         Double maxElev = null;
-        Double minElev = null;
+        double minElev;
         Double roughness = null;
         String crateringLevel = null;
         Integer craterCount = null;
@@ -164,7 +163,6 @@ public class GeologyCreator {
         Integer majorStorms = null;
         String convectionLevel = null;
 
-        // Process all features
         for (GeologicalFeatureRef feature : template.getFeatures()) {
             String type = feature.getFeatureType();
             String value = feature.getFeatureValue();
@@ -282,7 +280,7 @@ public class GeologyCreator {
         return builder.build();
     }
 
-    private PlanetaryGeology generateBasicGeology(double activityScore, boolean isGasGiant, Planet planet) {
+    private PlanetaryGeology generateBasicGeology(double activityScore, boolean isGasGiant) {
         PlanetaryGeology.Builder builder = new PlanetaryGeology.Builder()
                 .activityScore(activityScore);
 

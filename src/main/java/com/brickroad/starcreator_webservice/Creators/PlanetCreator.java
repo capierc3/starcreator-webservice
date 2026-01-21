@@ -1,6 +1,5 @@
 package com.brickroad.starcreator_webservice.Creators;
 
-
 import com.brickroad.starcreator_webservice.model.planets.*;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.stars.Star;
@@ -143,7 +142,7 @@ public class PlanetCreator {
             planet.setSurfaceTemp(RandomUtils.rollRange(100.0, 400));
         }
 
-        populateAtmosphereProperties(planet, type, parentStar);
+        populateAtmosphereProperties(planet, type);
 
         planet.setCoreType(type.getTypicalCoreType());
         populateCompositionProperties(planet);
@@ -292,7 +291,7 @@ public class PlanetCreator {
         return baseRotation;
     }
 
-    private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type, Star parentStar) {
+    private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type) {
         if (!type.getCanHaveAtmosphere() || planet.getEarthMass() < 0.1) {
             planet.setAtmosphereComposition("None");
             planet.setAtmosphereClassification("NONE");
