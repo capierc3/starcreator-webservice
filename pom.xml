@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.brickroad</groupId>
 	<artifactId>starcreator-webservice</artifactId>
-	<version>0.1.1</version>
+	<version>0.1.2</version>
 	<name>starcreator-webservice</name>
 	<description>StarCreator API</description>
 	<url/>
@@ -58,6 +58,12 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.15.2</version>
+		</dependency>
+
 		<!-- DB migration -->
 		<dependency>
 			<groupId>org.flywaydb</groupId>

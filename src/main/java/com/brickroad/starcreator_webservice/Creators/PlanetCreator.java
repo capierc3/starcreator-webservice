@@ -1,10 +1,7 @@
 package com.brickroad.starcreator_webservice.Creators;
 
-import com.brickroad.starcreator_webservice.model.planets.PlanetaryAtmosphere;
+import com.brickroad.starcreator_webservice.model.planets.*;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.model.planets.PlanetTypeRef;
-import com.brickroad.starcreator_webservice.model.planets.PlanetaryComposition;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.repos.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -30,6 +27,9 @@ public class PlanetCreator {
 
     @Autowired
     private CompositionCreator compositionCreator;
+
+    @Autowired
+    private GeologyCreator geologyCreator;
 
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
@@ -77,7 +77,7 @@ public class PlanetCreator {
         double maxSystemDistance = getMaxSystemDistance(parentStar);
         double currentDistance = RandomUtils.rollRange(0.1, 0.5);
         for (int i = 0; i < numPlanets; i++) {
-            PlanetTypeRef type = selectPlanetTypeByDistance(currentDistance, frostLine, hz);
+            PlanetTypeRef type = selectPlanetTypeByDistance(currentDistance, frostLine, hz, parentStar);
 
             Planet planet = generatePlanetByType(type, parentStar, i + 1, currentDistance);
             planets.add(planet);
@@ -142,11 +142,11 @@ public class PlanetCreator {
             planet.setSurfaceTemp(RandomUtils.rollRange(100.0, 400));
         }
 
-        populateAtmosphereProperties(planet, type, parentStar);
+        populateAtmosphereProperties(planet, type);
 
         planet.setCoreType(type.getTypicalCoreType());
         populateCompositionProperties(planet);
-        planet.setGeologicalActivity(determineGeologicalActivity(earthMass, planet.getAgeMY()));
+        geologyCreator.populateGeologicalProperties(planet);
 
         planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
         planet.setNumberOfMoons(calculateMoonAmount(type, parentStar));
@@ -156,7 +156,8 @@ public class PlanetCreator {
         if (parentStar != null) {
             HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
             planet.setHabitableZonePosition(determineHabitableZonePosition(
-                    planet.getSemiMajorAxisAU(), hz
+                    planet.getSemiMajorAxisAU(), hz,
+                    calculateFrostLine(parentStar), parentStar
             ));
         }
 
@@ -290,7 +291,7 @@ public class PlanetCreator {
         return baseRotation;
     }
 
-    private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type, Star parentStar) {
+    private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type) {
         if (!type.getCanHaveAtmosphere() || planet.getEarthMass() < 0.1) {
             planet.setAtmosphereComposition("None");
             planet.setAtmosphereClassification("NONE");
@@ -395,6 +396,13 @@ public class PlanetCreator {
     }
 
     private double calculateFrostLine(Star star) {
+        if (star.getSystem() != null &&
+                star.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
+            double totalLuminosity = star.getSystem().getStars().stream()
+                    .mapToDouble(Star::getSolarLuminosity)
+                    .sum();
+            return 2.7 * Math.sqrt(totalLuminosity);
+        }
         return 2.7 * Math.sqrt(star.getSolarLuminosity());
     }
 
@@ -439,19 +447,9 @@ public class PlanetCreator {
         return metallicityFactor;
     }
 
-    private PlanetTypeRef selectPlanetTypeByDistance(double distanceAU, double frostLine, HabitableZone hz) {
-        String zone;
+    private PlanetTypeRef selectPlanetTypeByDistance(double distanceAU, double frostLine, HabitableZone hz, Star star) {
 
-        if (distanceAU < hz.innerEdge) {
-            zone = "inner";
-        } else if (distanceAU >= hz.innerEdge && distanceAU <= hz.outerEdge) {
-            zone = "habitable";
-        } else if (distanceAU > frostLine) {
-            zone = "outer";
-        } else {
-            zone = "frost_line";
-        }
-
+        String zone = determineHabitableZonePosition(distanceAU,hz,frostLine, star);
         List<PlanetTypeRef> suitableTypes = cachedPlanetTypes.stream()
                 .filter(type -> type.getFormationZone() == null ||
                         type.getFormationZone().equals(zone))
@@ -500,33 +498,27 @@ public class PlanetCreator {
         return nextDistance;
     }
 
-    private String determineHabitableZonePosition(double distanceAU, HabitableZone hz) {
-        if (distanceAU < hz.innerEdge * 0.5) {
-            return "too_hot";
-        } else if (distanceAU < hz.innerEdge) {
-            return "inner_edge";
-        } else if (distanceAU >= hz.innerEdge && distanceAU <= hz.outerEdge) {
-            return "habitable_zone";
-        } else if (distanceAU <= hz.outerEdge * 1.5) {
-            return "outer_edge";
-        } else {
-            return "too_cold";
+    private String determineHabitableZonePosition(double distanceAU, HabitableZone hz, double frostLine, Star star) {
+        HabitableZone effectiveHZ = hz;
+        if (star.getSystem() != null &&
+                star.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
+            effectiveHZ = new HabitableZone(
+                    star.getSystem().getHabitableLow(),
+                    star.getSystem().getHabitableHigh()
+            );
         }
-    }
 
-    private String determineGeologicalActivity(double earthMass, double age) {
-
-        double activityScore = earthMass / (age / 1000.0);
-
-        if (activityScore > 2.0) {
-            return "Highly Active";
-        } else if (activityScore > 0.5) {
-            return "Moderately Active";
-        } else if (activityScore > 0.1) {
-            return "Low Activity";
+        String zone;
+        if (distanceAU < effectiveHZ.innerEdge) {
+            zone = "inner";
+        } else if (distanceAU >= effectiveHZ.innerEdge && distanceAU <= effectiveHZ.outerEdge) {
+            zone = "habitable";
+        } else if (distanceAU > frostLine) {
+            zone = "outer";
         } else {
-            return "Geologically Dead";
+            zone = "frost_line";
         }
+        return zone;
     }
 
     private double calculateMagneticField(Planet planet) {
