@@ -1,7 +1,11 @@
 package com.brickroad.starcreator_webservice.model.geological;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 @Entity
 @Table(name = "terrain_type_ref", schema = "ref")
@@ -71,6 +75,18 @@ public class TerrainTypeRef {
     @Column(name = "volcanic_weight_boost")
     private Integer volcanicWeightBoost = 0;
 
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "excluded_planet_types", columnDefinition = "text[]")
+    private String[] excludedPlanetTypes;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "required_composition_classes", columnDefinition = "text[]")
+    private String[] requiredCompositionClasses;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "excluded_composition_classes", columnDefinition = "text[]")
+    private String[] excludedCompositionClasses;
+
     // Getters and Setters
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -132,6 +148,30 @@ public class TerrainTypeRef {
     public Integer getVolcanicWeightBoost() { return volcanicWeightBoost != null ? volcanicWeightBoost : 0; }
     public void setVolcanicWeightBoost(Integer volcanicWeightBoost) { this.volcanicWeightBoost = volcanicWeightBoost; }
 
+    public String[] getExcludedPlanetTypes() {
+        return excludedPlanetTypes;
+    }
+
+    public void setExcludedPlanetTypes(String[] excludedPlanetTypes) {
+        this.excludedPlanetTypes = excludedPlanetTypes;
+    }
+
+    public String[] getRequiredCompositionClasses() {
+        return requiredCompositionClasses;
+    }
+
+    public void setRequiredCompositionClasses(String[] requiredCompositionClasses) {
+        this.requiredCompositionClasses = requiredCompositionClasses;
+    }
+
+    public String[] getExcludedCompositionClasses() {
+        return excludedCompositionClasses;
+    }
+
+    public void setExcludedCompositionClasses(String[] excludedCompositionClasses) {
+        this.excludedCompositionClasses = excludedCompositionClasses;
+    }
+
     public int getEffectiveWeight(boolean hasHeavyCratering, boolean hasVolcanism) {
         int weight = rarityWeight != null ? rarityWeight : 100;
         if (hasHeavyCratering) {
@@ -156,9 +196,25 @@ public class TerrainTypeRef {
         if (maxTemperatureK != null && surfaceTempK != null && surfaceTempK > maxTemperatureK) {
             return false;
         }
-        if (minPressureAtm != null && pressureAtm != null && pressureAtm < minPressureAtm) {
-            return false;
+        return minPressureAtm == null || pressureAtm == null || pressureAtm >= minPressureAtm;
+    }
+
+    public boolean isExcludedForPlanetType(String planetType) {
+        return excludedPlanetTypes != null &&
+                Arrays.asList(excludedPlanetTypes).contains(planetType);
+    }
+
+    public boolean isCompatibleWithComposition(String compositionClass) {
+        // If required classes specified, composition must match one
+        if (requiredCompositionClasses != null && requiredCompositionClasses.length > 0) {
+            return Arrays.asList(requiredCompositionClasses).contains(compositionClass);
         }
+
+        // Check if composition is explicitly excluded
+        if (excludedCompositionClasses != null) {
+            return !Arrays.asList(excludedCompositionClasses).contains(compositionClass);
+        }
+
         return true;
     }
 }

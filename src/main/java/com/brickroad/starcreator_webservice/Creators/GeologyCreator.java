@@ -399,15 +399,21 @@ public class GeologyCreator {
         );
 
         if (viableTerrains.isEmpty()) {
+            Double surfaceTemp = planet.getSurfaceTemp();
             viableTerrains = cachedTerrainTypes.values().stream()
                     .filter(t -> "BARREN".equals(t.getCategory()) || "EXOTIC".equals(t.getCategory()))
-                    .filter(t -> t.isViableFor(planet.getSurfaceTemp(), planet.getSurfacePressure(), waterCoverage > 0, hasAtmosphere))
+                    .filter(t -> surfaceTemp == null || t.getMinTemperatureK() == null || surfaceTemp >= t.getMinTemperatureK())
+                    .filter(t -> surfaceTemp == null || t.getMaxTemperatureK() == null || surfaceTemp <= t.getMaxTemperatureK())
                     .collect(Collectors.toList());
         }
 
+
         if (viableTerrains.isEmpty()) {
+            Double surfaceTemp = planet.getSurfaceTemp();
             viableTerrains = cachedTerrainTypes.values().stream()
                     .filter(t -> "BARREN".equals(t.getCategory()))
+                    .filter(t -> surfaceTemp == null || t.getMinTemperatureK() == null || surfaceTemp >= t.getMinTemperatureK())
+                    .filter(t -> surfaceTemp == null || t.getMaxTemperatureK() == null || surfaceTemp <= t.getMaxTemperatureK())
                     .collect(Collectors.toList());
         }
 
@@ -421,6 +427,11 @@ public class GeologyCreator {
                     .collect(Collectors.toList());
         }
 
+        viableTerrains = viableTerrains.stream()
+                .filter(terrain -> !isExcludedByPlanetType(terrain, planet))
+                .filter(terrain -> meetsCompositionRequirement(terrain, planet))
+                .collect(Collectors.toList());
+
         // Ultimate Question of Life, the Universe, and Everything...
         if (RandomUtils.rollRange(0, 1000000) != 42) {
             viableTerrains = viableTerrains.stream()
@@ -429,6 +440,42 @@ public class GeologyCreator {
         }
 
         return viableTerrains;
+    }
+
+    private boolean isExcludedByPlanetType(TerrainTypeRef terrain, Planet planet) {
+        if (terrain.getExcludedPlanetTypes() == null ||
+                terrain.getExcludedPlanetTypes().length == 0) {
+            return false;
+        }
+
+        String planetType = planet.getPlanetType();
+        if (planetType == null) {
+            return false;
+        }
+
+        return Arrays.asList(terrain.getExcludedPlanetTypes()).contains(planetType);
+    }
+
+    private boolean meetsCompositionRequirement(TerrainTypeRef terrain, Planet planet) {
+        String planetComposition = planet.getCompositionClassification();
+
+        if (planetComposition == null) {
+            return true;
+        }
+
+        if (terrain.getRequiredCompositionClasses() != null &&
+                terrain.getRequiredCompositionClasses().length > 0) {
+            return Arrays.asList(terrain.getRequiredCompositionClasses())
+                    .contains(planetComposition);
+        }
+
+        if (terrain.getExcludedCompositionClasses() != null &&
+                terrain.getExcludedCompositionClasses().length > 0) {
+            return !Arrays.asList(terrain.getExcludedCompositionClasses())
+                    .contains(planetComposition);
+        }
+
+        return true;
     }
 
     private List<TerrainTypeRef> applyGeologicalWeightBoosts(List<TerrainTypeRef> terrains, boolean hasHeavyCratering, boolean hasVolcanism) {
