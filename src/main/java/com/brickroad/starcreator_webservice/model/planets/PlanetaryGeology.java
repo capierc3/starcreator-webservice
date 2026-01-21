@@ -1,10 +1,5 @@
 package com.brickroad.starcreator_webservice.model.planets;
 
-import com.brickroad.starcreator_webservice.model.geological.TerrainDistribution;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,7 +44,7 @@ public class PlanetaryGeology {
     private String atmosphericConvectionLevel;
 
     // Terrain distribution
-    private List<TerrainDistribution> terrainDistribution = new ArrayList<>();
+    private List<PlanetaryTerrainDistribution> terrainDistribution = new ArrayList<>();
 
     public static class Builder {
         private PlanetaryGeology geology = new PlanetaryGeology();
@@ -108,7 +103,7 @@ public class PlanetaryGeology {
             return this;
         }
 
-        public Builder terrainDistribution(List<TerrainDistribution> distribution) {
+        public Builder terrainDistribution(List<PlanetaryTerrainDistribution> distribution) {
             geology.terrainDistribution = distribution;
             return this;
         }
@@ -182,20 +177,8 @@ public class PlanetaryGeology {
     public String getAtmosphericConvectionLevel() { return atmosphericConvectionLevel; }
     public void setAtmosphericConvectionLevel(String atmosphericConvectionLevel) { this.atmosphericConvectionLevel = atmosphericConvectionLevel; }
 
-    public List<TerrainDistribution> getTerrainDistribution() { return terrainDistribution; }
-    public void setTerrainDistribution(List<TerrainDistribution> terrainDistribution) { this.terrainDistribution = terrainDistribution; }
-
-    @Override
-    public String toString() {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.enable(SerializationFeature.INDENT_OUTPUT);
-            return mapper.writeValueAsString(this);
-        } catch (JsonProcessingException e) {
-            return "Error converting to JSON: " + e.getMessage();
-        }
-    }
-
+    public List<PlanetaryTerrainDistribution> getTerrainDistribution() { return terrainDistribution; }
+    public void setTerrainDistribution(List<PlanetaryTerrainDistribution> terrainDistribution) { this.terrainDistribution = terrainDistribution; }
 
 }
 

@@ -1,19 +1,22 @@
 package com.brickroad.starcreator_webservice.Creators;
 
-import com.brickroad.starcreator_webservice.model.enums.TerrainType;
 import com.brickroad.starcreator_webservice.model.geological.GeologicalFeatureRef;
 import com.brickroad.starcreator_webservice.model.geological.GeologicalTemplateRef;
+import com.brickroad.starcreator_webservice.model.geological.TerrainCategoryRef;
+import com.brickroad.starcreator_webservice.model.geological.TerrainTypeRef;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
 import com.brickroad.starcreator_webservice.model.planets.PlanetaryGeology;
-import com.brickroad.starcreator_webservice.model.geological.TerrainDistribution;
+import com.brickroad.starcreator_webservice.model.planets.PlanetaryTerrainDistribution;
 import com.brickroad.starcreator_webservice.repos.GeologicalTemplateRepository;
+import com.brickroad.starcreator_webservice.repos.TerrainCategoryRefRepository;
+import com.brickroad.starcreator_webservice.repos.TerrainTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class GeologyCreator {
@@ -21,11 +24,75 @@ public class GeologyCreator {
     @Autowired
     private GeologicalTemplateRepository geologicalTemplateRepository;
 
-    private List<GeologicalTemplateRef> cachedTemplates;
+    @Autowired
+    private TerrainTypeRefRepository terrainTypeRefRepository;
+
+    @Autowired
+    private TerrainCategoryRefRepository terrainCategoryRepository;
+
+    private Map<String, TerrainTypeRef> cachedTerrainTypes;
+    private Map<String, TerrainCategoryRef> cachedTerrainCategories;
 
     @PostConstruct
     public void init() {
-        cachedTemplates = geologicalTemplateRepository.findAll();
+        cachedTerrainTypes = terrainTypeRefRepository.findAll().stream()
+                .collect(Collectors.toMap(TerrainTypeRef::getName, t -> t));
+        cachedTerrainCategories = terrainCategoryRepository.findAll().stream()
+                .collect(Collectors.toMap(TerrainCategoryRef::getCategory, c -> c));
+    }
+
+    public void populateGeologicalProperties(Planet planet) {
+        PlanetaryGeology geology = generateGeology(planet);
+
+        planet.setGeologicalActivity(geology.getActivityLevel());
+        planet.setActivityScore(geology.getActivityScore());
+        planet.setHasPlateTectonics(geology.getHasPlateTectonics());
+        planet.setNumberOfTectonicPlates(geology.getNumberOfTectonicPlates());
+        planet.setTectonicActivityLevel(geology.getTectonicActivityLevel());
+        planet.setHasVolcanicActivity(geology.getHasVolcanicActivity());
+        planet.setVolcanismType(geology.getVolcanismType());
+        planet.setEstimatedActiveVolcanoes(geology.getEstimatedActiveVolcanoes());
+        planet.setVolcanicIntensity(geology.getVolcanicIntensity());
+        planet.setMountainCoveragePercent(geology.getMountainCoveragePercent());
+        planet.setAverageElevationKm(geology.getAverageElevationKm());
+        planet.setMaxElevationKm(geology.getMaxElevationKm());
+        planet.setMinElevationKm(geology.getMinElevationKm());
+        planet.setTerrainRoughness(geology.getTerrainRoughness());
+        planet.setCrateringLevel(geology.getCrateringLevel());
+        planet.setEstimatedVisibleCraters(geology.getEstimatedVisibleCraters());
+        planet.setErosionLevel(geology.getErosionLevel());
+        planet.setPrimaryErosionAgent(geology.getPrimaryErosionAgent());
+        planet.setHasGreatStorm(geology.getHasGreatStorm());
+        planet.setNumberOfMajorStorms(geology.getNumberOfMajorStorms());
+        planet.setAtmosphericConvectionLevel(geology.getAtmosphericConvectionLevel());
+
+        if (!isGasGiant(planet.getPlanetType())) {
+
+            List<PlanetaryTerrainDistribution> terrainDist = generateTerrainDistribution(planet);
+            planet.setTerrainDistribution(terrainDist);
+
+            if (!terrainDist.isEmpty() && geology.getMaxElevationKm() == null) {
+                double mountainCoverage = calculateMountainCoverage(terrainDist);
+                planet.setMountainCoveragePercent(mountainCoverage);
+
+                if (mountainCoverage > 15) {
+                    planet.setMaxElevationKm(RandomUtils.rollRange(4.0, 8.0));
+                    planet.setMinElevationKm(RandomUtils.rollRange(-3.0, -1.0));
+                    planet.setAverageElevationKm(RandomUtils.rollRange(0.0, 2.0));
+                    planet.setTerrainRoughness(RandomUtils.rollRange(3.0, 6.0));
+                } else if (mountainCoverage > 5) {
+                    planet.setMaxElevationKm(RandomUtils.rollRange(2.0, 5.0));
+                    planet.setMinElevationKm(RandomUtils.rollRange(-2.0, -0.5));
+                    planet.setAverageElevationKm(RandomUtils.rollRange(-0.5, 1.0));
+                    planet.setTerrainRoughness(RandomUtils.rollRange(2.0, 4.0));
+                } else {
+                    planet.setMaxElevationKm(RandomUtils.rollRange(0.5, 2.0));
+                    planet.setMinElevationKm(RandomUtils.rollRange(-1.0, -0.2));
+                    planet.setAverageElevationKm(RandomUtils.rollRange(-0.2, 0.5));
+                    planet.setTerrainRoughness(RandomUtils.rollRange(1.0, 2.5));
+                }
+            }
+        }
     }
 
     public PlanetaryGeology generateGeology(Planet planet) {
@@ -40,11 +107,14 @@ public class GeologyCreator {
                 .findByPlanetTypeAndActivityScore(planetType, activityScore);
 
         GeologicalTemplateRef template = selectGeologicalTemplate(templates);
-        if (template == null) {
-            return generateBasicGeology(activityScore, isGasGiant, planet);
-        }
 
-        return generateGeologyFromTemplate(template, planet, activityScore);
+        PlanetaryGeology geology;
+        if (template == null) {
+            geology = generateBasicGeology(activityScore, isGasGiant, planet);
+        } else {
+            geology = generateGeologyFromTemplate(template, planet, activityScore);
+        }
+        return geology;
     }
 
     private GeologicalTemplateRef selectGeologicalTemplate(List<GeologicalTemplateRef> templates) {
@@ -209,14 +279,10 @@ public class GeologyCreator {
             builder.gasGiantStorms(hasGreatStorm, majorStorms, convectionLevel);
         }
 
-        List<TerrainDistribution> terrainDist = generateTerrainDistribution(planet);
-        builder.terrainDistribution(terrainDist);
-
         return builder.build();
     }
 
     private PlanetaryGeology generateBasicGeology(double activityScore, boolean isGasGiant, Planet planet) {
-
         PlanetaryGeology.Builder builder = new PlanetaryGeology.Builder()
                 .activityScore(activityScore);
 
@@ -234,11 +300,11 @@ public class GeologyCreator {
             builder.plateTectonics(false, null, "N/A")
                     .volcanism(false, "Atmospheric", null, null)
                     .gasGiantStorms(false, 0, "Minimal")
-                    .terrain(null, null, null, null, 5.0);
+                    .terrain(null, null, null, null, 5.0);  // Only roughness
         } else {
             builder.plateTectonics(false, null, "None")
                     .volcanism(false, "None", 0, "None")
-                    .terrain(5.0, 0.0, 2.0, -1.0, 2.0)
+                    .terrain(null, null, null, null, null)  // All null - will be set during terrain generation
                     .cratering("Heavy", 50000)
                     .erosion("None", "None");
         }
@@ -246,60 +312,88 @@ public class GeologyCreator {
         return builder.build();
     }
 
-    private List<TerrainDistribution> generateTerrainDistribution(Planet planet) {
-        List<TerrainDistribution> terrains = new ArrayList<>();
+    private List<PlanetaryTerrainDistribution> generateTerrainDistribution(Planet planet) {
+        List<PlanetaryTerrainDistribution> terrains = new ArrayList<>();
         String planetType = planet.getPlanetType();
+
         double waterCoverage = planet.getWaterCoveragePercent() != null ?
                 planet.getWaterCoveragePercent() : 0;
-        double remainingPercent = 100.0 - waterCoverage;
+        double landPercent = 100.0 - waterCoverage;
 
         if (isGasGiant(planetType)) {
-            // Gas giants don't have terrain
             return terrains;
         }
 
-        if (planetType.contains("Ocean")) {
-            addTerrain(terrains, TerrainType.AQUATIC_DEEP, waterCoverage * 0.8);
-            addTerrain(terrains, TerrainType.AQUATIC_SHALLOW, waterCoverage * 0.2);
-            addTerrain(terrains, TerrainType.ISLAND, remainingPercent * 0.7);
-            addTerrain(terrains, TerrainType.MOUNTAINS, remainingPercent * 0.3);
-        } else if (planetType.contains("Desert")) {
-            addTerrain(terrains, TerrainType.DESERT, remainingPercent * 0.7);
-            addTerrain(terrains, TerrainType.PLAINS, remainingPercent * 0.15);
-            addTerrain(terrains, TerrainType.MOUNTAINS, remainingPercent * 0.15);
-        } else if (planetType.contains("Lava")) {
-            addTerrain(terrains, TerrainType.WASTE_LANDS, remainingPercent * 0.6);
-            addTerrain(terrains, TerrainType.MOUNTAINS, remainingPercent * 0.4);
-        } else if (planetType.contains("Ice")) {
-            addTerrain(terrains, TerrainType.ARCTIC_FROZEN, remainingPercent * 0.5);
-            addTerrain(terrains, TerrainType.GLACIER, remainingPercent * 0.3);
-            addTerrain(terrains, TerrainType.TUNDRA, remainingPercent * 0.2);
-        } else if (planetType.contains("Terrestrial")) {
-            if (waterCoverage > 0) {
-                addTerrain(terrains, TerrainType.AQUATIC_DEEP, waterCoverage * 0.6);
-                addTerrain(terrains, TerrainType.AQUATIC_SHALLOW, waterCoverage * 0.4);
+        Double surfaceTemp = planet.getSurfaceTemp();
+        Boolean hasAtmosphere = planet.getAtmosphereComposition() != null &&
+                !planet.getAtmosphereComposition().isEmpty() &&
+                !planet.getAtmosphereComposition().equals("None");
+        List<TerrainTypeRef> viableTerrains = terrainTypeRefRepository.findViableTerrainTypes(
+                surfaceTemp,
+                waterCoverage > 0,
+                hasAtmosphere
+        );
+
+        if (viableTerrains.isEmpty()) {
+            viableTerrains = new ArrayList<>(cachedTerrainTypes.values());
+        }
+
+        if (planet.getHasVolcanicActivity() == null) {
+            viableTerrains = viableTerrains.stream()
+                    .filter(t -> !t.getCategory().equals("VOLCANIC"))
+                    .collect(Collectors.toList());
+        }
+
+        // Ultimate Question of Life, the Universe, and Everything...
+        if (RandomUtils.rollRange(0, 1000000) != 42) {
+            viableTerrains = viableTerrains.stream()
+                    .filter(t -> !t.getCategory().equals("ARTIFICIAL"))
+                    .collect(Collectors.toList());
+        }
+
+        if (waterCoverage > 1.0) {
+            boolean waterIsFrozen = surfaceTemp != null && surfaceTemp < 273.0;
+
+            if (waterIsFrozen) {
+                List<TerrainTypeRef> iceTerrains = filterByCategory(viableTerrains, "ICE");
+                if (!iceTerrains.isEmpty()) {
+                    distributePercentageAcrossCategories(terrains, planet, iceTerrains, waterCoverage);
+                }
+            } else {
+                List<TerrainTypeRef> aquaticTerrains = filterByCategory(viableTerrains, "AQUATIC");
+                if (!aquaticTerrains.isEmpty()) {
+                    distributePercentageAcrossCategories(terrains, planet, aquaticTerrains, waterCoverage);
+                }
             }
-            addTerrain(terrains, TerrainType.FOREST, remainingPercent * 0.3);
-            addTerrain(terrains, TerrainType.GRASSLAND, remainingPercent * 0.25);
-            addTerrain(terrains, TerrainType.MOUNTAINS, remainingPercent * 0.15);
-            addTerrain(terrains, TerrainType.DESERT, remainingPercent * 0.15);
-            addTerrain(terrains, TerrainType.JUNGLE, remainingPercent * 0.1);
-            addTerrain(terrains, TerrainType.TUNDRA, remainingPercent * 0.05);
-        } else {
-            // Generic rocky world
-            addTerrain(terrains, TerrainType.PLAINS, remainingPercent * 0.4);
-            addTerrain(terrains, TerrainType.MOUNTAINS, remainingPercent * 0.3);
-            addTerrain(terrains, TerrainType.HILLS, remainingPercent * 0.2);
-            addTerrain(terrains, TerrainType.CANYON, remainingPercent * 0.1);
+        }
+
+        if (landPercent > 1.0) {
+            List<TerrainTypeRef> landTerrains = viableTerrains.stream()
+                    .filter(t -> !t.getCategory().equals("AQUATIC"))
+                    .collect(Collectors.toList());
+
+            if (!landTerrains.isEmpty()) {
+                distributePercentageAcrossCategories(terrains, planet, landTerrains, landPercent);
+            }
+        }
+
+        double totalCoverage = terrains.stream()
+                .mapToDouble(PlanetaryTerrainDistribution::getCoveragePercent)
+                .sum();
+
+        if (totalCoverage < 95.0 && !viableTerrains.isEmpty()) {
+            double missingPercent = 100.0 - totalCoverage;
+            List<TerrainTypeRef> fillTerrains = viableTerrains.stream()
+                    .filter(t -> !t.getCategory().equals("ARTIFICIAL"))
+                    .filter(t -> !t.getCategory().equals("AQUATIC"))
+                    .collect(Collectors.toList());
+
+            if (!fillTerrains.isEmpty()) {
+                distributePercentageAcrossCategories(terrains, planet, fillTerrains, missingPercent);
+            }
         }
 
         return terrains;
-    }
-
-    private void addTerrain(List<TerrainDistribution> terrains, TerrainType type, double percent) {
-        if (percent > 0.5) {
-            terrains.add(new TerrainDistribution(type, Math.round(percent * 100.0) / 100.0));
-        }
     }
 
     private boolean isGasGiant(String planetType) {
@@ -313,5 +407,240 @@ public class GeologyCreator {
         );
     }
 
+    private void distributePercentageAcrossCategories(List<PlanetaryTerrainDistribution> terrains, Planet planet, List<TerrainTypeRef> viableTerrains, double totalPercent) {
+        if (viableTerrains.isEmpty() || totalPercent < 0.5) {
+            return;
+        }
 
+        Map<String, List<TerrainTypeRef>> terrainsByCategory = viableTerrains.stream()
+                .collect(Collectors.groupingBy(TerrainTypeRef::getCategory));
+
+        Map<String, Integer> categoryWeights = new HashMap<>();
+        for (String category : terrainsByCategory.keySet()) {
+            TerrainCategoryRef categoryRef = cachedTerrainCategories.get(category);
+            if (categoryRef != null) {
+                categoryWeights.put(category, categoryRef.getBaseWeight());
+            } else {
+                categoryWeights.put(category, 50); // Fallback weight
+            }
+        }
+
+        int totalWeight = categoryWeights.values().stream().mapToInt(Integer::intValue).sum();
+
+        if (totalWeight == 0) {
+            distributePercentageEvenly(terrains, planet, viableTerrains, totalPercent);
+            return;
+        }
+
+        List<String> majorCategories = new ArrayList<>();
+        List<String> rareCategories = new ArrayList<>();
+
+        for (String category : terrainsByCategory.keySet()) {
+            TerrainCategoryRef categoryRef = cachedTerrainCategories.get(category);
+            if (categoryRef != null && categoryRef.getIsRare()) {
+                rareCategories.add(category);
+            } else {
+                majorCategories.add(category);
+            }
+        }
+
+        double majorPercent = totalPercent * RandomUtils.rollRange(0.90, 0.95);
+        double rarePercent = totalPercent - majorPercent;
+
+        int numMajor = Math.min(majorCategories.size(), RandomUtils.rollRange(2, 4));
+        List<String> selectedMajor = selectWeightedRandomCategories(majorCategories, categoryWeights, numMajor);
+
+        distributeAmongCategories(terrains, planet, terrainsByCategory, categoryWeights,
+                cachedTerrainCategories, selectedMajor, majorPercent);
+
+        // Optionally add 1-2 rare categories with small percentages
+        if (!rareCategories.isEmpty() && rarePercent > 0.5) {
+            int numRare = Math.min(rareCategories.size(), RandomUtils.rollRange(1, 2));
+            List<String> selectedRare = selectWeightedRandomCategories(rareCategories, categoryWeights, numRare);
+            distributeAmongCategories(terrains, planet, terrainsByCategory, categoryWeights,
+                    cachedTerrainCategories, selectedRare, rarePercent);
+        }
+    }
+
+    private void distributeAmongCategories(List<PlanetaryTerrainDistribution> terrains, Planet planet, Map<String, List<TerrainTypeRef>> terrainsByCategory,
+                                           Map<String, Integer> categoryWeights, Map<String, TerrainCategoryRef> categoryRefs, List<String> categories, double totalPercent) {
+        double remainingPercent = totalPercent;
+
+        for (int i = 0; i < categories.size(); i++) {
+            String category = categories.get(i);
+            List<TerrainTypeRef> categoryTerrains = terrainsByCategory.get(category);
+            TerrainCategoryRef categoryRef = categoryRefs.get(category);
+
+            double categoryPercent;
+            if (i == categories.size() - 1) {
+                categoryPercent = remainingPercent;
+            } else {
+                int categoryWeight = categoryWeights.get(category);
+                int selectedWeight = categories.stream().mapToInt(categoryWeights::get).sum();
+
+                double basePercent = (totalPercent * categoryWeight) / (double) selectedWeight;
+                double variance = RandomUtils.rollRange(-0.3, 0.3);
+                categoryPercent = basePercent * (1.0 + variance);
+
+                if (categoryRef != null) {
+                    categoryPercent = Math.max(categoryPercent, categoryRef.getTypicalMinCoverage());
+                    categoryPercent = Math.min(categoryPercent, categoryRef.getTypicalMaxCoverage());
+                }
+
+                double reserveForOthers = (categories.size() - i - 1) * 1.0;
+                categoryPercent = Math.min(categoryPercent, remainingPercent - reserveForOthers);
+            }
+
+            if (categoryPercent >= 0.5) {
+                distributePercentageWithinCategory(terrains, planet, categoryTerrains, categoryPercent);
+                remainingPercent -= categoryPercent;
+            }
+        }
+    }
+
+    private List<String> selectWeightedRandomCategories(List<String> categories, Map<String, Integer> weights, int count) {
+        List<String> selected = new ArrayList<>();
+        List<String> available = new ArrayList<>(categories);
+
+        count = Math.min(count, available.size());
+
+        for (int i = 0; i < count; i++) {
+            if (available.isEmpty()) break;
+
+            int totalWeight = available.stream()
+                    .mapToInt(weights::get)
+                    .sum();
+
+            if (totalWeight == 0) {
+                selected.add(available.remove(RandomUtils.rollRange(0, available.size() - 1)));
+                continue;
+            }
+
+            int randomWeight = RandomUtils.rollRange(1, totalWeight);
+            int currentWeight = 0;
+
+            for (String category : available) {
+                currentWeight += weights.get(category);
+                if (randomWeight <= currentWeight) {
+                    selected.add(category);
+                    available.remove(category);
+                    break;
+                }
+            }
+        }
+
+        return selected;
+    }
+
+    private void distributePercentageWithinCategory(List<PlanetaryTerrainDistribution> terrains, Planet planet, List<TerrainTypeRef> categoryTerrains, double categoryPercent) {
+        if (categoryTerrains.isEmpty()) {
+            return;
+        }
+
+        List<TerrainTypeRef> shuffled = new ArrayList<>(categoryTerrains);
+        Collections.shuffle(shuffled);
+        int numTerrains = Math.min(shuffled.size(), RandomUtils.rollRange(1, 3));
+        List<TerrainTypeRef> selectedTerrains = shuffled.subList(0, numTerrains);
+
+        int totalWeight = selectedTerrains.stream()
+                .mapToInt(TerrainTypeRef::getRarityWeight)
+                .sum();
+
+        double remainingPercent = categoryPercent;
+
+        for (int i = 0; i < selectedTerrains.size(); i++) {
+            TerrainTypeRef terrain = selectedTerrains.get(i);
+            double percent;
+
+            if (i == selectedTerrains.size() - 1) {
+                percent = remainingPercent;
+            } else {
+                if (totalWeight > 0) {
+                    double basePercent = (categoryPercent * terrain.getRarityWeight()) / (double) totalWeight;
+                    double variance = RandomUtils.rollRange(-0.2, 0.2);
+                    percent = basePercent * (1.0 + variance);
+                } else {
+                    percent = categoryPercent / selectedTerrains.size();
+                }
+
+                percent = Math.max(percent, terrain.getTypicalCoverageMin());
+                percent = Math.min(percent, terrain.getTypicalCoverageMax());
+
+                double reserveForOthers = (selectedTerrains.size() - i - 1) * 0.5;
+                percent = Math.min(percent, remainingPercent - reserveForOthers);
+            }
+
+            if (percent >= 0.5) {
+                addTerrainDirect(terrains, planet, terrain, percent);
+                remainingPercent -= percent;
+            }
+        }
+    }
+
+    private void distributePercentageEvenly(List<PlanetaryTerrainDistribution> terrains, Planet planet, List<TerrainTypeRef> terrainTypes, double totalPercent) {
+        if (terrainTypes.isEmpty() || totalPercent < 0.5) {
+            return;
+        }
+
+        List<TerrainTypeRef> selectedTerrains = new ArrayList<>(terrainTypes);
+        java.util.Collections.shuffle(selectedTerrains);
+        int numTerrains = Math.min(selectedTerrains.size(), RandomUtils.rollRange(2, 4));
+        selectedTerrains = selectedTerrains.subList(0, numTerrains);
+
+        double remainingPercent = totalPercent;
+
+        for (int i = 0; i < selectedTerrains.size(); i++) {
+            TerrainTypeRef terrain = selectedTerrains.get(i);
+            double percent;
+
+            if (i == selectedTerrains.size() - 1) {
+                percent = remainingPercent;
+            } else {
+                double basePercent = totalPercent / selectedTerrains.size();
+                double variance = RandomUtils.rollRange(-0.3, 0.3);
+                percent = basePercent * (1.0 + variance);
+
+                percent = Math.max(percent, terrain.getTypicalCoverageMin());
+                percent = Math.min(percent, terrain.getTypicalCoverageMax());
+
+                double reserveForOthers = (selectedTerrains.size() - i - 1) * 1.0;
+                percent = Math.min(percent, remainingPercent - reserveForOthers);
+            }
+
+            if (percent >= 0.5) {
+                addTerrainDirect(terrains, planet, terrain, percent);
+                remainingPercent -= percent;
+            }
+
+            if (remainingPercent < 0) {
+                remainingPercent = 0;
+            }
+        }
+    }
+
+    private void addTerrainDirect(List<PlanetaryTerrainDistribution> terrains, Planet planet, TerrainTypeRef terrain, double percent) {
+        if (percent < 0.5) {
+            return;
+        }
+
+        PlanetaryTerrainDistribution distribution = new PlanetaryTerrainDistribution(
+                terrain,
+                Math.round(percent * 100.0) / 100.0
+        );
+        distribution.setPlanet(planet);
+        terrains.add(distribution);
+    }
+
+    private List<TerrainTypeRef> filterByCategory(List<TerrainTypeRef> terrains, String category) {
+        return terrains.stream()
+                .filter(t -> t.getCategory().equals(category))
+                .collect(Collectors.toList());
+    }
+
+    private double calculateMountainCoverage(List<PlanetaryTerrainDistribution> terrains) {
+        return terrains.stream()
+                .filter(t -> t.getTerrainType().getCategory().equals("MOUNTAIN"))
+                .mapToDouble(PlanetaryTerrainDistribution::getCoveragePercent)
+                .sum();
+    }
 }

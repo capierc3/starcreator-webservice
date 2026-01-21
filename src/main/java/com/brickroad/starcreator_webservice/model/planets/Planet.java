@@ -1,7 +1,11 @@
 package com.brickroad.starcreator_webservice.model.planets;
 
 import com.brickroad.starcreator_webservice.model.CelestialBody;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "planet", schema = "ud")
@@ -78,6 +82,70 @@ public class Planet extends CelestialBody {
 
     @Column(name = "geological_activity")
     private String geologicalActivity;
+
+    @Column(name = "activity_score")
+    private Double activityScore;
+
+    @Column(name = "has_plate_tectonics")
+    private Boolean hasPlateTectonics;
+
+    @Column(name = "number_of_tectonic_plates")
+    private Integer numberOfTectonicPlates;
+
+    @Column(name = "tectonic_activity_level", length = 50)
+    private String tectonicActivityLevel;
+
+    @Column(name = "has_volcanic_activity")
+    private Boolean hasVolcanicActivity;
+
+    @Column(name = "volcanism_type", length = 50)
+    private String volcanismType;
+
+    @Column(name = "estimated_active_volcanoes")
+    private Integer estimatedActiveVolcanoes;
+
+    @Column(name = "volcanic_intensity", length = 50)
+    private String volcanicIntensity;
+
+    @Column(name = "mountain_coverage_percent")
+    private Double mountainCoveragePercent;
+
+    @Column(name = "average_elevation_km")
+    private Double averageElevationKm;
+
+    @Column(name = "max_elevation_km")
+    private Double maxElevationKm;
+
+    @Column(name = "min_elevation_km")
+    private Double minElevationKm;
+
+    @Column(name = "terrain_roughness")
+    private Double terrainRoughness;
+
+    @Column(name = "cratering_level", length = 50)
+    private String crateringLevel;
+
+    @Column(name = "estimated_visible_craters")
+    private Integer estimatedVisibleCraters;
+
+    @Column(name = "erosion_level", length = 50)
+    private String erosionLevel;
+
+    @Column(name = "primary_erosion_agent", length = 50)
+    private String primaryErosionAgent;
+
+    @Column(name = "has_great_storm")
+    private Boolean hasGreatStorm;
+
+    @Column(name = "number_of_major_storms")
+    private Integer numberOfMajorStorms;
+
+    @Column(name = "atmospheric_convection_level", length = 50)
+    private String atmosphericConvectionLevel;
+
+    @OneToMany(mappedBy = "planet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JsonManagedReference
+    private List<PlanetaryTerrainDistribution> terrainDistribution = new ArrayList<>();
 
     @Column(name = "age_millions_years")
     private Double ageMY;
@@ -343,5 +411,73 @@ public class Planet extends CelestialBody {
 
     public void setCompositionClassification(String compositionClassification) {
         this.compositionClassification = compositionClassification;
+    }
+
+    public Double getActivityScore() { return activityScore; }
+    public void setActivityScore(Double activityScore) { this.activityScore = activityScore; }
+
+    public Boolean getHasPlateTectonics() { return hasPlateTectonics; }
+    public void setHasPlateTectonics(Boolean hasPlateTectonics) { this.hasPlateTectonics = hasPlateTectonics; }
+
+    public Integer getNumberOfTectonicPlates() { return numberOfTectonicPlates; }
+    public void setNumberOfTectonicPlates(Integer numberOfTectonicPlates) { this.numberOfTectonicPlates = numberOfTectonicPlates; }
+
+    public String getTectonicActivityLevel() { return tectonicActivityLevel; }
+    public void setTectonicActivityLevel(String tectonicActivityLevel) { this.tectonicActivityLevel = tectonicActivityLevel; }
+
+    public Boolean getHasVolcanicActivity() { return hasVolcanicActivity; }
+    public void setHasVolcanicActivity(Boolean hasVolcanicActivity) { this.hasVolcanicActivity = hasVolcanicActivity; }
+
+    public String getVolcanismType() { return volcanismType; }
+    public void setVolcanismType(String volcanismType) { this.volcanismType = volcanismType; }
+
+    public Integer getEstimatedActiveVolcanoes() { return estimatedActiveVolcanoes; }
+    public void setEstimatedActiveVolcanoes(Integer estimatedActiveVolcanoes) { this.estimatedActiveVolcanoes = estimatedActiveVolcanoes; }
+
+    public String getVolcanicIntensity() { return volcanicIntensity; }
+    public void setVolcanicIntensity(String volcanicIntensity) { this.volcanicIntensity = volcanicIntensity; }
+
+    public Double getMountainCoveragePercent() { return mountainCoveragePercent; }
+    public void setMountainCoveragePercent(Double mountainCoveragePercent) { this.mountainCoveragePercent = mountainCoveragePercent; }
+
+    public Double getAverageElevationKm() { return averageElevationKm; }
+    public void setAverageElevationKm(Double averageElevationKm) { this.averageElevationKm = averageElevationKm; }
+
+    public Double getMaxElevationKm() { return maxElevationKm; }
+    public void setMaxElevationKm(Double maxElevationKm) { this.maxElevationKm = maxElevationKm; }
+
+    public Double getMinElevationKm() { return minElevationKm; }
+    public void setMinElevationKm(Double minElevationKm) { this.minElevationKm = minElevationKm; }
+
+    public Double getTerrainRoughness() { return terrainRoughness; }
+    public void setTerrainRoughness(Double terrainRoughness) { this.terrainRoughness = terrainRoughness; }
+
+    public String getCrateringLevel() { return crateringLevel; }
+    public void setCrateringLevel(String crateringLevel) { this.crateringLevel = crateringLevel; }
+
+    public Integer getEstimatedVisibleCraters() { return estimatedVisibleCraters; }
+    public void setEstimatedVisibleCraters(Integer estimatedVisibleCraters) { this.estimatedVisibleCraters = estimatedVisibleCraters; }
+
+    public String getErosionLevel() { return erosionLevel; }
+    public void setErosionLevel(String erosionLevel) { this.erosionLevel = erosionLevel; }
+
+    public String getPrimaryErosionAgent() { return primaryErosionAgent; }
+    public void setPrimaryErosionAgent(String primaryErosionAgent) { this.primaryErosionAgent = primaryErosionAgent; }
+
+    public Boolean getHasGreatStorm() { return hasGreatStorm; }
+    public void setHasGreatStorm(Boolean hasGreatStorm) { this.hasGreatStorm = hasGreatStorm; }
+
+    public Integer getNumberOfMajorStorms() { return numberOfMajorStorms; }
+    public void setNumberOfMajorStorms(Integer numberOfMajorStorms) { this.numberOfMajorStorms = numberOfMajorStorms; }
+
+    public String getAtmosphericConvectionLevel() { return atmosphericConvectionLevel; }
+    public void setAtmosphericConvectionLevel(String atmosphericConvectionLevel) { this.atmosphericConvectionLevel = atmosphericConvectionLevel; }
+
+    public List<PlanetaryTerrainDistribution> getTerrainDistribution() {
+        return terrainDistribution;
+    }
+
+    public void setTerrainDistribution(List<PlanetaryTerrainDistribution> terrainDistribution) {
+        this.terrainDistribution = terrainDistribution;
     }
 }

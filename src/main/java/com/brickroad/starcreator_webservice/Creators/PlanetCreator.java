@@ -147,7 +147,7 @@ public class PlanetCreator {
 
         planet.setCoreType(type.getTypicalCoreType());
         populateCompositionProperties(planet);
-        populateGeologicalProperties(planet);
+        geologyCreator.populateGeologicalProperties(planet);
 
         planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
         planet.setNumberOfMoons(calculateMoonAmount(type, parentStar));
@@ -515,9 +515,6 @@ public class PlanetCreator {
         }
     }
 
-
-
-
     private double calculateMagneticField(Planet planet) {
 
         if (planet.getCoreType() == null || planet.getCoreType().contains("Ice")) {
@@ -567,11 +564,6 @@ public class PlanetCreator {
         planet.setInteriorComposition(composition.toInteriorString());
         planet.setEnvelopeComposition(composition.toEnvelopeString());
         planet.setCompositionClassification(composition.getClassification().name());
-    }
-
-    private void populateGeologicalProperties(Planet planet) {
-        PlanetaryGeology geology = geologyCreator.generateGeology(planet);
-        planet.setGeologicalActivity(geology.toString());
     }
 
     private static class HabitableZone {
