@@ -9,6 +9,7 @@ import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -30,6 +31,9 @@ public class PlanetCreator {
 
     @Autowired
     private GeologyCreator geologyCreator;
+
+    @Autowired
+    private MagneticFieldCreator magneticFieldCreator;
 
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
@@ -151,7 +155,9 @@ public class PlanetCreator {
         planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
         planet.setNumberOfMoons(calculateMoonAmount(type, parentStar));
 
-        planet.setMagneticFieldStrength(calculateMagneticField(planet));
+        PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet);
+        planet.setMagneticField(magneticField);
+        planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
 
         if (parentStar != null) {
             HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
@@ -521,19 +527,6 @@ public class PlanetCreator {
         return zone;
     }
 
-    private double calculateMagneticField(Planet planet) {
-
-        if (planet.getCoreType() == null || planet.getCoreType().contains("Ice")) {
-            return 0.0;
-        }
-
-        double rotationFactor = 24.0 / (planet.getRotationPeriodHours() + 1);
-        double massFactor = planet.getEarthMass();
-        double fieldStrength = rotationFactor * massFactor * RandomUtils.rollRange(0.5, 2.0);
-
-        return Math.max(0, fieldStrength);
-    }
-
     private PlanetTypeRef selectPlanetTypeByRarity() {
         return selectFromList(cachedPlanetTypes);
     }
@@ -570,6 +563,11 @@ public class PlanetCreator {
         planet.setInteriorComposition(composition.toInteriorString());
         planet.setEnvelopeComposition(composition.toEnvelopeString());
         planet.setCompositionClassification(composition.getClassification().name());
+    }
+
+    private void generateMagneticField(Planet planet) {
+        PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet);
+        planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
     }
 
     private static class HabitableZone {
