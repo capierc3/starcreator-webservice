@@ -466,7 +466,73 @@ public class MagneticFieldCreator {
                 field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.RARE);
                 field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.FAINT);
             }
+
+            field.setAuroralColors(determineAuroralColors(planet.getAtmosphereComposition()));
         }
+    }
+
+    private String determineAuroralColors(String atmosphereComposition) {
+        if (atmosphereComposition == null || atmosphereComposition.equals("None")) {
+            return null;
+        }
+
+        StringBuilder colors = new StringBuilder();
+        String atmos = atmosphereComposition.toUpperCase();
+
+        if (atmos.contains("O2") || atmos.contains("O3")) {
+            colors.append("Green (low altitude), Red (high altitude)");
+        }
+
+        if (atmos.contains("N2") || atmos.contains("N ") || atmos.contains("NH3")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("Blue-Purple");
+        }
+
+        if (atmos.contains("H2") || atmos.contains("H ")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("Deep Red-Magenta");
+        }
+
+        if (atmos.contains("HE")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("Pale Yellow-Gold");
+        }
+
+        if (atmos.contains("CO2")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("White-Blue");
+        }
+
+        if (atmos.contains("SO2") || atmos.contains("H2S") || atmos.contains("S ")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("Yellow-Orange");
+        }
+
+        if (atmos.contains("CH4")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("Teal-Turquoise");
+        }
+
+        if (atmos.contains("NE")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("Orange-Red");
+        }
+
+        if (atmos.contains("AR")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("Lavender");
+        }
+
+        if (atmos.contains("H2O")) {
+            if (!colors.isEmpty()) colors.append(", ");
+            colors.append("Blue-Green");
+        }
+
+        if (colors.isEmpty()) {
+            colors.append("Pale White-Blue (unknown composition)");
+        }
+
+        return colors.toString();
     }
 
     private void determineProtectionLevel(PlanetaryMagneticField field, double baseStrength) {

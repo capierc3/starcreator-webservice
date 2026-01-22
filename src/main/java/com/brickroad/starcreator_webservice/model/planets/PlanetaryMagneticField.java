@@ -207,6 +207,9 @@ public class PlanetaryMagneticField {
     @Column(name = "has_auroras")
     private Boolean hasAuroras = false;
 
+    @Column(name = "auroral_colors", length = 200)
+    private String auroralColors;
+
     @Column(name = "auroral_zone_latitude_degrees")
     private Double auroralZoneLatitudeDegrees;
 
@@ -679,10 +682,14 @@ public class PlanetaryMagneticField {
         this.planet = planet;
     }
 
-    /**
-     * Prepare for database persistence by setting planetId from the planet object
-     * Call this after the planet has been saved and has an ID
-     */
+    public String getAuroralColors() {
+        return auroralColors;
+    }
+
+    public void setAuroralColors(String auroralColors) {
+        this.auroralColors = auroralColors;
+    }
+
     public void preparePersistence() {
         if (this.planet != null && this.planet.getId() != null) {
             this.planetId = this.planet.getId();
