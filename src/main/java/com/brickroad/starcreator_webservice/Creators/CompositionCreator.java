@@ -43,6 +43,7 @@ public class CompositionCreator {
     }
 
     private List<CompositionTemplateRef> findMatchingTemplates(String planetType, double distanceAU) {
+        
         List<CompositionTemplateRef> matches = cachedTemplates.stream()
                 .filter(template -> template.matches(planetType, distanceAU))
                 .collect(Collectors.toList());
@@ -107,11 +108,10 @@ public class CompositionCreator {
             }
         }
 
-            return builder.build();
-        }
+        return builder.build();
+    }
 
-
-        private PlanetaryComposition createDefaultComposition(String coreType, String planetType) {
+    private PlanetaryComposition createDefaultComposition(String coreType, String planetType) {
         PlanetaryComposition.Builder builder = new PlanetaryComposition.Builder();
         
         String lowerType = planetType.toLowerCase();

@@ -9,7 +9,6 @@ import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -148,6 +147,20 @@ public class PlanetCreator {
 
         populateAtmosphereProperties(planet, type);
 
+        if (parentStar != null) {
+            HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
+            planet.setHabitableZonePosition(determineHabitableZonePosition(
+                    planet.getSemiMajorAxisAU(), hz,
+                    calculateFrostLine(parentStar), parentStar
+            ));
+        }
+
+        if (type.getName().toLowerCase().contains("ocean planet")) {
+            planet.setWaterCoveragePercent(RandomUtils.rollRange(60, 100.0));
+        } else if(type.getHabitable() && "habitable".equals(planet.getHabitableZonePosition())) {
+            planet.setWaterCoveragePercent(RandomUtils.rollRange(10, 90.0));
+        }
+
         planet.setCoreType(type.getTypicalCoreType());
         populateCompositionProperties(planet);
         geologyCreator.populateGeologicalProperties(planet);
@@ -158,18 +171,6 @@ public class PlanetCreator {
         PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet);
         planet.setMagneticField(magneticField);
         planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
-
-        if (parentStar != null) {
-            HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
-            planet.setHabitableZonePosition(determineHabitableZonePosition(
-                    planet.getSemiMajorAxisAU(), hz,
-                    calculateFrostLine(parentStar), parentStar
-            ));
-        }
-
-        if (type.getHabitable() && "habitable_zone".equals(planet.getHabitableZonePosition())) {
-            planet.setWaterCoveragePercent(RandomUtils.rollRange(10, 90.0));
-        }
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());
@@ -272,13 +273,16 @@ public class PlanetCreator {
             return 4.0;
         }
         if (planetType.contains("dwarf") || earthMass < 0.3) {
-            return 1.0;
+            if (earthMass < 0.01) return 24.0;
+            else if (earthMass < 0.05) return 12.0;
+            else if (earthMass < 0.15) return 6.0;
+            else return 3.0;
         }
         if (planetType.contains("ice world")) {
-            return 2.0;
+            return 3.0;
         }
         if (planetType.contains("lava") || planetType.contains("hot rocky")) {
-            return 1.0;
+            return 6.0;
         }
         return 2.0;
     }

@@ -26,8 +26,21 @@ public class MagneticFieldCreator {
 
     private boolean canGenerateDynamo(Planet planet) {
         String coreType = planet.getCoreType();
+        String planetType = planet.getPlanetType();
 
-        if (coreType == null || coreType.contains("Ice")) {
+        if (planetType != null && (planetType.contains("Ice Giant") ||
+                planetType.contains("Sub-Neptune") ||
+                planetType.contains("Mini-Neptune"))) {
+            if (planet.getEarthMass() != null && planet.getEarthMass() > 5.0) {
+                return true;
+            }
+        }
+
+        if (coreType == null) {
+            return false;
+        }
+
+        if (coreType.contains("Ice") && !coreType.contains("Rock")) {
             return false;
         }
 
@@ -46,9 +59,11 @@ public class MagneticFieldCreator {
         double massFactor = planet.getEarthMass() != null ? planet.getEarthMass() : 1.0;
         double densityFactor = calculateDensityFactor(planet);
         double ageFactor = calculateAgeFactor(planet);
+        double massLimit = planet.getEarthMass() * 3.0;
 
         double baseStrength = rotationFactor * Math.sqrt(massFactor) * densityFactor * ageFactor;
         baseStrength *= RandomUtils.rollRange(0.5, 2.0);
+        baseStrength = Math.min(baseStrength, massLimit);
         
         field.setStrengthComparedToEarth(baseStrength);
 
@@ -266,25 +281,37 @@ public class MagneticFieldCreator {
 
     private void determineDynamoType(PlanetaryMagneticField field, Planet planet) {
         String planetType = planet.getPlanetType();
-        
-        if (planetType != null && (planetType.contains("Gas") || planetType.contains("Ice Giant"))) {
-            field.setDynamoType(PlanetaryMagneticField.DynamoType.METALLIC_HYDROGEN);
-            field.setDynamoEfficiency(RandomUtils.rollRange(0.6, 0.95));
-            field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.EXTREME);
-        } else {
-            field.setDynamoType(PlanetaryMagneticField.DynamoType.CORE_DYNAMO);
-            field.setDynamoEfficiency(RandomUtils.rollRange(0.3, 0.8));
 
-            if (planet.getHasVolcanicActivity() != null && planet.getHasVolcanicActivity()) {
+        if (planetType != null) {
+            if (planetType.contains("Gas") && !planetType.contains("Ice")) {
+                field.setDynamoType(PlanetaryMagneticField.DynamoType.METALLIC_HYDROGEN);
+                field.setDynamoEfficiency(RandomUtils.rollRange(0.6, 0.95));
+                field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.EXTREME);
+            }
+            // Ice giants & Sub-Neptunes: ionic fluid dynamo
+            else if (planetType.contains("Ice Giant") ||
+                    planetType.contains("Sub-Neptune") ||
+                    planetType.contains("Mini-Neptune")) {
+                field.setDynamoType(PlanetaryMagneticField.DynamoType.IONIC_FLUID);
+                field.setDynamoEfficiency(RandomUtils.rollRange(0.4, 0.7));
                 field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.STRONG);
-            } else {
-                int roll = RandomUtils.rollRange(1, 100);
-                if (roll < 30) {
-                    field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.WEAK);
-                } else if (roll < 70) {
-                    field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.MODERATE);
-                } else {
+            }
+            // Rocky planets: iron core dynamo
+            else {
+                field.setDynamoType(PlanetaryMagneticField.DynamoType.CORE_DYNAMO);
+                field.setDynamoEfficiency(RandomUtils.rollRange(0.3, 0.8));
+
+                if (planet.getHasVolcanicActivity() != null && planet.getHasVolcanicActivity()) {
                     field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.STRONG);
+                } else {
+                    int roll = RandomUtils.rollRange(1, 100);
+                    if (roll < 30) {
+                        field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.WEAK);
+                    } else if (roll < 70) {
+                        field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.MODERATE);
+                    } else {
+                        field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.STRONG);
+                    }
                 }
             }
         }
@@ -447,8 +474,9 @@ public class MagneticFieldCreator {
             }
         }
 
-        if (planet.getAtmosphereComposition() != null && baseStrength > 0.3) {
+        if (planet.getAtmosphereComposition() != null && !planet.getAtmosphereComposition().equals("None") && baseStrength > 0.3) {
             field.setHasAuroras(true);
+            field.setAuroralColors(determineAuroralColors(planet.getAtmosphereComposition()));
 
             if (field.getFieldGeometry() == PlanetaryMagneticField.FieldGeometry.DIPOLE) {
                 field.setAuroralZoneLatitudeDegrees(RandomUtils.rollRange(60.0, 75.0));
@@ -466,8 +494,6 @@ public class MagneticFieldCreator {
                 field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.RARE);
                 field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.FAINT);
             }
-
-            field.setAuroralColors(determineAuroralColors(planet.getAtmosphereComposition()));
         }
     }
 
@@ -528,7 +554,7 @@ public class MagneticFieldCreator {
             colors.append("Blue-Green");
         }
 
-        if (colors.isEmpty()) {
+        if (colors.toString().isEmpty()) {
             colors.append("Pale White-Blue (unknown composition)");
         }
 

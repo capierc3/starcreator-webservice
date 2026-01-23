@@ -39,10 +39,11 @@ public class PlanetaryMagneticField {
     // DYNAMO CHARACTERISTICS
     // ================================================================
     public enum DynamoType {
-        CORE_DYNAMO,        // Liquid iron/nickel core convection
-        METALLIC_HYDROGEN,  // Gas giant hydrogen layer
-        REMNANT,            // Frozen ancient field in crust
-        INDUCED,            // External field induces currents
+        CORE_DYNAMO,        // Liquid iron/nickel core convection (rocky planets)
+        METALLIC_HYDROGEN,  // Gas giant metallic hydrogen layer (Jupiter, Saturn)
+        IONIC_FLUID,        // Ice giant superionic ice/ammonia layer (Uranus, Neptune)
+        REMNANT,            // Frozen ancient field in crust (Mars)
+        INDUCED,            // External field induces currents (Venus)
         NONE                // No magnetic field generation
     }
 
