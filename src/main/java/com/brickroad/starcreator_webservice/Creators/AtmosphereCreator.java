@@ -11,10 +11,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Generates realistic planetary atmospheres using database templates
- * Hybrid approach: Gas properties in enums, compositions in database
- */
 @Service
 public class AtmosphereCreator {
 
@@ -25,7 +21,6 @@ public class AtmosphereCreator {
 
     @PostConstruct
     public void init() {
-        // Cache templates on startup for performance
         cachedTemplates = templateRepository.findAllOrderedByRarity();
     }
 
@@ -57,84 +52,17 @@ public class AtmosphereCreator {
         }
 
     private List<AtmosphereTemplateRef> findMatchingTemplates(String planetType, double temp, double mass) {
-        List<AtmosphereTemplateRef> matches = filterByPlanetType(planetType, cachedTemplates);
-        matches = matches.stream()
-                .filter(template -> template.matches(temp, mass))
-                .collect(Collectors.toList());
+        List<AtmosphereTemplateRef> matches = templateRepository.findMatchingTemplates(planetType, temp, mass);
         if (matches.isEmpty()) {
-            matches = templateRepository.findMatchingTemplates(temp, mass);
+            matches = templateRepository.findMatchingTemplates(planetType, temp);
         }
         if (matches.isEmpty()) {
-            matches = filterByPlanetType(planetType, cachedTemplates);
+            matches = templateRepository.findMatchingTemplates(planetType);
         }
         if (matches.isEmpty()) {
             matches = cachedTemplates;
         }
         return matches;
-    }
-
-    private List<AtmosphereTemplateRef> filterByPlanetType(String planetType, List<AtmosphereTemplateRef> templates) {
-        String type = planetType.toLowerCase();
-
-        if (type.contains("gas giant") || type.contains("hot jupiter") || type.contains("super-jupiter")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.JOVIAN)
-                    .collect(Collectors.toList());
-        }
-        if (type.contains("ice giant") || type.contains("mini-neptune") || type.contains("sub-neptune")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.ICE_GIANT)
-                    .collect(Collectors.toList());
-        }
-        if (type.contains("terrestrial") || type.contains("super-earth") || type.contains("ocean world")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.EARTH_LIKE ||
-                            t.getClassification() == AtmosphereClassification.VENUS_LIKE ||
-                            t.getClassification() == AtmosphereClassification.MARS_LIKE ||
-                            t.getClassification() == AtmosphereClassification.REDUCING)
-                    .collect(Collectors.toList());
-        }
-        if (type.contains("lava") || type.contains("hot rocky")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.VOLCANIC ||
-                            t.getClassification() == AtmosphereClassification.EXOTIC ||
-                            t.getClassification() == AtmosphereClassification.CORROSIVE)
-                    .collect(Collectors.toList());
-        }
-        if (type.contains("ice world") || type.contains("ice planet")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.TITAN_LIKE ||
-                            t.getClassification() == AtmosphereClassification.AMMONIA ||
-                            t.getClassification() == AtmosphereClassification.MARS_LIKE)
-                    .collect(Collectors.toList());
-        }
-        if (type.contains("desert")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.MARS_LIKE ||
-                            t.getClassification() == AtmosphereClassification.VENUS_LIKE)
-                    .collect(Collectors.toList());
-        }
-        if (type.contains("carbon") || type.contains("iron")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.EXOTIC ||
-                            t.getClassification() == AtmosphereClassification.CORROSIVE ||
-                            t.getClassification() == AtmosphereClassification.REDUCING)
-                    .collect(Collectors.toList());
-        }
-        if (type.contains("dwarf") || type.contains("rogue")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.NONE ||
-                            t.getClassification() == AtmosphereClassification.TITAN_LIKE ||
-                            t.getClassification() == AtmosphereClassification.MARS_LIKE)
-                    .collect(Collectors.toList());
-        }
-        if (type.contains("puffy")) {
-            return templates.stream()
-                    .filter(t -> t.getClassification() == AtmosphereClassification.JOVIAN ||
-                            t.getClassification() == AtmosphereClassification.ICE_GIANT)
-                    .collect(Collectors.toList());
-        }
-        return templates;
     }
 
     private AtmosphereTemplateRef selectTemplateByWeight(List<AtmosphereTemplateRef> templates) {

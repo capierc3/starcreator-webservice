@@ -68,7 +68,13 @@ public class PlanetTypeRef {
     private Integer rarityWeight;
 
     @Column(name = "formation_zone")
-    private String formationZone; // "inner", "habitable", "outer", "frost_line"
+    private String formationZone;
+
+    @Column(name = "min_formation_temp_k")
+    private Double minFormationTempK;
+
+    @Column(name = "max_formation_temp_k")
+    private Double maxFormationTempK;
 
     public PlanetTypeRef() {}
 
@@ -240,5 +246,21 @@ public class PlanetTypeRef {
 
     public void setFormationZone(String formationZone) {
         this.formationZone = formationZone;
+    }
+
+    public Double getMinFormationTempK() {
+        return minFormationTempK;
+    }
+
+    public void setMinFormationTempK(Double minFormationTempK) {
+        this.minFormationTempK = minFormationTempK;
+    }
+
+    public Double getMaxFormationTempK() {
+        return maxFormationTempK;
+    }
+
+    public void setMaxFormationTempK(Double maxFormationTempK) {
+        this.maxFormationTempK = maxFormationTempK;
     }
 }

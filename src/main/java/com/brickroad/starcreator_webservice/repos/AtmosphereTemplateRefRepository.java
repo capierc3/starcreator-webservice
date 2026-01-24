@@ -20,8 +20,38 @@ public interface AtmosphereTemplateRefRepository extends JpaRepository<Atmospher
            "                  (t.maxTemperatureK IS NULL OR :temp <= t.maxTemperatureK)) AND " +
            "(:mass IS NULL OR (t.minPlanetMassEarth IS NULL OR :mass >= t.minPlanetMassEarth) AND " +
            "                  (t.maxPlanetMassEarth IS NULL OR :mass <= t.maxPlanetMassEarth))")
-    List<AtmosphereTemplateRef> findMatchingTemplates(@Param("temp") Double temperatureK, 
+    List<AtmosphereTemplateRef> findMatchingTemplatesOLD(@Param("temp") Double temperatureK,
                                                        @Param("mass") Double planetMassEarth);
+
+    @Query(value = "SELECT t.* FROM ref.atmosphere_template t " +
+            "JOIN ref.planet_atmosphere_compatibility pac ON t.classification = pac.atmosphere_classification " +
+            "WHERE pac.planet_type = :planetType AND " +
+            "(:temp IS NULL OR (t.min_temperature_k IS NULL OR :temp >= t.min_temperature_k) AND " +
+            "                  (t.max_temperature_k IS NULL OR :temp <= t.max_temperature_k)) AND " +
+            "(:mass IS NULL OR (t.min_planet_mass_earth IS NULL OR :mass >= t.min_planet_mass_earth) AND " +
+            "                  (t.max_planet_mass_earth IS NULL OR :mass <= t.max_planet_mass_earth)) " +
+            "ORDER BY pac.preference_weight DESC",
+            nativeQuery = true)
+    List<AtmosphereTemplateRef> findMatchingTemplates(@Param("planetType") String planetType,
+                                                      @Param("temp") Double temperatureK,
+                                                      @Param("mass") Double planetMassEarth);
+
+    @Query(value = "SELECT t.* FROM ref.atmosphere_template t " +
+            "JOIN ref.planet_atmosphere_compatibility pac ON t.classification = pac.atmosphere_classification " +
+            "WHERE pac.planet_type = :planetType AND " +
+            "(:temp IS NULL OR (t.min_temperature_k IS NULL OR :temp >= t.min_temperature_k) AND " +
+            "                  (t.max_temperature_k IS NULL OR :temp <= t.max_temperature_k))" +
+            "ORDER BY pac.preference_weight DESC",
+            nativeQuery = true)
+    List<AtmosphereTemplateRef> findMatchingTemplates(@Param("planetType") String planetType,
+                                                      @Param("temp") Double temperatureK);
+
+    @Query(value = "SELECT t.* FROM ref.atmosphere_template t " +
+            "JOIN ref.planet_atmosphere_compatibility pac ON t.classification = pac.atmosphere_classification " +
+            "WHERE pac.planet_type = :planetType " +
+            "ORDER BY pac.preference_weight DESC",
+            nativeQuery = true)
+    List<AtmosphereTemplateRef> findMatchingTemplates(@Param("planetType") String planetType);
 
     @Query("SELECT t FROM AtmosphereTemplateRef t WHERE " +
            "t.classification IN ('JOVIAN', 'ICE_GIANT') AND " +
@@ -37,4 +67,6 @@ public interface AtmosphereTemplateRefRepository extends JpaRepository<Atmospher
 
     @Query("SELECT t FROM AtmosphereTemplateRef t ORDER BY t.rarityWeight DESC")
     List<AtmosphereTemplateRef> findAllOrderedByRarity();
+
+
 }

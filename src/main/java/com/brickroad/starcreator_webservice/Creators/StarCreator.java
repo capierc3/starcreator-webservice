@@ -184,8 +184,6 @@ public class StarCreator {
             double maxLifespan = 10000 / Math.pow(solarMass, 2.5);
 
             double maxAge = Math.min(maxLifespan * 0.8, 13800);
-            // TODO java.lang.IllegalArgumentException: bound must be greater than origin
-            // Max age is less than 100
             return RandomUtils.rollRange(100, maxAge);
         } else if (typeName.contains("giant")) {
             return RandomUtils.rollRange(5000, 13000);

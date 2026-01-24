@@ -6,7 +6,8 @@ import com.brickroad.starcreator_webservice.model.stars.Star;
 
 public class TemperatureCalculator {
 
-    private static final double AU_TO_KM = 149597870.7;
+    private static final double AU_TO_KM = 149_597_870.7;
+    private static final double AU_TO_METERS = 149_597_870_700.0;
 
     public static double calculateSingleStarTemperature(Star star, double distanceAU, Double albedo) {
         double effectiveAlbedo = (albedo != null) ? albedo : 0.3;
@@ -38,8 +39,16 @@ public class TemperatureCalculator {
         }
     }
 
-    public static double calculateEquilibriumTemperature(double luminosity, double distanceAU, double albedo) {
-        // T = 278 K × (L × (1-A))^0.25 / sqrt(d)
-        return 278.0 * Math.pow(luminosity * (1 - albedo), 0.25) / Math.sqrt(distanceAU);
+    public static double calculateStellarFlux(double luminosity, double distanceAU) {
+        double distanceMeters = distanceAU * AU_TO_METERS;
+        double area = 4.0 * Math.PI * distanceMeters * distanceMeters;
+        return luminosity / area;
+    }
+
+    public static double calculateTemperatureFromFlux(double fluxWattsPerM2, double albedo) {
+        double absorbedFlux = fluxWattsPerM2 * (1.0 - albedo);
+        // T = (F / (4 * σ))^(1/4) where σ is Stefan-Boltzmann constant
+        double stefanBoltzmann = 5.670374419e-8; // W⋅m⁻²⋅K⁻⁴
+        return Math.pow(absorbedFlux / (4.0 * stefanBoltzmann), 0.25);
     }
 }

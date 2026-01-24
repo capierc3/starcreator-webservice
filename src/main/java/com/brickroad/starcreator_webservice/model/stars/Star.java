@@ -156,4 +156,16 @@ public class Star extends CelestialBody {
     public void setHabitableZoneOuterAU(Double habitableZoneOuterAU) {
         this.habitableZoneOuterAU = habitableZoneOuterAU;
     }
+
+    public Star getCompanionStar() {
+        if (starRole == StarRole.SECONDARY) {
+            return this.getSystem().getStars().stream()
+                    .filter(star -> star.getStarRole() == StarRole.PRIMARY)
+                    .findFirst().orElse(null);
+        } else {
+            return this.getSystem().getStars().stream()
+                    .filter(star -> star.getStarRole() == StarRole.SECONDARY)
+                    .findFirst().orElse(null);
+        }
+    }
 }

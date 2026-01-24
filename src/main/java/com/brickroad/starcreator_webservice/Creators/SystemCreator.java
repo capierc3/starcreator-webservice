@@ -109,16 +109,12 @@ public class SystemCreator {
         double separation;
 
         if (config == BinaryConfiguration.S_TYPE_CLOSE || config == BinaryConfiguration.P_TYPE) {
-            // Close binary: 0.1 to 5 AU
             separation = RandomUtils.rollRange(0.1, 5.0);
         } else if (config == BinaryConfiguration.S_TYPE_WIDE) {
-            // Wide binary: 10 to 100 AU
             separation = RandomUtils.rollRange(10, 100);
-        } else { // Hierarchical
-            // Wide separation for stability
+        } else {
             separation = RandomUtils.rollRange(50, 500);
         }
-
         system.setBinarySeparationAu(separation);
     }
 
@@ -264,14 +260,11 @@ public class SystemCreator {
                 .mapToDouble(Star::getSolarLuminosity)
                 .sum();
 
-        // Calculate theoretical habitable zone
         double theoreticalInner = Math.sqrt(totalLuminosity / 1.1);
         double theoreticalOuter = Math.sqrt(totalLuminosity / 0.53);
 
-        // Minimum stable distance for circumbinary planets (2.5x separation)
         double minStableDistance = system.getBinarySeparationAu() * 2.5;
 
-        // Actual habitable zone starts at the stable distance
         double innerEdge = Math.max(theoreticalInner, minStableDistance);
         double outerEdge = Math.max(theoreticalOuter, minStableDistance * 1.2);
 
@@ -415,21 +408,21 @@ public class SystemCreator {
     private List<Planet> generateCircumbinaryPlanets(StarSystem system, Star primary, double binarySeparation) {
         List<Planet> planets = planetCreator.generatePlanetarySystem(primary);
 
-        double minStableDistance = binarySeparation * 2.5;
-        planets.forEach(planet -> {
-            if (planet.getSemiMajorAxisAU() != null && planet.getSemiMajorAxisAU() < minStableDistance) {
-                double newDistance = minStableDistance + (planet.getSemiMajorAxisAU() * 0.5);
-                planet.setSemiMajorAxisAU(newDistance);
-
-                double orbitalPeriod = calculateOrbitalPeriod(newDistance, primary.getSolarMass());
-                planet.setOrbitalPeriodDays(orbitalPeriod);
-
-                if (planet.getAlbedo() != null) {
-                    double temp = TemperatureCalculator.calculateCircumbinaryTemperature(system, newDistance, planet.getAlbedo());
-                    planet.setSurfaceTemp(temp);
-                }
-            }
-        });
+//        double minStableDistance = binarySeparation * 2.5;
+//        planets.forEach(planet -> {
+//            if (planet.getSemiMajorAxisAU() != null && planet.getSemiMajorAxisAU() < minStableDistance) {
+//                double newDistance = minStableDistance + (planet.getSemiMajorAxisAU() * 0.5);
+//                planet.setSemiMajorAxisAU(newDistance);
+//
+//                double orbitalPeriod = calculateOrbitalPeriod(newDistance, primary.getSolarMass());
+//                planet.setOrbitalPeriodDays(orbitalPeriod);
+//
+//                if (planet.getAlbedo() != null) {
+//                    double temp = TemperatureCalculator.calculateCircumbinaryTemperature(system, newDistance, planet.getAlbedo());
+//                    planet.setSurfaceTemp(temp);
+//                }
+//            }
+//        });
 
         return planets;
     }

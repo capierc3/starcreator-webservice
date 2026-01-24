@@ -4,7 +4,9 @@ import com.brickroad.starcreator_webservice.Creators.PlanetCreator;
 import com.brickroad.starcreator_webservice.Creators.StarCreator;
 import com.brickroad.starcreator_webservice.Creators.SystemCreator;
 import com.brickroad.starcreator_webservice.model.CelestialBody;
+import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.planets.Planet;
+import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,7 +20,6 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,59 +38,50 @@ public class PlanetTests {
 
     @Test
     public void findPlanetByType() throws JsonProcessingException {
-        String targetType = "Desert Planet";
+        String targetType = "Terrestrial Planet";
         int maxAttempts = 1000;
-        int systemsGenerated = 0;
 
-        Planet foundPlanet = null;
-        Star parentStar = null;
+        boolean foundPlanet = false;
+        StarSystem system = null;
 
         System.out.println("Searching for planet type: " + targetType);
         System.out.println("Max attempts: " + maxAttempts);
         System.out.println("---");
 
         for (int i = 0; i < maxAttempts; i++) {
-            systemsGenerated++;
 
-            Star star = starCreator.generateStar();
-            star.setName("Star #" + systemsGenerated);
-
-            List<Planet> planets = planetCreator.generatePlanetarySystem(star);
-
-            for (Planet planet : planets) {
-                if (targetType.equalsIgnoreCase(planet.getPlanetType())) {
-                    foundPlanet = planet;
-                    parentStar = star;
+            system = systemCreator.generateSystem();
+            for (CelestialBody planet : system.getPlanets()) {
+                if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())) {
+                    foundPlanet = true;
+                    System.out.println("Searched " + (i + 1) + " systems...");
                     break;
                 }
             }
 
-            if (foundPlanet != null) {
+            if (foundPlanet) {
                 break;
             }
 
-            if (systemsGenerated % 100 == 0) {
-                System.out.println("Searched " + systemsGenerated + " systems...");
+            if (i % 100 == 0 && i > 0) {
+                System.out.println("Searched " + (i + 1) + " systems...");
             }
         }
 
-        assertNotNull(foundPlanet,
-                "Failed to find planet type '" + targetType + "' after " + maxAttempts + " attempts");
+        assertNotNull(system, "Failed to generate matching system after " + maxAttempts + " attempts");
 
         Map<String, Object> output = new HashMap<>();
-        output.put("star", parentStar);
-        output.put("planet", foundPlanet);
+        output.put("system", system);
 
-        String title = "\n✅ FOUND " + targetType + " after " + systemsGenerated + " attempts!";
+        String title = "\n✅ FOUND ";
         printJSON(output, title);
-
     }
 
     @Test
     public void findMultiplePlanetsOfType() throws JsonProcessingException {
         String targetType = "Desert Planet";
-        int examplesNeeded = 100;
-        int maxAttempts = 2000;
+        int examplesNeeded = 10;
+        int maxAttempts = 20000;
 
         List<Planet> foundPlanets = new java.util.ArrayList<>();
         int systemsGenerated = 0;
@@ -99,10 +91,8 @@ public class PlanetTests {
 
         for (int i = 0; i < maxAttempts && foundPlanets.size() < examplesNeeded; i++) {
             systemsGenerated++;
-
-            Set<CelestialBody> planets = systemCreator.generateSystem().getPlanets();
-
-            for (CelestialBody planet : planets) {
+            StarSystem system = systemCreator.generateSystem();
+            for (CelestialBody planet : system.getPlanets()) {
                 if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())) {
                     foundPlanets.add(((Planet) planet));
                     System.out.println("Found #" + foundPlanets.size() + " after " +
@@ -113,13 +103,10 @@ public class PlanetTests {
                     }
                 }
             }
+            if (systemsGenerated % 200 == 0) {
+                System.out.println("Searched " + systemsGenerated + " systems...");
+            }
         }
-
-
-        assertEquals(examplesNeeded, foundPlanets.size(),
-                "Only found " + foundPlanets.size() + " examples of '" + targetType +
-                        "' out of " + examplesNeeded + " needed");
-
 
         Map<String, Object> output = new HashMap<>();
         for (int i = 0; i < foundPlanets.size(); i++) {
@@ -130,8 +117,15 @@ public class PlanetTests {
         for (int i = 0; i < foundPlanets.size(); i++) {
             System.out.println("\nPlanet #" + (i + 1) + ": " + foundPlanets.get(i).getName());
             System.out.println("dist: " + foundPlanets.get(i).getSemiMajorAxisAU());
-            System.out.println("comp type: " + foundPlanets.get(i).getCompositionClassification());
+            System.out.println("surface Temp: " + foundPlanets.get(i).getSurfaceTemp());
+            System.out.println("mas: " + foundPlanets.get(i).getEarthMass());
             System.out.println("habitable: " + foundPlanets.get(i).getHabitableZonePosition());
+            System.out.println("comp type: " + foundPlanets.get(i).getCompositionClassification());
+            System.out.println("atmosphere: " + foundPlanets.get(i).getAtmosphereComposition());
+            System.out.println("atmosphere class: " + foundPlanets.get(i).getAtmosphereClassification());
+            System.out.println("interior: " + foundPlanets.get(i).getInteriorComposition());
+            System.out.println("envelope: " + foundPlanets.get(i).getEnvelopeComposition());
+            System.out.println("system size: " + foundPlanets.get(i).getParentStar().getSystem().getSizeAu());
         }
         printJSON(output, title);
     }

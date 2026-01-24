@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.Creators;
 
 import com.brickroad.starcreator_webservice.model.planets.*;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.repos.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -36,6 +37,7 @@ public class PlanetCreator {
 
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
+    private static final double MIN_VIABLE_PLANET_TEMP_K = 10.0;
 
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
@@ -71,16 +73,29 @@ public class PlanetCreator {
     }
 
     public List<Planet> generatePlanetarySystem(Star parentStar) {
+
         List<Planet> planets = new ArrayList<>();
-        HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
-
         int numPlanets = determineNumberOfPlanets(parentStar);
-        double frostLine = calculateFrostLine(parentStar);
 
+        double frostLine = calculateFrostLine(parentStar);
         double maxSystemDistance = getMaxSystemDistance(parentStar);
-        double currentDistance = RandomUtils.rollRange(0.1, 0.5);
+
+        HabitableZone hz;
+        double currentDistance;
+        if (parentStar.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
+            hz = new HabitableZone(parentStar.getSystem().getHabitableLow(), parentStar.getSystem().getHabitableHigh());
+            double minStableDistanceAU = parentStar.getSystem().getBinarySeparationAu() * 2.5;
+            currentDistance = minStableDistanceAU * RandomUtils.rollRange(1.0, 1.2);
+        } else {
+            hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
+            currentDistance = RandomUtils.rollRange(0.1, 0.5);
+        };
         for (int i = 0; i < numPlanets; i++) {
-            PlanetTypeRef type = selectPlanetTypeByDistance(currentDistance, frostLine, hz, parentStar);
+            double estimatedTempK = TemperatureCalculator.calculatePlanetTemperature(parentStar, currentDistance, 0.3);
+            if (estimatedTempK < MIN_VIABLE_PLANET_TEMP_K) {
+                break;
+            }
+            PlanetTypeRef type = selectPlanetTypeByTemp(currentDistance, frostLine, hz, parentStar, estimatedTempK);
 
             Planet planet = generatePlanetByType(type, parentStar, i + 1, currentDistance);
             planets.add(planet);
@@ -201,14 +216,11 @@ public class PlanetCreator {
         planet.setOrbitalPosition(position);
         planet.setSemiMajorAxisAU(distanceAU);
 
-        // Calculate orbital period using Kepler's third law
         double orbitalPeriod = calculateOrbitalPeriod(distanceAU, star.getSolarMass());
         planet.setOrbitalPeriodDays(orbitalPeriod);
 
-        // Eccentricity (most orbits are fairly circular)
         planet.setEccentricity(RandomUtils.rollRange(0.0, 0.2));
 
-        // Inclination (most planets in same plane)
         planet.setOrbitalInclinationDegrees(RandomUtils.rollRange(0.0, 10.0));
     }
 
@@ -457,33 +469,44 @@ public class PlanetCreator {
         return metallicityFactor;
     }
 
-    private PlanetTypeRef selectPlanetTypeByDistance(double distanceAU, double frostLine, HabitableZone hz, Star star) {
+    private PlanetTypeRef selectPlanetTypeByTemp(double distanceAU, double frostLine, HabitableZone hz, Star star, double estimatedTempK) {
+        String zone = determineHabitableZonePosition(distanceAU, hz, frostLine, star);
 
-        String zone = determineHabitableZonePosition(distanceAU,hz,frostLine, star);
-        List<PlanetTypeRef> suitableTypes = cachedPlanetTypes.stream()
-                .filter(type -> type.getFormationZone() == null ||
-                        type.getFormationZone().equals(zone))
+        List<PlanetTypeRef> tempFilteredTypes = cachedPlanetTypes.stream()
+                .filter(type -> {
+                    if (type.getMinFormationTempK() == null ||
+                            type.getMaxFormationTempK() == null) {
+                        return true;
+                    }
+                    return estimatedTempK >= type.getMinFormationTempK() &&
+                            estimatedTempK <= type.getMaxFormationTempK();
+                })
                 .collect(Collectors.toList());
 
-        List<PlanetTypeRef> distanceFilteredTypes = suitableTypes.stream()
+        List<PlanetTypeRef> zoneFilteredTypes = tempFilteredTypes.stream()
+                .filter(type -> type.getFormationZone() == null ||
+                        type.getFormationZone().equals(zone))
+                .toList();
+
+        List<PlanetTypeRef> distanceFilteredTypes = zoneFilteredTypes.stream()
                 .filter(type -> {
                     if (type.getMinFormationDistanceAU() == null ||
                             type.getMaxFormationDistanceAU() == null) {
                         return true;
                     }
-
-                    // Check if current distance is within allowed range
                     return distanceAU >= type.getMinFormationDistanceAU() &&
                             distanceAU <= type.getMaxFormationDistanceAU();
                 })
                 .collect(Collectors.toList());
 
-
         if (!distanceFilteredTypes.isEmpty()) {
             return selectFromList(distanceFilteredTypes);
         }
-        if (!suitableTypes.isEmpty()) {
-            return selectFromList(suitableTypes);
+        if (!zoneFilteredTypes.isEmpty()) {
+            return selectFromList(zoneFilteredTypes);
+        }
+        if (!tempFilteredTypes.isEmpty()) {
+            return selectFromList(tempFilteredTypes);
         }
         return selectPlanetTypeByRarity();
     }
@@ -561,17 +584,12 @@ public class PlanetCreator {
     private void populateCompositionProperties(Planet planet) {
         PlanetaryComposition composition = compositionCreator.generateComposition(
                 planet.getPlanetType(),
-                planet.getSemiMajorAxisAU(),
+                planet.getSurfaceTemp(),
                 planet.getCoreType()
         );
         planet.setInteriorComposition(composition.toInteriorString());
         planet.setEnvelopeComposition(composition.toEnvelopeString());
         planet.setCompositionClassification(composition.getClassification().name());
-    }
-
-    private void generateMagneticField(Planet planet) {
-        PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet);
-        planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
     }
 
     private static class HabitableZone {
