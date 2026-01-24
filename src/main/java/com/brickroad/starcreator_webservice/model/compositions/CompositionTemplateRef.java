@@ -5,10 +5,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Database entity representing a composition template.
- * Each template defines the typical composition for certain planet types/conditions.
- */
 @Entity
 @Table(name = "composition_template", schema = "ref")
 public class CompositionTemplateRef {
@@ -28,13 +24,13 @@ public class CompositionTemplateRef {
     private CompositionClassification classification;
 
     @Column(name = "planet_types", length = 500)
-    private String planetTypes; // Comma-separated: "Terrestrial Planet,Super-Earth,Desert Planet"
+    private String planetTypes;
 
-    @Column(name = "min_distance_au")
-    private Double minDistanceAu;
+    @Column(name = "min_surface_temp_k")
+    private Double minSurfaceTempK;
 
-    @Column(name = "max_distance_au")
-    private Double maxDistanceAu;
+    @Column(name = "max_surface_temp_k")
+    private Double maxSurfaceTempK;
 
     @Column(name = "rarity_weight")
     private Integer rarityWeight = 100;
@@ -63,12 +59,6 @@ public class CompositionTemplateRef {
     public String getPlanetTypes() { return planetTypes; }
     public void setPlanetTypes(String planetTypes) { this.planetTypes = planetTypes; }
     
-    public Double getMinDistanceAu() { return minDistanceAu; }
-    public void setMinDistanceAu(Double minDistanceAu) { this.minDistanceAu = minDistanceAu; }
-    
-    public Double getMaxDistanceAu() { return maxDistanceAu; }
-    public void setMaxDistanceAu(Double maxDistanceAu) { this.maxDistanceAu = maxDistanceAu; }
-    
     public Integer getRarityWeight() { return rarityWeight; }
     public void setRarityWeight(Integer rarityWeight) { this.rarityWeight = rarityWeight; }
     
@@ -80,17 +70,31 @@ public class CompositionTemplateRef {
         this.components = components; 
     }
 
-    /**
-     * Check if this template matches the given planet type and distance
-     */
-    public boolean matches(String planetType, double distanceAU) {
-        boolean typeMatch = planetTypes == null || 
-                           planetTypes.toLowerCase().contains(planetType.toLowerCase());
-        
-        boolean distanceMatch = (minDistanceAu == null || distanceAU >= minDistanceAu) &&
-                                (maxDistanceAu == null || distanceAU <= maxDistanceAu);
-        
-        return typeMatch && distanceMatch;
+    public Double getMinSurfaceTempK() {
+        return minSurfaceTempK;
+    }
+
+    public void setMinSurfaceTempK(Double minSurfaceTempK) {
+        this.minSurfaceTempK = minSurfaceTempK;
+    }
+
+    public Double getMaxSurfaceTempK() {
+        return maxSurfaceTempK;
+    }
+
+    public void setMaxSurfaceTempK(Double maxSurfaceTempK) {
+        this.maxSurfaceTempK = maxSurfaceTempK;
+    }
+
+    public boolean matches(String planetType, double surfaceTempK) {
+        double tempToleranceK = 5.0;
+        boolean typeMatch = planetTypes == null ||
+                planetTypes.toLowerCase().contains(planetType.toLowerCase());
+
+        boolean tempMatch = (minSurfaceTempK == null || surfaceTempK >= (minSurfaceTempK - tempToleranceK)) &&
+                (maxSurfaceTempK == null || surfaceTempK <= (maxSurfaceTempK + tempToleranceK));
+
+        return typeMatch && tempMatch;
     }
 
     public List<CompositionTemplateComponentRef> getComponentsForLayer(String layerType) {

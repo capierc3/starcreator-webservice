@@ -2,7 +2,7 @@ package com.brickroad.starcreator_webservice.model.planets;
 
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 
-public class MagneticField {
+public class MagneticField_OLD {
 
     private final String variation;
     private final int fluxPeriodHrs;
@@ -32,7 +32,7 @@ public class MagneticField {
             ,{100,"Unstable - Whole Planet"}
     };
 
-    public MagneticField(int densityRating, double rotationInHrs) {
+    public MagneticField_OLD(int densityRating, double rotationInHrs) {
         double rotationSpeedCompared = 24/rotationInHrs;
         int randomNum = ((RandomUtils.rollRange(-8,0)) + (densityRating));
         if (randomNum <= 0) {

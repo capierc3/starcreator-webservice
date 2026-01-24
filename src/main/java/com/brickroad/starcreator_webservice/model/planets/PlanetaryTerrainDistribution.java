@@ -2,6 +2,8 @@ package com.brickroad.starcreator_webservice.model.planets;
 
 import com.brickroad.starcreator_webservice.model.geological.TerrainTypeRef;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -11,6 +13,7 @@ public class PlanetaryTerrainDistribution {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonIgnore
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -20,13 +23,23 @@ public class PlanetaryTerrainDistribution {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "terrain_type_id", nullable = false)
+    @JsonIgnore
     private TerrainTypeRef terrainType;
 
     @Column(name = "coverage_percent", nullable = false)
     private Double coveragePercent;
 
     @Column(name = "description", columnDefinition = "TEXT")
+    @JsonIgnore
     private String description;
+
+    @JsonProperty("description")
+    public String getTerrainDescription() {
+        if (terrainType == null) {
+            return description;
+        }
+        return terrainType.getDisplayName() + ": " + terrainType.getDescription();
+    }
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

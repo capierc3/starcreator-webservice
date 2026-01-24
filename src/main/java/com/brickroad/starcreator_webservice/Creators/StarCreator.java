@@ -182,9 +182,9 @@ public class StarCreator {
             return RandomUtils.rollRange(0.1, 10);
         } else if (typeName.contains("main sequence")) {
             double maxLifespan = 10000 / Math.pow(solarMass, 2.5);
-            // Cap at universe age (13,800 MY) and use 80% of star's potential lifespan
+
             double maxAge = Math.min(maxLifespan * 0.8, 13800);
-            return RandomUtils.rollRange(100, maxAge); // At least 100 MY old
+            return RandomUtils.rollRange(100, maxAge);
         } else if (typeName.contains("giant")) {
             return RandomUtils.rollRange(5000, 13000);
         } else if (typeName.contains("white dwarf")) {

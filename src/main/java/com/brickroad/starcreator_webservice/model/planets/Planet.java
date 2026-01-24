@@ -1,7 +1,8 @@
 package com.brickroad.starcreator_webservice.model.planets;
 
 import com.brickroad.starcreator_webservice.model.CelestialBody;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
 
 import java.util.ArrayList;
@@ -152,7 +153,9 @@ public class Planet extends CelestialBody {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "star_id")
-    private com.brickroad.starcreator_webservice.model.stars.Star parentStar;
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "name")
+    @JsonIdentityReference(alwaysAsId = true)
+    private Star parentStar;
 
     @Column(name = "atmosphere_classification", length = 50)
     private String atmosphereClassification;
@@ -165,6 +168,14 @@ public class Planet extends CelestialBody {
 
     @Column(name = "composition_classification", length = 50)
     private String compositionClassification;
+
+    // ================================================================
+    // MAGNETIC FIELD (Transient - stored in separate table)
+    // ================================================================
+    @Transient
+    @JsonProperty("magneticField")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private PlanetaryMagneticField magneticField;
 
     public Planet() {}
 
@@ -479,5 +490,13 @@ public class Planet extends CelestialBody {
 
     public void setTerrainDistribution(List<PlanetaryTerrainDistribution> terrainDistribution) {
         this.terrainDistribution = terrainDistribution;
+    }
+
+    public PlanetaryMagneticField getMagneticField() {
+        return magneticField;
+    }
+
+    public void setMagneticField(PlanetaryMagneticField magneticField) {
+        this.magneticField = magneticField;
     }
 }

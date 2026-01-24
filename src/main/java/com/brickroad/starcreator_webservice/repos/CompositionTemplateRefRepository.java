@@ -18,14 +18,11 @@ public interface CompositionTemplateRefRepository extends JpaRepository<Composit
      */
     @Query("SELECT c FROM CompositionTemplateRef c ORDER BY c.rarityWeight DESC")
     List<CompositionTemplateRef> findAllOrderedByRarity();
-    
-    /**
-     * Find templates that match the given orbital distance
-     */
+
     @Query("SELECT c FROM CompositionTemplateRef c WHERE " +
-           "(c.minDistanceAu IS NULL OR :distance >= c.minDistanceAu) AND " +
-           "(c.maxDistanceAu IS NULL OR :distance <= c.maxDistanceAu)")
-    List<CompositionTemplateRef> findMatchingTemplates(@Param("distance") double distance);
+           "(c.minSurfaceTempK IS NULL OR :surfaceTempK >= c.minSurfaceTempK) AND " +
+           "(c.maxSurfaceTempK IS NULL OR :surfaceTempK <= c.maxSurfaceTempK)")
+    List<CompositionTemplateRef> findMatchingTempTemplates(@Param("surfaceTempK") double surfaceTempK);
     
     /**
      * Find a specific template by classification

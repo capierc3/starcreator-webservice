@@ -31,9 +31,9 @@ public class CompositionCreator {
         cachedTemplates = templateRepository.findAllOrderedByRarity();
     }
 
-    public PlanetaryComposition generateComposition(String planetType, double distanceAU, String coreType) {
+    public PlanetaryComposition generateComposition(String planetType, double surfaceTemp, String coreType) {
         
-        List<CompositionTemplateRef> matchingTemplates = findMatchingTemplates(planetType, distanceAU);
+        List<CompositionTemplateRef> matchingTemplates = findMatchingTemplates(planetType, surfaceTemp);
         
         if (matchingTemplates.isEmpty()) {
             return createDefaultComposition(coreType, planetType);
@@ -42,13 +42,14 @@ public class CompositionCreator {
         return generateFromTemplate(selectTemplateByWeight(matchingTemplates));
     }
 
-    private List<CompositionTemplateRef> findMatchingTemplates(String planetType, double distanceAU) {
+    private List<CompositionTemplateRef> findMatchingTemplates(String planetType, double surfaceTemp) {
+
         List<CompositionTemplateRef> matches = cachedTemplates.stream()
-                .filter(template -> template.matches(planetType, distanceAU))
+                .filter(template -> template.matches(planetType, surfaceTemp))
                 .collect(Collectors.toList());
 
         if (matches.isEmpty()) {
-            matches = templateRepository.findMatchingTemplates(distanceAU);
+            matches = templateRepository.findMatchingTempTemplates(surfaceTemp);
         }
 
         if (matches.isEmpty()) {
@@ -107,11 +108,10 @@ public class CompositionCreator {
             }
         }
 
-            return builder.build();
-        }
+        return builder.build();
+    }
 
-
-        private PlanetaryComposition createDefaultComposition(String coreType, String planetType) {
+    private PlanetaryComposition createDefaultComposition(String coreType, String planetType) {
         PlanetaryComposition.Builder builder = new PlanetaryComposition.Builder();
         
         String lowerType = planetType.toLowerCase();

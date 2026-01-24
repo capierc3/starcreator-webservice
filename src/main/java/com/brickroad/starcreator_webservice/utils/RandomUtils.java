@@ -85,7 +85,7 @@ public class RandomUtils {
     }
 
     public static double rollRange(double low, double high) {
-        if (low == high) {
+        if (low >= high) {
             return low;
         }
         RandomGenerator randomGenerator = RandomGenerator.getDefault();
