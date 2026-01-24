@@ -17,6 +17,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +39,9 @@ public class PlanetTests {
     @Autowired
     private SystemCreator systemCreator;
 
-    @Test
+    //@Test
     public void findPlanetByType() throws JsonProcessingException {
-        String targetType = "Terrestrial Planet";
+        String targetType = "Ocean Planet";
         int maxAttempts = 1000;
 
         boolean foundPlanet = false;
@@ -58,11 +61,9 @@ public class PlanetTests {
                     break;
                 }
             }
-
             if (foundPlanet) {
                 break;
             }
-
             if (i % 100 == 0 && i > 0) {
                 System.out.println("Searched " + (i + 1) + " systems...");
             }
@@ -77,7 +78,7 @@ public class PlanetTests {
         printJSON(output, title);
     }
 
-    @Test
+    //@Test
     public void findMultiplePlanetsOfType() throws JsonProcessingException {
         String targetType = "Desert Planet";
         int examplesNeeded = 10;
@@ -114,6 +115,7 @@ public class PlanetTests {
         }
 
         String title = "\n✅ Found " + foundPlanets.size() + " examples!";
+        System.out.println(title);
         for (int i = 0; i < foundPlanets.size(); i++) {
             System.out.println("\nPlanet #" + (i + 1) + ": " + foundPlanets.get(i).getName());
             System.out.println("dist: " + foundPlanets.get(i).getSemiMajorAxisAU());
@@ -127,7 +129,7 @@ public class PlanetTests {
             System.out.println("envelope: " + foundPlanets.get(i).getEnvelopeComposition());
             System.out.println("system size: " + foundPlanets.get(i).getParentStar().getSystem().getSizeAu());
         }
-        printJSON(output, title);
+        //printJSON(output, title);
     }
 
     //@Test
@@ -225,9 +227,30 @@ public class PlanetTests {
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
 
         String json = mapper.writeValueAsString(output);
+        saveJson(json);
         System.out.println(title);
         System.out.println("\n========== JSON OUTPUT ==========");
         System.out.println(json);
         System.out.println("=================================\n");
     }
+
+
+    private void saveJson(String jsonString) {
+
+        File targetFolder = new File("target/systemJSONs/");
+
+        if (!targetFolder.exists()) {
+            targetFolder.mkdirs();
+        }
+
+        File jsonFile = new File(targetFolder, "System.json");
+
+        try (FileWriter writer = new FileWriter(jsonFile)) {
+            writer.write(jsonString); // Write the JSON content to the file
+            System.out.println("JSON file saved successfully to: " + jsonFile.getAbsolutePath());
+        } catch (IOException e) {
+            System.err.println("Error writing JSON to file: " + e.getMessage());
+        }
+    }
+
 }
