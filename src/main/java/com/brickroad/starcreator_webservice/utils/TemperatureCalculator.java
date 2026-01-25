@@ -1,8 +1,8 @@
 package com.brickroad.starcreator_webservice.utils;
 
-import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
-import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
+import com.brickroad.starcreator_webservice.entity.ud.Star;
 
 import static com.brickroad.starcreator_webservice.utils.ConversionFormulas.AU_TO_KM;
 import static com.brickroad.starcreator_webservice.utils.ConversionFormulas.AU_TO_METERS;

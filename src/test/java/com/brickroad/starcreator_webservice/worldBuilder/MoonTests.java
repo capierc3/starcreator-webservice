@@ -1,10 +1,10 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
-import com.brickroad.starcreator_webservice.Creators.SystemCreator;
-import com.brickroad.starcreator_webservice.model.CelestialBody;
-import com.brickroad.starcreator_webservice.model.moons.Moon;
-import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
+import com.brickroad.starcreator_webservice.creator.SystemCreator;
+import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
+import com.brickroad.starcreator_webservice.entity.ud.Moon;
+import com.brickroad.starcreator_webservice.entity.ud.Planet;
+import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;

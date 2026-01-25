@@ -1,12 +1,11 @@
 package com.brickroad.starcreator_webservice.service;
 
-import com.brickroad.starcreator_webservice.Creators.PlanetCreator;
-import com.brickroad.starcreator_webservice.Creators.SystemCreator;
-import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
-import com.brickroad.starcreator_webservice.model.stars.Star;
-import com.brickroad.starcreator_webservice.Creators.StarCreator;
-import com.brickroad.starcreator_webservice.request.PlanetRequest;
+import com.brickroad.starcreator_webservice.creator.PlanetCreator;
+import com.brickroad.starcreator_webservice.creator.SystemCreator;
+import com.brickroad.starcreator_webservice.entity.ud.Planet;
+import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
+import com.brickroad.starcreator_webservice.entity.ud.Star;
+import com.brickroad.starcreator_webservice.creator.StarCreator;
 import com.brickroad.starcreator_webservice.request.StarRequest;
 import com.brickroad.starcreator_webservice.request.StarSystemRequest;
 import org.springframework.beans.factory.annotation.Autowired;

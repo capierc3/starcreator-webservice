@@ -1,11 +1,11 @@
 package com.brickroad.starcreator_webservice.service;
 
-import com.brickroad.starcreator_webservice.repos.FactionRepo;
-import com.brickroad.starcreator_webservice.repos.GovernmentTypeRepo;
-import com.brickroad.starcreator_webservice.model.prompts.Prompt;
+import com.brickroad.starcreator_webservice.repository.FactionRepo;
+import com.brickroad.starcreator_webservice.repository.GovernmentTypeRepo;
+import com.brickroad.starcreator_webservice.utils.prompts.Prompt;
 import com.brickroad.starcreator_webservice.request.StarSystemRequest;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
-import com.brickroad.starcreator_webservice.utils.TarotSpread;
+import com.brickroad.starcreator_webservice.utils.tarot.TarotSpread;
 import org.springframework.stereotype.Service;
 
 @Service

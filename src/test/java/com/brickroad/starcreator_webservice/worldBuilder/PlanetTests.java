@@ -1,13 +1,12 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
-import com.brickroad.starcreator_webservice.Creators.PlanetCreator;
-import com.brickroad.starcreator_webservice.Creators.StarCreator;
-import com.brickroad.starcreator_webservice.Creators.SystemCreator;
-import com.brickroad.starcreator_webservice.model.CelestialBody;
-import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
-import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.brickroad.starcreator_webservice.creator.PlanetCreator;
+import com.brickroad.starcreator_webservice.creator.StarCreator;
+import com.brickroad.starcreator_webservice.creator.SystemCreator;
+import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
+import com.brickroad.starcreator_webservice.entity.ud.Planet;
+import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
+import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
