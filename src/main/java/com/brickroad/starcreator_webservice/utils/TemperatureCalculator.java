@@ -4,10 +4,10 @@ import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 
-public class TemperatureCalculator {
+import static com.brickroad.starcreator_webservice.utils.ConversionFormulas.AU_TO_KM;
+import static com.brickroad.starcreator_webservice.utils.ConversionFormulas.AU_TO_METERS;
 
-    private static final double AU_TO_KM = 149_597_870.7;
-    private static final double AU_TO_METERS = 149_597_870_700.0;
+public class TemperatureCalculator {
 
     public static double calculateSingleStarTemperature(Star star, double distanceAU, Double albedo) {
         double effectiveAlbedo = (albedo != null) ? albedo : 0.3;

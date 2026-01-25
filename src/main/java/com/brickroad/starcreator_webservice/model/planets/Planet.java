@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.model.planets;
 
 import com.brickroad.starcreator_webservice.model.CelestialBody;
+import com.brickroad.starcreator_webservice.model.moons.Moon;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
@@ -169,25 +170,18 @@ public class Planet extends CelestialBody {
     @Column(name = "composition_classification", length = 50)
     private String compositionClassification;
 
-    // ================================================================
-    // MAGNETIC FIELD (Transient - stored in separate table)
-    // ================================================================
     @Transient
     @JsonProperty("magneticField")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private PlanetaryMagneticField magneticField;
 
+    @OneToMany(mappedBy = "planet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    private List<Moon> moons = new ArrayList<>();
+
     public Planet() {}
 
     // Getters and Setters
-
-    public String getPlanetType() {
-        return planetType;
-    }
-
-    public void setPlanetType(String planetType) {
-        this.planetType = planetType;
-    }
 
     public Double getEarthMass() {
         return earthMass;
@@ -498,5 +492,21 @@ public class Planet extends CelestialBody {
 
     public void setMagneticField(PlanetaryMagneticField magneticField) {
         this.magneticField = magneticField;
+    }
+
+    public String getPlanetType() {
+        return planetType;
+    }
+
+    public void setPlanetType(String planetType) {
+        this.planetType = planetType;
+    }
+
+    public List<Moon> getMoons() {
+        return moons;
+    }
+
+    public void setMoons(List<Moon> moons) {
+        this.moons = moons;
     }
 }

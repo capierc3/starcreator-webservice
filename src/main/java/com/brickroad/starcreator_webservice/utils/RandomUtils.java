@@ -92,22 +92,6 @@ public class RandomUtils {
         return randomGenerator.nextDouble(low, high);
     }
 
-    public static Double getRandomFromArray(Integer[] array) {
-        if (Objects.equals(array[0], array[1])) {
-            return array[0].doubleValue();
-        } else {
-            return RandomGenerator.getDefault().nextDouble(array[0], array[1]);
-        }
-    }
-
-    public static Double getRandomFromArray(Double[] array) {
-        if (Objects.equals(array[0], array[1])) {
-            return array[0];
-        } else {
-            return RandomGenerator.getDefault().nextDouble(array[0], array[1]);
-        }
-    }
-
     public static String getStringFromArray(Object[][] randomMap) {
         int randNum = RandomUtils.rollDice((Integer) randomMap[randomMap.length - 1][0]);
         for (Object[] entry : randomMap) {
@@ -116,18 +100,6 @@ public class RandomUtils {
             }
         }
         return "Error";
-    }
-
-    public static String getRandomStringFromTxt(String fileName) {
-        try {
-            ClassPathResource resource = new ClassPathResource(fileName);
-            InputStream inputStream = resource.getInputStream();
-            String fileContent = StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
-            List<String> stringList = Arrays.asList(fileContent.split("\n"));
-            return stringList.get(rollRange(0, stringList.size() - 1));
-        } catch (IOException e) {
-            return "ERROR";
-        }
     }
 
     public static String getRandomLetter(int maxLetter) {

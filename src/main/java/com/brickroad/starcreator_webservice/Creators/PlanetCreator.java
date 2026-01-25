@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.Creators;
 
+import com.brickroad.starcreator_webservice.model.moons.Moon;
 import com.brickroad.starcreator_webservice.model.planets.*;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
@@ -34,6 +35,9 @@ public class PlanetCreator {
 
     @Autowired
     private MagneticFieldCreator magneticFieldCreator;
+
+    @Autowired
+    private MoonCreator moonCreator;
 
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
@@ -180,12 +184,15 @@ public class PlanetCreator {
         populateCompositionProperties(planet);
         geologyCreator.populateGeologicalProperties(planet);
 
-        planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
-        planet.setNumberOfMoons(calculateMoonAmount(type, parentStar));
-
         PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet);
         planet.setMagneticField(magneticField);
         planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
+
+        List<Moon> moons = moonCreator.createMoons(planet, parentStar);
+        planet.setMoons(moons);
+        planet.setNumberOfMoons(moons.size());
+
+        planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());
