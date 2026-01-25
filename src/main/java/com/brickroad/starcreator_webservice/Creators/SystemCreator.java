@@ -7,7 +7,6 @@ import com.brickroad.starcreator_webservice.model.sectors.Sector;
 import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
-import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -98,6 +97,9 @@ public class SystemCreator {
 
                 if (parentStar != null && parentStar.getName() != null && orbitalPosition != null) {
                     planet.setName(parentStar.getName() + " " + orbitalPosition);
+                    for (int i = 0; i < planet.getMoons().size(); i++) {
+                        planet.getMoons().get(i).setName(planet.getName() + "-" + numberToRoman((i + 1)));
+                    }
                 } else {
                     planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
                 }
@@ -431,5 +433,21 @@ public class SystemCreator {
         double periodYears = Math.sqrt(Math.pow(semiMajorAxisAU, 3) / starMassSolar);
         return periodYears * 365.25; // Convert to days
     }
+
+    public static String numberToRoman(int number) {
+        int[] values = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
+        String[] numerals = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
+
+        StringBuilder roman = new StringBuilder();
+
+        for (int i = 0; i < values.length; i++) {
+            while (number >= values[i]) {
+                roman.append(numerals[i]);
+                number -= values[i];
+            }
+        }
+        return roman.toString();
+    }
+
 
 }

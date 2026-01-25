@@ -41,10 +41,10 @@ public class PlanetTests {
 
     @Test
     public void findPlanetByType() throws JsonProcessingException {
-        String targetType = "Ocean Planet";
+        String targetType = "Gas Giant";
         int maxAttempts = 1000;
 
-        boolean foundPlanet = false;
+        Planet foundPlanet = null;
         StarSystem system = null;
 
         System.out.println("Searching for planet type: " + targetType);
@@ -56,12 +56,16 @@ public class PlanetTests {
             system = systemCreator.generateSystem();
             for (CelestialBody planet : system.getPlanets()) {
                 if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())) {
-                    foundPlanet = true;
-                    System.out.println("Searched " + (i + 1) + " systems...");
-                    break;
+                    if (((Planet) planet).getMoons().stream()
+                            .anyMatch(moon -> moon.getAtmosphereComposition() != null &&
+                                    !moon.getAtmosphereComposition().contains("None"))) {
+                        foundPlanet = (Planet) planet;
+                        System.out.println("Searched " + (i + 1) + " systems...");
+                        break;
+                    }
                 }
             }
-            if (foundPlanet) {
+            if (foundPlanet != null) {
                 break;
             }
             if (i % 100 == 0 && i > 0) {
@@ -72,7 +76,7 @@ public class PlanetTests {
         assertNotNull(system, "Failed to generate matching system after " + maxAttempts + " attempts");
 
         Map<String, Object> output = new HashMap<>();
-        output.put("system", system);
+        output.put("planet", foundPlanet);
 
         String title = "\n✅ FOUND ";
         printJSON(output, title);

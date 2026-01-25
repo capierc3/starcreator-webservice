@@ -3,7 +3,6 @@ package com.brickroad.starcreator_webservice.Creators;
 import com.brickroad.starcreator_webservice.model.moons.Moon;
 import com.brickroad.starcreator_webservice.model.planets.*;
 import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
 import com.brickroad.starcreator_webservice.model.stars.Star;
 import com.brickroad.starcreator_webservice.repos.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -188,7 +187,7 @@ public class PlanetCreator {
         planet.setMagneticField(magneticField);
         planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
 
-        List<Moon> moons = moonCreator.createMoons(planet, parentStar);
+        List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);
         planet.setNumberOfMoons(moons.size());
 

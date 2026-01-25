@@ -34,6 +34,9 @@ public class MoonTypeRef {
     @Column(name = "typical_composition", length = 50)
     private String typicalComposition;
 
+    @Column(name = "mass_distribution_priority")
+    private Integer massDistributionPriority = 5;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

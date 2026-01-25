@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static com.brickroad.starcreator_webservice.model.planets.MagneticField_OLD.MAGNETIC_FIELD;
 import static com.brickroad.starcreator_webservice.utils.RandomUtils.getRandomLetter;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -54,13 +53,6 @@ public class RandomUtilsTest {
 
             assertTrue(RandomUtils.flipCoin() > 0);
             assertTrue(RandomUtils.flipCoin() < 3);
-        }
-    }
-
-    @Test
-    void stringFromArrayTest() {
-        for (int i = 0; i < 1000; i++) {
-            assertNotEquals("Error", RandomUtils.getStringFromArray(MAGNETIC_FIELD), "Should not return the error string");
         }
     }
 
