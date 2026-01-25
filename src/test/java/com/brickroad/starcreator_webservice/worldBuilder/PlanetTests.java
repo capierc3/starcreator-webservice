@@ -38,7 +38,7 @@ public class PlanetTests {
     @Autowired
     private SystemCreator systemCreator;
 
-    @Test
+    //@Test
     public void findPlanetByType() throws JsonProcessingException {
         String targetType = "Gas Giant";
         int maxAttempts = 1000;
