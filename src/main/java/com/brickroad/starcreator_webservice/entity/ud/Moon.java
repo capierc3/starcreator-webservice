@@ -7,8 +7,6 @@ import lombok.*;
 @Entity
 @Table(name = "moon", schema = "ud")
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 public class Moon extends CelestialBody {
@@ -98,12 +96,15 @@ public class Moon extends CelestialBody {
     @Column(name = "ice_shell_thickness_km")
     private Double iceShellThicknessKm;
 
-    // Atmosphere (most moons have none or very thin)
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "atmosphere_id")
+    private Atmosphere atmosphere;
+
     @Column(name = "has_atmosphere", nullable = false)
     private Boolean hasAtmosphere = false;
 
     @Column(name = "surface_pressure")
-    private Double surfacePressure; // Earth atmospheres
+    private Double surfacePressure;
 
     @Column(name = "atmosphere_composition", length = 500)
     private String atmosphereComposition;

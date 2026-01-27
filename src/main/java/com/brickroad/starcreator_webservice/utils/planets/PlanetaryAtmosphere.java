@@ -1,7 +1,7 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
+import com.brickroad.starcreator_webservice.entity.ud.AtmosphereComponent;
 import com.brickroad.starcreator_webservice.enums.AtmosphereClassification;
-import com.brickroad.starcreator_webservice.utils.atmospheres.AtmosphereComponent;
 import com.brickroad.starcreator_webservice.enums.AtmosphereGas;
 
 import java.util.ArrayList;
@@ -62,7 +62,12 @@ public record PlanetaryAtmosphere(List<AtmosphereComponent> components, Atmosphe
         private AtmosphereClassification classification = AtmosphereClassification.CUSTOM;
 
         public Builder addGas(AtmosphereGas gas, double percentage) {
-            components.add(new AtmosphereComponent(gas, percentage));
+            AtmosphereComponent component = new AtmosphereComponent();
+            component.setGas(gas);
+            component.setGasFormula(gas.getFormula());
+            component.setPercentage(percentage);
+            component.setIsTrace(percentage < 0.1);
+            components.add(component);
             return this;
         }
 

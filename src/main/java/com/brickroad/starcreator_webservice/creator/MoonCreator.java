@@ -1,26 +1,25 @@
 package com.brickroad.starcreator_webservice.creator;
 
-import com.brickroad.starcreator_webservice.entity.ud.Moon;
+import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.entity.ref.MoonTypeRef;
-import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ref.PlanetTypeRef;
-import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.repository.MoonTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
 @Service
-@Slf4j
-@RequiredArgsConstructor
 public class MoonCreator {
 
-    private final MoonTypeRefRepository moonTypeRefRepository;
+    @Autowired
+    private MoonTypeRefRepository moonTypeRefRepository;
 
+    @Autowired
+    private AtmosphereCreator atmosphereCreator;
 
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
@@ -309,11 +308,11 @@ public class MoonCreator {
 
     private void calculateTidalEffects(Moon moon, Planet planet) {
 
-        double proximityFactor = Math.pow(300000.0 / moon.getSemiMajorAxisKm(), 3);
+        double gravityFactor = (planet.getEarthMass() / 1.0) * Math.pow(100000.0 / moon.getSemiMajorAxisKm(), 3);
         double eccentricityFactor = moon.getEccentricity() * moon.getEccentricity() * 100;
-        double sizeFactor = moon.getRadius() / 1000.0;
+        double sizeFactor = Math.pow(moon.getRadius() / 1000.0, 2);
 
-        double tidalHeatingWattPerM2 = proximityFactor * eccentricityFactor * sizeFactor * 0.1;
+        double tidalHeatingWattPerM2 = gravityFactor * eccentricityFactor * sizeFactor * 0.01;
 
         moon.setTidalHeatingWattPerM2(tidalHeatingWattPerM2);
 
@@ -332,31 +331,42 @@ public class MoonCreator {
 
     private void determineGeologicalActivity(Moon moon, Planet planet) {
         String tidalHeating = moon.getTidalHeatingLevel();
-        double mass = moon.getEarthMass();
-        double age = moon.getAgeMY();
-        double planetMass = planet.getEarthMass();
+        Double tidalHeatingWattPerM2 = moon.getTidalHeatingWattPerM2();
 
-        double planetTidalFactor = Math.min(2.0, planetMass / 100.0);
-        double activityScore = (mass * 1000 * planetTidalFactor) / (age + 100);
+        boolean hasSignificantTidalHeating = tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.5;
 
-        if ("EXTREME".equals(tidalHeating) && activityScore > 0.1) {
+        double ageModifier = hasSignificantTidalHeating ? 1.0 : (1.0 / (1.0 + moon.getAgeMY() / 5000.0));
+        double activityScore = moon.getEarthMass() * 100 * ageModifier;
+
+        if (hasSignificantTidalHeating) {
+            activityScore += tidalHeatingWattPerM2 * 10;
+        }
+
+        if (activityScore > 10 || "EXTREME".equals(tidalHeating)) {
             moon.setGeologicalActivity("HIGH");
             moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()));
-        } else if ("HIGH".equals(tidalHeating) && activityScore > 0.05) {
+        } else if (activityScore > 5 || "HIGH".equals(tidalHeating)) {
             moon.setGeologicalActivity("MODERATE");
-            moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()) && RandomUtils.rollRange(0.0, 1.0) < 0.5);
-        } else if (mass > 0.005 || "MODERATE".equals(tidalHeating)) {
+            moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()) && RandomUtils.rollRange(0.0, 1.0) < 0.6);
+        } else if (activityScore > 2 || "MODERATE".equals(tidalHeating)) {
             moon.setGeologicalActivity("LOW");
+            if ("ICY".equals(moon.getCompositionType()) && tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.8) {
+                moon.setHasCryovolcanism(RandomUtils.rollRange(0.0, 1.0) < 0.3);
+            }
         } else {
             moon.setGeologicalActivity("NONE");
         }
 
-        if ("ICY".equals(moon.getCompositionType()) &&
-                (tidalHeating.equals("MODERATE") || tidalHeating.equals("HIGH") || tidalHeating.equals("EXTREME"))) {
-            moon.setHasSubsurfaceOcean(RandomUtils.rollRange(0.0, 1.0) < 0.7);
+        if ("ICY".equals(moon.getCompositionType()) && hasSignificantTidalHeating) {
+            double oceanChance = tidalHeatingWattPerM2 > 1.0 ? 0.9 : 0.6;
+            moon.setHasSubsurfaceOcean(RandomUtils.rollRange(0.0, 1.0) < oceanChance);
+
             if (moon.getHasSubsurfaceOcean()) {
-                moon.setOceanDepthKm(RandomUtils.rollRange(50.0, 200));
-                moon.setIceShellThicknessKm(RandomUtils.rollRange(5.0, 50));
+                double baseDepth = 50.0 + (tidalHeatingWattPerM2 * 50);
+                moon.setOceanDepthKm(RandomUtils.rollRange(baseDepth, baseDepth + 150));
+
+                double maxShellThickness = Math.max(10.0, 80.0 - (tidalHeatingWattPerM2 * 20));
+                moon.setIceShellThicknessKm(RandomUtils.rollRange(5.0, maxShellThickness));
             }
         }
     }
@@ -409,24 +419,182 @@ public class MoonCreator {
     }
 
     private void generateAtmosphere(Moon moon) {
-        if (moon.getEarthMass() > 0.01 ||
-                "HIGH".equals(moon.getGeologicalActivity())) {
-            if (RandomUtils.rollRange(0.0, 1.0) < 0.2) {
-                moon.setHasAtmosphere(true);
-                moon.setSurfacePressure(RandomUtils.rollRange(0.0001, 0.01));
+        Planet planet = moon.getPlanet();
 
-                if (moon.getHasCryovolcanism()) {
-                    moon.setAtmosphereComposition("N2 60%, CH4 30%, CO 10%");
-                } else {
-                    moon.setAtmosphereComposition("N2 80%, O2 15%, trace gases");
-                }
-            }
-        }
-
-        if (!moon.getHasAtmosphere()) {
+        if (moon.getEscapeVelocity() < 0.3) {
+            moon.setHasAtmosphere(false);
             moon.setSurfacePressure(0.0);
             moon.setAtmosphereComposition("None");
+            moon.setAtmosphere(null);
+            return;
         }
+
+        boolean strippedByMagneticField = checkMagneticFieldStripping(moon, planet);
+
+        if (strippedByMagneticField) {
+            Atmosphere strippedAtmosphere = createStrippedAtmosphere(
+            );
+            moon.setAtmosphere(strippedAtmosphere);
+            moon.setHasAtmosphere(false);
+            moon.setSurfacePressure(0.0);
+            moon.setAtmosphereComposition("None (stripped by magnetic field)");
+            return;
+        }
+
+        boolean shouldHaveAtmosphere = determineAtmospherePresence(moon);
+
+        if (!shouldHaveAtmosphere) {
+            moon.setHasAtmosphere(false);
+            moon.setSurfacePressure(0.0);
+            moon.setAtmosphereComposition("None");
+            return;
+        }
+
+        // Generate atmosphere using AtmosphereCreator
+        String moonType = determineMoonTypeForAtmosphere(moon);
+        double surfaceTemp = moon.getSurfaceTemp();
+        double earthMass = moon.getEarthMass();
+        double distanceFromStarAU = planet.getSemiMajorAxisAU(); // Use planet's distance
+
+        PlanetaryAtmosphere generatedAtmosphere = atmosphereCreator.generateAtmosphere(
+                moonType,
+                surfaceTemp,
+                earthMass,
+                distanceFromStarAU
+        );
+
+        // Calculate surface pressure
+        double surfacePressure = atmosphereCreator.calculateSurfacePressure(
+                earthMass,
+                surfaceTemp,
+                generatedAtmosphere
+        );
+
+        // Convert PlanetaryAtmosphere to Atmosphere entity
+        Atmosphere atmosphereEntity = convertToAtmosphereEntity(generatedAtmosphere, surfacePressure);
+
+        moon.setAtmosphere(atmosphereEntity);
+        moon.setHasAtmosphere(true);
+        moon.setSurfacePressure(surfacePressure);
+        moon.setAtmosphereComposition(generatedAtmosphere.toCompactString());
+    }
+
+    private boolean checkMagneticFieldStripping(Moon moon, Planet planet) {
+        Double planetMagneticField = planet.getMagneticFieldStrength();
+
+        if (planetMagneticField == null || planetMagneticField < 0.1) {
+            return false;
+        }
+
+        double moonOrbitKm = moon.getSemiMajorAxisKm();
+        double magnetosphereRadiusKm = calculateMagnetosphereRadius(planet, planetMagneticField);
+
+        if (moonOrbitKm < magnetosphereRadiusKm) {
+            double strippingProbability = calculateStrippingProbability(
+                    moon.getEarthMass(),
+                    planetMagneticField,
+                    moonOrbitKm,
+                    magnetosphereRadiusKm
+            );
+
+            return RandomUtils.rollRange(0.0, 1.0) < strippingProbability;
+        }
+
+        return false;
+    }
+
+    private double calculateMagnetosphereRadius(Planet planet, double magneticFieldStrength) {
+        double planetRadiusKm = planet.getRadius();
+        double baseRadiusMultiplier = 10.0;
+        double fieldFactor = Math.sqrt(magneticFieldStrength);
+
+        return planetRadiusKm * baseRadiusMultiplier * fieldFactor;
+    }
+
+    private double calculateStrippingProbability(double moonMass, double magneticField,
+                                                 double orbitKm, double magnetosphereKm) {
+
+        double distanceFactor = 1.0 - (orbitKm / magnetosphereKm);
+
+        double massFactor;
+        if (moonMass < 0.01) {
+            massFactor = 0.9;
+        } else if (moonMass < 0.05) {
+            massFactor = 0.6;
+        } else if (moonMass < 0.1) {
+            massFactor = 0.3;
+        } else {
+            massFactor = 0.1;
+        }
+
+        double fieldFactor = Math.min(1.0, magneticField / 2.0);
+
+        return distanceFactor * massFactor * fieldFactor;
+    }
+
+    private boolean determineAtmospherePresence(Moon moon) {
+        if ("HIGH".equals(moon.getGeologicalActivity()) || "MODERATE".equals(moon.getGeologicalActivity())) {
+            return RandomUtils.rollRange(0.0, 1.0) < 0.4;
+        }
+
+        if (moon.getEarthMass() > 0.02) {
+            return RandomUtils.rollRange(0.0, 1.0) < 0.3;
+        } else if (moon.getEarthMass() > 0.01) {
+            return RandomUtils.rollRange(0.0, 1.0) < 0.15;
+        }
+
+        if (moon.getHasCryovolcanism()) {
+            return RandomUtils.rollRange(0.0, 1.0) < 0.25;
+        }
+
+        return false;
+    }
+
+    private String determineMoonTypeForAtmosphere(Moon moon) {
+        if ("ICY".equals(moon.getCompositionType())) {
+            if (moon.getHasCryovolcanism()) {
+                return "Ice World";
+            }
+            return "Dwarf Planet";
+        }
+
+        if ("ROCKY".equals(moon.getCompositionType())) {
+            if (moon.getGeologicalActivity() != null &&
+                    ("HIGH".equals(moon.getGeologicalActivity()) || "MODERATE".equals(moon.getGeologicalActivity()))) {
+                return "Volcanic Planet";
+            }
+            return "Terrestrial Planet";
+        }
+
+        return "Terrestrial Planet";
+    }
+
+    private Atmosphere createStrippedAtmosphere() {
+        return Atmosphere.builder()
+                .classification("NONE")
+                .surfacePressureBar(0.0)
+                .compositionSummary("None")
+                .isStripped(true)
+                .strippedReason("Atmosphere stripped by parent planet's magnetosphere")
+                .components(new java.util.ArrayList<>())
+                .build();
+    }
+
+    private Atmosphere convertToAtmosphereEntity(PlanetaryAtmosphere planetaryAtm, double pressureBar) {
+        Atmosphere atmosphere = Atmosphere.builder()
+                .classification(planetaryAtm.getClassification().name())
+                .surfacePressureBar(pressureBar)
+                .compositionSummary(planetaryAtm.toCompactString())
+                .isStripped(false)
+                .components(new java.util.ArrayList<>())
+                .build();
+
+        for (AtmosphereComponent component : planetaryAtm.components()) {
+            component.setAtmosphere(atmosphere);
+            atmosphere.getComponents().add(component);
+        }
+
+        return atmosphere;
     }
 
     private double calculateHillSphere(Planet planet, Star primaryStar) {
