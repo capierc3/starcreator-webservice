@@ -1,5 +1,7 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -44,6 +46,7 @@ public class Star extends CelestialBody {
         return isVariable;
     }
 
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "name")
     public Star getCompanionStar() {
         if (starRole == StarRole.SECONDARY) {
             return this.getSystem().getStars().stream()

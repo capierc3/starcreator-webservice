@@ -26,6 +26,7 @@ public enum AtmosphereGas {
     
     // Volcanic/toxic gases
     SULFUR_DIOXIDE("SO2", "Sulfur Dioxide", "Toxic", 64.1, false),
+    SULFUR_MONOXIDE("SO", "Sulfur Monoxide", "Toxic", 48.1, false),
     HYDROGEN_SULFIDE("H2S", "Hydrogen Sulfide", "Toxic", 34.1, false),
     CHLORINE("Cl2", "Chlorine", "Corrosive", 71.0, false),
     FLUORINE("F2", "Fluorine", "Corrosive", 38.0, false),

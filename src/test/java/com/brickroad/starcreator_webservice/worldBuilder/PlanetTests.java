@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class PlanetTests {
+public class PlanetTests extends AbstractCreatorTest {
 
     @Autowired
     private PlanetCreator planetCreator;
@@ -74,11 +74,14 @@ public class PlanetTests {
 
         assertNotNull(system, "Failed to generate matching system after " + maxAttempts + " attempts");
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("planet", foundPlanet);
+        Map<String, Object> testResults = new HashMap<>();
+        testResults.put("star", system.getStars());
+        testResults.put("planet", foundPlanet);
+        String json = listToJsonString(testResults);
+        //printJSON(json);
+        saveJson(json, "planet");
 
-        String title = "\n✅ FOUND ";
-        printJSON(output, title);
+
     }
 
     //@Test

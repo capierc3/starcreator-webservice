@@ -26,19 +26,22 @@ public class AtmosphereCreator {
         cachedTemplates = templateRepository.findAllOrderedByRarity();
     }
 
-    public PlanetaryAtmosphere generateAtmosphere(String planetType, double surfaceTemp, double earthMass, double distanceAU) {
+    public record AtmosphereResult(PlanetaryAtmosphere atmosphere, AtmosphereTemplateRef template) {}
 
-        if (earthMass < 0.1 || surfaceTemp > 2000) {
-            return createNoneAtmosphere();
+    public AtmosphereResult generateAtmosphereWithTemplate(String planetType, double surfaceTemp, double earthMass, double distanceAU) {
+
+        if (surfaceTemp > 2000) {
+            return new AtmosphereResult(createNoneAtmosphere(), null);
         }
         if (shouldLoseAtmosphere(earthMass, distanceAU, surfaceTemp)) {
-            return createNoneAtmosphere();
+            return new AtmosphereResult(createNoneAtmosphere(), null);
         }
         List<AtmosphereTemplateRef> matchingTemplates = findMatchingTemplates(planetType, surfaceTemp, earthMass);
         if (matchingTemplates.isEmpty()) {
-            return createDefaultAtmosphere();
+            return new AtmosphereResult(createDefaultAtmosphere(), null);
         }
-        return generateFromTemplate(selectTemplateByWeight(matchingTemplates), distanceAU);
+        AtmosphereTemplateRef selectedTemplate = selectTemplateByWeight(matchingTemplates);
+        return new AtmosphereResult(generateFromTemplate(selectedTemplate, distanceAU), selectedTemplate);
     }
 
     private boolean shouldLoseAtmosphere(double earthMass, double distanceAU, double surfaceTemp) {
@@ -55,6 +58,14 @@ public class AtmosphereCreator {
 
     private List<AtmosphereTemplateRef> findMatchingTemplates(String planetType, double temp, double mass) {
         List<AtmosphereTemplateRef> matches = templateRepository.findMatchingTemplates(planetType, temp, mass);
+
+        List<AtmosphereTemplateRef> realAtmospheres = matches.stream()
+                .filter(t -> t.getClassification() != AtmosphereClassification.NONE)
+                .toList();
+        if (!realAtmospheres.isEmpty()) {
+            return realAtmospheres;  // Return only real atmospheres
+        }
+
         if (matches.isEmpty()) {
             matches = templateRepository.findMatchingTemplates(planetType, temp);
         }
@@ -138,19 +149,7 @@ public class AtmosphereCreator {
                 .build();
     }
 
-    public PlanetaryAtmosphere generateByClassification(AtmosphereClassification classification, double distanceAU) {
-        AtmosphereTemplateRef template = templateRepository.findByClassification(classification).orElse(null);
-        if (template == null) {
-            return createDefaultAtmosphere();
-        }
-        return generateFromTemplate(template, distanceAU);
-    }
-
-    public AtmosphereTemplateRef getTemplateByClassification(AtmosphereClassification classification) {
-        return templateRepository.findByClassification(classification).orElse(null);
-    }
-
-    public double calculateSurfacePressure(double earthMass, double surfaceTemp, PlanetaryAtmosphere atmosphere) {
+    public double calculateSurfacePressure(double earthMass, double surfaceTemp, AtmosphereTemplateRef template) {
 
         double basePressure;
         if (earthMass < 0.5) {
@@ -162,8 +161,6 @@ public class AtmosphereCreator {
         } else {
             basePressure = RandomUtils.rollRange(10.0, 10000.0);
         }
-
-        AtmosphereTemplateRef template = getTemplateByClassification(atmosphere.getClassification());
 
         if (template != null && template.getTypicalPressureBar() != null) {
             double templatePressure = template.getTypicalPressureBar();

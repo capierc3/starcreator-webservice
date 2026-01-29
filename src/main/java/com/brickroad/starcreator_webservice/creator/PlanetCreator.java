@@ -332,19 +332,21 @@ public class PlanetCreator {
             return;
         }
 
-        PlanetaryAtmosphere atmosphere = atmosphereCreator.generateAtmosphere(
+        AtmosphereCreator.AtmosphereResult result = atmosphereCreator.generateAtmosphereWithTemplate(
                 planet.getPlanetType(),
                 planet.getSurfaceTemp(),
                 planet.getEarthMass(),
                 planet.getSemiMajorAxisAU()
         );
+
+        PlanetaryAtmosphere atmosphere = result.atmosphere();
         planet.setAtmosphereComposition(atmosphere.toCompactString());
         planet.setAtmosphereClassification(atmosphere.getClassification().name());
 
         double pressure = atmosphereCreator.calculateSurfacePressure(
                 planet.getEarthMass(),
                 planet.getSurfaceTemp(),
-                atmosphere
+                result.template()
         );
         planet.setSurfacePressure(pressure);
 
