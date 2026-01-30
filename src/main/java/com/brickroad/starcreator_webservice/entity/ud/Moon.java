@@ -138,5 +138,15 @@ public class Moon extends CelestialBody {
 
     // Age
     @Column(name = "age_my")
-    private Double ageMY; // Million years
+    private Double ageMY;
+
+    // Detailed composition (like planets)
+    @Column(name = "interior_composition", length = 500)
+    private String interiorComposition;
+
+    @Column(name = "envelope_composition", length = 500)
+    private String envelopeComposition;
+
+    @Column(name = "composition_classification", length = 50)
+    private String compositionClassification;
 }

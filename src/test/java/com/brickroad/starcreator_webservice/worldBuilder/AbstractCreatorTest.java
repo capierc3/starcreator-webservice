@@ -37,4 +37,15 @@ public abstract class AbstractCreatorTest {
         return mapper.writeValueAsString(jsonMap);
     }
 
+    protected void printJSON(String json) throws JsonProcessingException {
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        System.out.println("\n========== JSON OUTPUT ==========");
+        System.out.println(json);
+        System.out.println("=================================\n");
+    }
+
 }

@@ -5,13 +5,16 @@ import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
 import com.brickroad.starcreator_webservice.entity.ud.Moon;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
+import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -23,7 +26,7 @@ public class MoonTests extends AbstractCreatorTest {
     @Autowired
     private SystemCreator systemCreator;
 
-    private static final int SYSTEM_COUNT = 10000;
+    private static final int SYSTEM_COUNT = 1000;
 
     //@Test
     public void findPlanetByType() throws JsonProcessingException {
@@ -57,22 +60,25 @@ public class MoonTests extends AbstractCreatorTest {
     }
 
     //@Test
-    public void getMoonData() {
+    public void getMoonData() throws JsonProcessingException {
 
         int moonCount = 0;
         int lowCount = 0;
         int moderateCount = 0;
         int highCount = 0;
         int noneCount = 0;
-        int volcanoesMatch = 0;
-        int volcanoesNoMatch = 0;
-        int icyVolcanicAtmoCount = 0;
-        int rockyVolcanicAtmoCount = 0;
-        int mixedVolcanicAtmoCount = 0;
-        int icyHighVolcanicCount = 0;
-        int icyModerateVolcanicCount = 0;
-        int icyTitanCount = 0;
-        int icyAmmoniaCount = 0;
+//        int volcanoesMatch = 0;
+//        int volcanoesNoMatch = 0;
+//        int icyVolcanicAtmoCount = 0;
+//        int rockyVolcanicAtmoCount = 0;
+//        int mixedVolcanicAtmoCount = 0;
+//        int icyHighVolcanicCount = 0;
+//        int icyModerateVolcanicCount = 0;
+//        int icyTitanCount = 0;
+//        int icyAmmoniaCount = 0;
+        Map<String, Integer> moonTypes = new HashMap<>();
+        Map<String, List<Moon>> moonTypeToMoonMap = new HashMap<>();
+        Map<String, Integer> compositionTypes = new HashMap<>();
 
         for (int i = 0; i < SYSTEM_COUNT; i++) {
             if (i % 1000 == 0) System.out.println("Systems created " + (i + 1));
@@ -97,46 +103,21 @@ public class MoonTests extends AbstractCreatorTest {
                             noneCount++;
                             break;
                     }
-                    if (moon.getHasAtmosphere() && moon.getAtmosphere().getClassification().equalsIgnoreCase("VOLCANIC")) {
-                        switch (moon.getCompositionType()) {
-                            case "ICE":
-                                icyVolcanicAtmoCount++;
-                                if (moon.getHasCryovolcanism() != null && moon.getHasCryovolcanism()) {
-                                    volcanoesMatch++;
-                                } else {
-                                    volcanoesNoMatch++;
-                                }
-                                break;
-                            case "ROCKY":
-                                rockyVolcanicAtmoCount++;
-                                break;
-                            case "MIXED":
-                                mixedVolcanicAtmoCount++;
-                                break;
-                        }
+                    moonTypes.put(moon.getMoonType(), moonTypes.getOrDefault(moon.getMoonType(), 0) + 1);
+                    if (!moonTypeToMoonMap.containsKey(moon.getMoonType())) {
+                        moonTypeToMoonMap.put(moon.getMoonType(), new ArrayList<>());
+                        moonTypeToMoonMap.get(moon.getMoonType()).add(moon);
+                    } else {
+                        moonTypeToMoonMap.get(moon.getMoonType()).add(moon);
                     }
-                    if ("ICY".equalsIgnoreCase(moon.getCompositionType()) && "HIGH".equalsIgnoreCase(moon.getGeologicalActivity())) {
-                        if (moon.getHasCryovolcanism() != null && moon.getHasCryovolcanism()) {
-                            icyHighVolcanicCount++;
-                        }
-                    } else if ("ICY".equalsIgnoreCase(moon.getCompositionType()) && "MODERATE".equalsIgnoreCase(moon.getGeologicalActivity())) {
-                        if (moon.getHasCryovolcanism() != null && moon.getHasCryovolcanism()) {
-                            icyModerateVolcanicCount++;
-                        }
-                    }
-                    if ("ICY".equalsIgnoreCase(moon.getCompositionType()) && moon.getHasAtmosphere()) {
-                        if ("TITAN_LIKE".equalsIgnoreCase(moon.getAtmosphere().getClassification())) {
-                            icyTitanCount++;
-                        } else if ("AMMONIA".equalsIgnoreCase(moon.getAtmosphere().getClassification())) {
-                            icyAmmoniaCount++;
-                        }
-                    }
+                    compositionTypes.put(moon.getCompositionClassification(), compositionTypes.getOrDefault(moon.getCompositionClassification(), 0) + 1);
                 }
             }
         }
         System.out.println("-------------------------------------------------------");
         System.out.println("Moon Count: " + moonCount);
         System.out.println("-------------------------------------------------------");
+        System.out.println("Active Moons:");
         System.out.println("Low: " + lowCount);
         System.out.println("Moderate: " + moderateCount);
         System.out.println("High: " + highCount);
@@ -144,17 +125,41 @@ public class MoonTests extends AbstractCreatorTest {
         double lowPercentage = (noneCount * 100.0) / moonCount;
         System.out.println("active percentage: " + (100 - lowPercentage) + "%");
         System.out.println("-------------------------------------------------------");
-        System.out.println("Rocky Volcanic Atmo Count: " + rockyVolcanicAtmoCount);
-        System.out.println("Mixed Volcanic Atmo Count: " + mixedVolcanicAtmoCount);
+        System.out.println("Moon Types:");
+        List<Moon> gasEnvelopes = new ArrayList<>();
+        for (Map.Entry<String, List<Moon>> entry : moonTypeToMoonMap.entrySet()) {
+            System.out.println(entry.getKey() + ": " + entry.getValue().size());
+            Map<String, Integer> compositionTypeCount = new HashMap<>();
+            for (Moon moon : entry.getValue()) {
+                compositionTypeCount.put(moon.getCompositionClassification(), compositionTypeCount.getOrDefault(moon.getCompositionClassification(), 0) + 1);
+                if (moon.getCompositionClassification().equalsIgnoreCase("GAS_ENVELOPE")) {
+                    gasEnvelopes.add(moon);
+                }
+            }
+            for (Map.Entry<String, Integer> compositionEntry : compositionTypeCount.entrySet()) {
+                System.out.println("\t" + compositionEntry.getKey() + ": " + compositionEntry.getValue());
+            }
+        }
         System.out.println("-------------------------------------------------------");
-        System.out.println("Icy High Volcanic Count: " + icyHighVolcanicCount);
-        System.out.println("Icy Moderate Volcanic Count: " + icyModerateVolcanicCount);
-        System.out.println("Icy Volcanic Atmo Count: " + icyVolcanicAtmoCount);
-        System.out.println("Icy Volcanic Atmosphere with volcanoes: " + volcanoesMatch);
-        System.out.println("Icy Volcanic Atmosphere with no volcanoes: " + volcanoesNoMatch);
-        System.out.println("-------------------------------------------------------");
-        System.out.println("Icy Titan Count: " + icyTitanCount);
-        System.out.println("Icy Ammonia Count: " + icyAmmoniaCount);
-        System.out.println("-------------------------------------------------------");
+        if (!gasEnvelopes.isEmpty()) {
+            double tempHigh = 0;
+            double tempLow = 10000;
+            for (Moon moon : gasEnvelopes) {
+                if (moon.getSurfaceTemp() > tempHigh) {
+                    tempHigh = moon.getSurfaceTemp();
+                }
+                if (moon.getSurfaceTemp() < tempLow) {
+                    tempLow = moon.getSurfaceTemp();
+                }
+            }
+            System.out.println("Highest Gas Envelope Moon Temp: " + tempHigh);
+            System.out.println("Lowest Gas Envelope Moon Temp: " + tempLow);
+            System.out.println("Random Gas Envelope Moon");
+            Map<String, Object> testResults = new HashMap<>();
+            testResults.put("moon", gasEnvelopes.get(RandomUtils.rollRange(0, gasEnvelopes.size() - 1)));
+            printJSON(listToJsonString(testResults));
+        }
+
+
     }
 }

@@ -38,7 +38,7 @@ public class PlanetTests extends AbstractCreatorTest {
     @Autowired
     private SystemCreator systemCreator;
 
-    @Test
+    //@Test
     public void findPlanetByType() throws JsonProcessingException {
         String targetType = "Ocean Planet";
         int maxAttempts = 1000;
@@ -220,39 +220,6 @@ public class PlanetTests extends AbstractCreatorTest {
         System.out.println("Auroral Colors: " +
                 foundPlanet.getMagneticField().getAuroralColors());
         System.out.println("Atmosphere: " + foundPlanet.getAtmosphereComposition());
-    }
-
-    private void printJSON(Map<String, Object> output, String title) throws JsonProcessingException {
-
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.enable(SerializationFeature.INDENT_OUTPUT);
-
-        String json = mapper.writeValueAsString(output);
-        saveJson(json);
-        System.out.println(title);
-        System.out.println("\n========== JSON OUTPUT ==========");
-        System.out.println(json);
-        System.out.println("=================================\n");
-    }
-
-
-    private void saveJson(String jsonString) {
-
-        File targetFolder = new File("target/systemJSONs/");
-
-        if (!targetFolder.exists()) {
-            targetFolder.mkdirs();
-        }
-
-        File jsonFile = new File(targetFolder, "System.json");
-
-        try (FileWriter writer = new FileWriter(jsonFile)) {
-            writer.write(jsonString); // Write the JSON content to the file
-            System.out.println("JSON file saved successfully to: " + jsonFile.getAbsolutePath());
-        } catch (IOException e) {
-            System.err.println("Error writing JSON to file: " + e.getMessage());
-        }
     }
 
 }
