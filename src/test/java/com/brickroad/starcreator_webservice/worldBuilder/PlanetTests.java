@@ -38,9 +38,9 @@ public class PlanetTests extends AbstractCreatorTest {
     @Autowired
     private SystemCreator systemCreator;
 
-    //@Test
+    @Test
     public void findPlanetByType() throws JsonProcessingException {
-        String targetType = "Gas Giant";
+        String targetType = "Ocean Planet";
         int maxAttempts = 1000;
 
         Planet foundPlanet = null;
@@ -55,13 +55,9 @@ public class PlanetTests extends AbstractCreatorTest {
             system = systemCreator.generateSystem();
             for (CelestialBody planet : system.getPlanets()) {
                 if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())) {
-                    if (((Planet) planet).getMoons().stream()
-                            .anyMatch(moon -> moon.getAtmosphereComposition() != null &&
-                                    !moon.getAtmosphereComposition().contains("None"))) {
-                        foundPlanet = (Planet) planet;
-                        System.out.println("Searched " + (i + 1) + " systems...");
-                        break;
-                    }
+                    foundPlanet = (Planet) planet;
+                    System.out.println("Searched " + (i + 1) + " systems...");
+                    break;
                 }
             }
             if (foundPlanet != null) {
