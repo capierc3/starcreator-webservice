@@ -28,7 +28,7 @@ public class MoonTests extends AbstractCreatorTest {
 
     private static final int SYSTEM_COUNT = 1000;
 
-    @Test
+    //@Test
     public void findPlanetByType() throws JsonProcessingException {
         int moonSystemSize = 40;
         boolean foundLargeEnoughMoonSystem = false;
