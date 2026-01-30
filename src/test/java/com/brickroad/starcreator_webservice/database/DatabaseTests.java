@@ -1,9 +1,8 @@
 package com.brickroad.starcreator_webservice.database;
 
-import com.brickroad.starcreator_webservice.model.factions.Faction;
+import com.brickroad.starcreator_webservice.entity.ud.Faction;
 import com.brickroad.starcreator_webservice.service.FactionService;
-import com.brickroad.starcreator_webservice.model.factions.FactionUtils;
-import org.junit.jupiter.api.Test;
+import com.brickroad.starcreator_webservice.utils.FactionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 

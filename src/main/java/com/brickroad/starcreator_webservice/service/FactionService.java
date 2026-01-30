@@ -1,8 +1,8 @@
 package com.brickroad.starcreator_webservice.service;
 
-import com.brickroad.starcreator_webservice.repos.GovernmentTypeRepo;
-import com.brickroad.starcreator_webservice.model.factions.Faction;
-import com.brickroad.starcreator_webservice.repos.FactionRepo;
+import com.brickroad.starcreator_webservice.repository.GovernmentTypeRepo;
+import com.brickroad.starcreator_webservice.entity.ud.Faction;
+import com.brickroad.starcreator_webservice.repository.FactionRepo;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 

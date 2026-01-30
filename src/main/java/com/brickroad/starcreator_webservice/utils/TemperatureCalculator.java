@@ -1,13 +1,13 @@
 package com.brickroad.starcreator_webservice.utils;
 
-import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
-import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
+import com.brickroad.starcreator_webservice.entity.ud.Star;
+
+import static com.brickroad.starcreator_webservice.utils.ConversionFormulas.AU_TO_KM;
+import static com.brickroad.starcreator_webservice.utils.ConversionFormulas.AU_TO_METERS;
 
 public class TemperatureCalculator {
-
-    private static final double AU_TO_KM = 149_597_870.7;
-    private static final double AU_TO_METERS = 149_597_870_700.0;
 
     public static double calculateSingleStarTemperature(Star star, double distanceAU, Double albedo) {
         double effectiveAlbedo = (albedo != null) ? albedo : 0.3;

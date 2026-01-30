@@ -1,6 +1,6 @@
 package com.brickroad.starcreator_webservice.controller;
 
-import com.brickroad.starcreator_webservice.model.prompts.Prompt;
+import com.brickroad.starcreator_webservice.utils.prompts.Prompt;
 import com.brickroad.starcreator_webservice.service.PromptService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;

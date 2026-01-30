@@ -1,7 +1,7 @@
 package com.brickroad.starcreator_webservice.controller;
 
-import com.brickroad.starcreator_webservice.model.factions.Faction;
-import com.brickroad.starcreator_webservice.model.factions.FactionResponse;
+import com.brickroad.starcreator_webservice.entity.ud.Faction;
+import com.brickroad.starcreator_webservice.response.FactionResponse;
 import com.brickroad.starcreator_webservice.request.FactionRequest;
 import com.brickroad.starcreator_webservice.service.FactionService;
 import io.swagger.v3.oas.annotations.Operation;

@@ -1,13 +1,12 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
-import com.brickroad.starcreator_webservice.Creators.PlanetCreator;
-import com.brickroad.starcreator_webservice.Creators.StarCreator;
-import com.brickroad.starcreator_webservice.Creators.SystemCreator;
-import com.brickroad.starcreator_webservice.model.CelestialBody;
-import com.brickroad.starcreator_webservice.model.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.model.planets.Planet;
-import com.brickroad.starcreator_webservice.model.starSystems.StarSystem;
-import com.brickroad.starcreator_webservice.model.stars.Star;
+import com.brickroad.starcreator_webservice.creator.PlanetCreator;
+import com.brickroad.starcreator_webservice.creator.StarCreator;
+import com.brickroad.starcreator_webservice.creator.SystemCreator;
+import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
+import com.brickroad.starcreator_webservice.entity.ud.Planet;
+import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
+import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -28,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class PlanetTests {
+public class PlanetTests extends AbstractCreatorTest {
 
     @Autowired
     private PlanetCreator planetCreator;
@@ -41,10 +40,10 @@ public class PlanetTests {
 
     //@Test
     public void findPlanetByType() throws JsonProcessingException {
-        String targetType = "Ocean Planet";
+        String targetType = "Gas Giant";
         int maxAttempts = 1000;
 
-        boolean foundPlanet = false;
+        Planet foundPlanet = null;
         StarSystem system = null;
 
         System.out.println("Searching for planet type: " + targetType);
@@ -56,12 +55,16 @@ public class PlanetTests {
             system = systemCreator.generateSystem();
             for (CelestialBody planet : system.getPlanets()) {
                 if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())) {
-                    foundPlanet = true;
-                    System.out.println("Searched " + (i + 1) + " systems...");
-                    break;
+                    if (((Planet) planet).getMoons().stream()
+                            .anyMatch(moon -> moon.getAtmosphereComposition() != null &&
+                                    !moon.getAtmosphereComposition().contains("None"))) {
+                        foundPlanet = (Planet) planet;
+                        System.out.println("Searched " + (i + 1) + " systems...");
+                        break;
+                    }
                 }
             }
-            if (foundPlanet) {
+            if (foundPlanet != null) {
                 break;
             }
             if (i % 100 == 0 && i > 0) {
@@ -71,11 +74,14 @@ public class PlanetTests {
 
         assertNotNull(system, "Failed to generate matching system after " + maxAttempts + " attempts");
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("system", system);
+        Map<String, Object> testResults = new HashMap<>();
+        testResults.put("star", system.getStars());
+        testResults.put("planet", foundPlanet);
+        String json = listToJsonString(testResults);
+        //printJSON(json);
+        saveJson(json, "planet");
 
-        String title = "\n✅ FOUND ";
-        printJSON(output, title);
+
     }
 
     //@Test

@@ -1,9 +1,9 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
-import com.brickroad.starcreator_webservice.model.stars.Star;
-import com.brickroad.starcreator_webservice.Creators.StarCreator;
-import com.brickroad.starcreator_webservice.model.stars.StarTypeRef;
-import com.brickroad.starcreator_webservice.repos.StarTypeRefRepository;
+import com.brickroad.starcreator_webservice.entity.ud.Star;
+import com.brickroad.starcreator_webservice.creator.StarCreator;
+import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
+import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +16,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
