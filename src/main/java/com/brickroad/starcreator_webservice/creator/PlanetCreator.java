@@ -1,12 +1,9 @@
 package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ref.PlanetTypeRef;
-import com.brickroad.starcreator_webservice.entity.ud.Moon;
-import com.brickroad.starcreator_webservice.entity.ud.Planet;
-import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField;
+import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.repository.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
@@ -180,7 +177,9 @@ public class PlanetCreator {
         if (type.getName().toLowerCase().contains("ocean planet")) {
             planet.setWaterCoveragePercent(RandomUtils.rollRange(60, 100.0));
         } else if(type.getHabitable() && "habitable".equals(planet.getHabitableZonePosition())) {
-            planet.setWaterCoveragePercent(RandomUtils.rollRange(10, 90.0));
+            if (planet.getSurfacePressure() >= 0.5 && planet.getSurfaceTemp() >= 273.15 && planet.getSurfaceTemp() <= 373.15) {
+                planet.setWaterCoveragePercent(RandomUtils.rollRange(10, 90.0));
+            }
         }
 
         planet.setCoreType(type.getTypicalCoreType());
@@ -199,26 +198,6 @@ public class PlanetCreator {
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());
-    }
-
-    private int calculateMoonAmount(PlanetTypeRef type, Star parentStar) {
-        int baseMoons = RandomUtils.rollRange(type.getMinMoons(), type.getMaxMoons());
-        if (parentStar != null) {
-            double metallicity = parentStar.getMetallicity();
-            double moonFactor;
-            if (metallicity < -0.5) {
-                moonFactor = 0.5; // Metal-poor: fewer moons
-            } else if (metallicity < 0.0) {
-                moonFactor = 0.75; // Below solar
-            } else if (metallicity < 0.3) {
-                moonFactor = 1.0; // Solar to enriched
-            } else {
-                moonFactor = 1.2; // Metal-rich: more moons
-            }
-            baseMoons = (int) Math.round(baseMoons * moonFactor);
-            baseMoons = Math.max(type.getMinMoons(), baseMoons); // At least the minimum
-        }
-        return baseMoons;
     }
 
     private void populateOrbitalParameters(Planet planet, Star star, double distanceAU, int position) {
