@@ -23,11 +23,13 @@ public interface TerrainTypeRefRepository extends JpaRepository<TerrainTypeRef, 
             "(:surfaceTemp IS NULL OR t.minTemperatureK IS NULL OR :surfaceTemp >= t.minTemperatureK) AND " +
             "(:surfaceTemp IS NULL OR t.maxTemperatureK IS NULL OR :surfaceTemp <= t.maxTemperatureK) AND " +
             "(t.requiresWater = false OR :hasWater = true) AND " +
-            "(t.requiresAtmosphere = false OR :hasAtmosphere = true)")
+            "(t.requiresAtmosphere = false OR :hasAtmosphere = true) AND " +
+            "(t.minPressureAtm IS NULL OR :surfacePressure >= t.minPressureAtm)")
     List<TerrainTypeRef> findViableTerrainTypes(
             @Param("surfaceTemp") Double surfaceTemp,
             @Param("hasWater") Boolean hasWater,
-            @Param("hasAtmosphere") Boolean hasAtmosphere
+            @Param("hasAtmosphere") Boolean hasAtmosphere,
+            @Param("surfacePressure") Double surfacePressure
     );
 
     @Query("SELECT t FROM TerrainTypeRef t WHERE t.isVolcanic = true")

@@ -77,6 +77,19 @@ public record PlanetaryAtmosphere(List<AtmosphereComponent> components, Atmosphe
         }
 
         public PlanetaryAtmosphere build() {
+            double total = components.stream()
+                    .mapToDouble(AtmosphereComponent::getPercentage)
+                    .sum();
+
+            if (total > 0 && Math.abs(total - 100.0) > 0.01) {
+                double normalizationFactor = 100.0 / total;
+                components.forEach(component -> {
+                    double normalizedPercentage = component.getPercentage() * normalizationFactor;
+                    component.setPercentage(normalizedPercentage);
+                    component.setIsTrace(normalizedPercentage < 0.1);
+                });
+            }
+
             return new PlanetaryAtmosphere(components, classification);
         }
     }

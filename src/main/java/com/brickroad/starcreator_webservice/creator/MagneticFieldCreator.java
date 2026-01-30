@@ -59,8 +59,8 @@ public class MagneticFieldCreator {
         double massFactor = planet.getEarthMass() != null ? planet.getEarthMass() : 1.0;
         double densityFactor = calculateDensityFactor(planet);
         double ageFactor = calculateAgeFactor(planet);
-        double massLimit = planet.getEarthMass() * 3.0;
-
+        //double massLimit = planet.getEarthMass() * 3.0;
+        double massLimit = planet.getEarthMass() * densityFactor * 2.5;
         double baseStrength = rotationFactor * Math.sqrt(massFactor) * densityFactor * ageFactor;
         baseStrength *= RandomUtils.rollRange(0.5, 2.0);
         baseStrength = Math.min(baseStrength, massLimit);
@@ -254,9 +254,7 @@ public class MagneticFieldCreator {
         double density = planet.getDensity();
         double factor = density / 5.5;
 
-        if (density < 2.0) {
-            factor = RandomUtils.rollRange(0.5, 3.0);
-        }
+        factor *= RandomUtils.rollRange(0.8, 1.2);
 
         return Math.max(0.1, Math.min(factor, 3.0));
     }

@@ -63,7 +63,7 @@ public class AtmosphereCreator {
                 .filter(t -> t.getClassification() != AtmosphereClassification.NONE)
                 .toList();
         if (!realAtmospheres.isEmpty()) {
-            return realAtmospheres;  // Return only real atmospheres
+            return realAtmospheres;
         }
 
         if (matches.isEmpty()) {

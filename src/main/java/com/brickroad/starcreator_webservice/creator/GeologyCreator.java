@@ -393,7 +393,8 @@ public class GeologyCreator {
         List<TerrainTypeRef> viableTerrains = terrainTypeRefRepository.findViableTerrainTypes(
                 planet.getSurfaceTemp(),
                 waterCoverage > 0,
-                hasAtmosphere
+                hasAtmosphere,
+                planet.getSurfacePressure()
         );
 
         if (viableTerrains.isEmpty()) {

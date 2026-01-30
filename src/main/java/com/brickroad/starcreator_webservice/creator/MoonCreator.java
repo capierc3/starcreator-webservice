@@ -62,8 +62,16 @@ public class MoonCreator {
         moon.setAgeMY(planet.getAgeMY());
 
         moon.setMoonType(predeterminedMoonType);
-        setFormationType(moon, predeterminedMoonType); // New helper method
-        moon.setCompositionType(planet.getSurfaceTemp() < 150 ? "ICY" : "MIXED");
+        setFormationType(moon, predeterminedMoonType);
+
+        double parentTemp = planet.getSurfaceTemp();
+        if (parentTemp < 150) {
+            moon.setCompositionType("ICY");
+        } else if (parentTemp < 300) {
+            moon.setCompositionType("MIXED");
+        } else {
+            moon.setCompositionType("ROCKY");
+        }
 
         generatePhysicalProperties(moon, moonMassEarth);
         generateOrbitalProperties(moon, planet, hillSphereKm, innerRocheLimit, outerRocheLimit);
@@ -219,8 +227,9 @@ public class MoonCreator {
                 RandomUtils.rollRange(2.5, 3.5);
         moon.setDensity(density);
 
-        double radiusKm = Math.cbrt((3 * moonMassEarth * EARTH_MASS_KG * 1000) /
-                (4 * Math.PI * density * 1000)) / 1000;
+        double radiusM = Math.cbrt((3 * moonMassEarth * EARTH_MASS_KG) /
+                (4 * Math.PI * density * 1000));
+        double radiusKm = radiusM / 1000;
         moon.setEarthRadius(radiusKm / EARTH_RADIUS_KM);
         moon.setRadius(radiusKm);
         moon.setCircumference(2 * Math.PI * radiusKm);
@@ -290,28 +299,77 @@ public class MoonCreator {
         double radiusKm = moon.getRadius();
         double massKg = moon.getMass();
 
-        double surfaceGravity = (ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) /
+        double surfaceGravityMS2 = (ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) /
                 Math.pow(radiusKm * 1000, 2);
-        moon.setSurfaceGravity(surfaceGravity);
+        moon.setSurfaceGravity(surfaceGravityMS2 / 9.81);
 
         double escapeVelocity = Math.sqrt((2 * ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) /
-                (radiusKm * 1000)) / 1000;
-        moon.setEscapeVelocity(escapeVelocity);
+                (radiusKm * 1000));
+        moon.setEscapeVelocity(escapeVelocity / 1000.0);
+
+        moon.setSurfaceTemp(calculateSurfaceTemp(moon, planet, primaryStar));
+    }
+
+    private double calculateSurfaceTemp(Moon moon, Planet planet, Star primaryStar) {
 
         double distanceFromStarAU = planet.getSemiMajorAxisAU();
+        double stellarLuminosity = calculateEffectiveLuminosity(primaryStar, distanceFromStarAU);
+        double moonAlbedo = moon.getAlbedo();
+
+        double solarConstant = 1361.0;
+        double stellarFlux = solarConstant * stellarLuminosity / (distanceFromStarAU * distanceFromStarAU);
+
+        double planetRadiusKm = planet.getRadius();
+        double moonOrbitKm = moon.getSemiMajorAxisKm();
+
+        double shadowFraction = Math.min(planetRadiusKm / moonOrbitKm, 0.2); // Cap at 20%
+        double directFlux = stellarFlux * (1.0 - moonAlbedo) * (1.0 - shadowFraction * 0.5);
+
+        double planetCrossSectionM2 = Math.PI * Math.pow(planetRadiusKm * 1000, 2);
+        double moonOrbitM = moonOrbitKm * 1000;
+        double reflectedFlux = stellarFlux * planet.getAlbedo() * planetCrossSectionM2 /
+                (4 * Math.PI * Math.pow(moonOrbitM, 2));
+
+        double sigma = 5.67e-8;
+        double planetEmission = sigma * Math.pow(planet.getSurfaceTemp(), 4);
+        double thermalFlux = planetEmission * planetCrossSectionM2 /
+                (4 * Math.PI * Math.pow(moonOrbitM, 2));
+
+        double totalFlux = directFlux + reflectedFlux * (1.0 - moonAlbedo) + thermalFlux;
+
+        double baseTemp = Math.pow(totalFlux / sigma, 0.25);
+
+        return (Math.max(baseTemp, 10.0));
+    }
+
+    private double calculateEffectiveLuminosity(Star primaryStar, double distanceFromStarAU) {
         double stellarLuminosity = primaryStar.getSolarLuminosity();
-        if (primaryStar.getSystem() != null && primaryStar.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
-            stellarLuminosity = primaryStar.getSystem().getStars().stream()
-                    .mapToDouble(Star::getSolarLuminosity)
-                    .sum();
+
+        if (primaryStar.getSystem() != null) {
+            BinaryConfiguration config = primaryStar.getSystem().getBinaryConfiguration();
+
+            if (config == BinaryConfiguration.P_TYPE) {
+                stellarLuminosity = primaryStar.getSystem().getStars().stream()
+                        .mapToDouble(Star::getSolarLuminosity)
+                        .sum();
+
+            } else if (config == BinaryConfiguration.S_TYPE_CLOSE) {
+                Star companionStar = primaryStar.getCompanionStar();
+                if (companionStar != null) {
+                    double companionLuminosity = companionStar.getSolarLuminosity();
+                    double binarySeparation = primaryStar.getSystem().getBinarySeparationAu();
+                    double companionDistance = Math.sqrt(
+                            distanceFromStarAU * distanceFromStarAU +
+                                    binarySeparation * binarySeparation
+                    );
+                    double companionEffectiveLuminosity = companionLuminosity *
+                            Math.pow(distanceFromStarAU / companionDistance, 2);
+                    stellarLuminosity += companionEffectiveLuminosity;
+                }
+            }
         }
-        double albedo = moon.getAlbedo();
 
-        double baseTemp = 278.5 * Math.pow(stellarLuminosity, 0.25)
-                / Math.sqrt(distanceFromStarAU)
-                * Math.pow(1.0 - albedo, 0.25);
-
-        moon.setSurfaceTemp(Math.max(baseTemp, 10.0));
+        return stellarLuminosity;
     }
 
     private void calculateTidalEffects(Moon moon, Planet planet) {
@@ -348,20 +406,21 @@ public class MoonCreator {
 
         boolean hasSignificantTidalHeating = tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.5;
 
-        double ageModifier = hasSignificantTidalHeating ? 1.0 : (1.0 / (1.0 + moon.getAgeMY() / 5000.0));
+        double ageModifier = hasSignificantTidalHeating ?
+                1.0 : (1.0 / (1.0 + moon.getAgeMY() / 5000.0));
         double activityScore = moon.getEarthMass() * 100 * ageModifier;
 
-        if (hasSignificantTidalHeating) {
-            activityScore += tidalHeatingWattPerM2 * 10;
+        if (tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.0) {
+            activityScore += tidalHeatingWattPerM2 * 20;  // Increased from 10 to 20
         }
 
-        if (activityScore > 10 || "EXTREME".equals(tidalHeating)) {
+        if (activityScore > 9 || "EXTREME".equals(tidalHeating)) {  // Lowered from 10
             moon.setGeologicalActivity("HIGH");
             moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()));
-        } else if (activityScore > 5 || "HIGH".equals(tidalHeating)) {
+        } else if (activityScore > 4 || "HIGH".equals(tidalHeating)) {  // Lowered from 5
             moon.setGeologicalActivity("MODERATE");
             moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()) && RandomUtils.rollRange(0.0, 1.0) < 0.6);
-        } else if (activityScore > 2 || "MODERATE".equals(tidalHeating)) {
+        } else if (activityScore > 1.2 || "MODERATE".equals(tidalHeating)) {  // Lowered from 2
             moon.setGeologicalActivity("LOW");
             if ("ICY".equals(moon.getCompositionType()) && tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.8) {
                 moon.setHasCryovolcanism(RandomUtils.rollRange(0.0, 1.0) < 0.3);
@@ -463,17 +522,13 @@ public class MoonCreator {
             return;
         }
 
-        // Generate atmosphere using AtmosphereCreator
         String moonType = determineMoonTypeForAtmosphere(moon);
-        double surfaceTemp = moon.getSurfaceTemp();
-        double earthMass = moon.getEarthMass();
-        double distanceFromStarAU = planet.getSemiMajorAxisAU(); // Use planet's distance
 
         AtmosphereCreator.AtmosphereResult result = atmosphereCreator.generateAtmosphereWithTemplate(
                 moonType,
-                surfaceTemp,
-                earthMass,
-                distanceFromStarAU
+                moon.getSurfaceTemp(),
+                moon.getEarthMass(),
+                planet.getSemiMajorAxisAU()
         );
 
         PlanetaryAtmosphere generatedAtmosphere = result.atmosphere();
@@ -486,8 +541,8 @@ public class MoonCreator {
         }
 
         double surfacePressure = atmosphereCreator.calculateSurfacePressure(
-                earthMass,
-                surfaceTemp,
+                moon.getEarthMass(),
+                moon.getSurfaceTemp(),
                 result.template()
         );
 
