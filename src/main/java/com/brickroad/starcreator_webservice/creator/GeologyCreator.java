@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.entity.ref.GeologicalFeatureRef;
 import com.brickroad.starcreator_webservice.entity.ref.GeologicalTemplateRef;
 import com.brickroad.starcreator_webservice.entity.ref.TerrainCategoryRef;
 import com.brickroad.starcreator_webservice.entity.ref.TerrainTypeRef;
+import com.brickroad.starcreator_webservice.entity.ud.Moon;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryGeology;
 import com.brickroad.starcreator_webservice.entity.ud.PlanetaryTerrainDistribution;
@@ -93,6 +94,22 @@ public class GeologyCreator {
                 }
             }
         }
+    }
+
+    public void generateMoonGeology(Moon moon) {
+        String activity = moon.getGeologicalActivity();
+        String activityLevel = mapMoonActivityToTemplateLevel(activity);
+
+        List<GeologicalTemplateRef> templates = geologicalTemplateRepository
+                .findByPlanetTypeAndActivityLevel(moon.getMoonType(), activityLevel);
+        GeologicalTemplateRef template = selectGeologicalTemplate(templates);
+        if (template != null) {
+            applyMoonTemplate(moon, template);
+        } else {
+            applyBasicMoonGeology(moon);
+        }
+
+        generateMoonSurfaceFeatures(moon);
     }
 
     public PlanetaryGeology generateGeology(Planet planet) {
@@ -752,4 +769,167 @@ public class GeologyCreator {
 
         return new ArrayList<>(consolidated.values());
     }
+
+    private String mapMoonActivityToTemplateLevel(String moonActivity) {
+        if (moonActivity == null) return "Dead";
+
+        return switch (moonActivity) {
+            case "LOW" -> "Low Activity";
+            case "MODERATE" -> "Moderately Active";
+            case "HIGH" -> "Highly Active";
+            default -> "Dead";
+        };
+    }
+
+    private void applyMoonTemplate(Moon moon, GeologicalTemplateRef template) {
+        for (GeologicalFeatureRef feature : template.getFeatures()) {
+            applyMoonFeature(moon, feature);
+        }
+    }
+
+    private void applyBasicMoonGeology(Moon moon) {
+        String activity = moon.getGeologicalActivity();
+        Boolean hasCryovolcanism = moon.getHasCryovolcanism();
+
+        if ("HIGH".equals(activity) || "MODERATE".equals(activity)) {
+            if (Boolean.TRUE.equals(hasCryovolcanism)) {
+                moon.setVolcanismType("Cryovolcanic");
+            } else if ("ICY".equals(moon.getCompositionType())) {
+                moon.setVolcanismType("Cryovolcanic");
+            } else {
+                moon.setVolcanismType("Silicate");
+            }
+
+            if ("HIGH".equals(activity)) {
+                moon.setVolcanicIntensity("Continuous");
+                moon.setEstimatedActiveVolcanoes(RandomUtils.rollRange(50, 200));
+            } else {
+                moon.setVolcanicIntensity("Moderate");
+                moon.setEstimatedActiveVolcanoes(RandomUtils.rollRange(5, 30));
+            }
+        } else {
+            moon.setVolcanismType("None");
+            moon.setVolcanicIntensity("None");
+            moon.setEstimatedActiveVolcanoes(0);
+        }
+
+        if ("HIGH".equals(activity)) {
+            moon.setMountainCoveragePercent(RandomUtils.rollRange(10.0, 25.0));
+            moon.setMaxElevationKm(RandomUtils.rollRange(3.0, 10.0));
+            moon.setTerrainRoughness(RandomUtils.rollRange(5.0, 8.0));
+            moon.setErosionLevel("Heavy");
+            moon.setPrimaryErosionAgent(moon.getVolcanismType());
+        } else if ("MODERATE".equals(activity) || "LOW".equals(activity)) {
+            moon.setMountainCoveragePercent(RandomUtils.rollRange(5.0, 15.0));
+            moon.setMaxElevationKm(RandomUtils.rollRange(1.0, 5.0));
+            moon.setTerrainRoughness(RandomUtils.rollRange(2.0, 4.5));
+            moon.setErosionLevel("Moderate");
+            moon.setPrimaryErosionAgent("Tidal");
+        } else {
+            moon.setMountainCoveragePercent(RandomUtils.rollRange(1.0, 5.0));
+            moon.setMaxElevationKm(RandomUtils.rollRange(0.2, 2.0));
+            moon.setTerrainRoughness(RandomUtils.rollRange(0.5, 2.0));
+            moon.setErosionLevel("None");
+            moon.setPrimaryErosionAgent("None");
+        }
+
+        if (moon.getMaxElevationKm() != null) {
+            moon.setAverageElevationKm(moon.getMaxElevationKm() * 0.15);
+            moon.setMinElevationKm(-moon.getMaxElevationKm() * 0.4);
+        }
+    }
+
+    private void applyMoonFeature(Moon moon, GeologicalFeatureRef feature) {
+        String value = feature.getFeatureValue();
+        Double minVal = feature.getMinValue();
+        Double maxVal = feature.getMaxValue();
+
+        switch (feature.getFeatureType()) {
+            case "VOLCANISM_TYPE":
+                moon.setVolcanismType(value);
+                break;
+
+            case "VOLCANIC_INTENSITY":
+                moon.setVolcanicIntensity(value);
+                break;
+
+            case "ACTIVE_VOLCANOES":
+                if (minVal != null && maxVal != null) {
+                    moon.setEstimatedActiveVolcanoes(
+                            RandomUtils.rollRange(minVal.intValue(), maxVal.intValue())
+                    );
+                }
+                break;
+
+            case "MOUNTAIN_COVERAGE":
+                if (minVal != null && maxVal != null) {
+                    moon.setMountainCoveragePercent(RandomUtils.rollRange(minVal, maxVal));
+                }
+                break;
+
+            case "MAX_ELEVATION":
+                if (minVal != null && maxVal != null) {
+                    double maxElev = RandomUtils.rollRange(minVal, maxVal);
+                    moon.setMaxElevationKm(maxElev);
+                    moon.setAverageElevationKm(maxElev * 0.15);
+                    moon.setMinElevationKm(-maxElev * 0.4);
+                }
+                break;
+
+            case "TERRAIN_ROUGHNESS":
+                if (minVal != null && maxVal != null) {
+                    moon.setTerrainRoughness(RandomUtils.rollRange(minVal, maxVal));
+                }
+                break;
+
+            case "EROSION_LEVEL":
+                moon.setErosionLevel(value);
+                break;
+
+            case "EROSION_AGENT":
+                moon.setPrimaryErosionAgent(value);
+                break;
+        }
+    }
+
+    private void generateMoonSurfaceFeatures(Moon moon) {
+        StringBuilder features = new StringBuilder();
+
+        if (moon.getEstimatedActiveVolcanoes() != null && moon.getEstimatedActiveVolcanoes() > 0) {
+            if ("Cryovolcanic".equals(moon.getVolcanismType())) {
+                features.append("Active cryovolcanic plumes, Ice geysers");
+            } else if ("Silicate".equals(moon.getVolcanismType())) {
+                features.append("Active lava flows, Volcanic calderas");
+            }
+        }
+
+        if (Boolean.TRUE.equals(moon.getHasSubsurfaceOcean())) {
+            if (!features.isEmpty()) features.append(", ");
+            features.append("Subsurface ocean, Tectonic stress patterns");
+        }
+
+        if ("EXTREME".equals(moon.getCrateringLevel())) {
+            if (!features.isEmpty()) features.append(", ");
+            features.append("Ancient impact basins, Heavily cratered highlands");
+        } else if ("HEAVY".equals(moon.getCrateringLevel())) {
+            if (!features.isEmpty()) features.append(", ");
+            features.append("Impact crater fields");
+        }
+
+        if ("ICY".equals(moon.getCompositionType())) {
+            if (!features.isEmpty()) features.append(", ");
+            features.append("Water ice plains, Frozen terrain");
+        } else if ("ROCKY".equals(moon.getCompositionType())) {
+            if (!features.isEmpty()) features.append(", ");
+            features.append("Rocky highlands, Silicate plains");
+        }
+
+        if (moon.getMountainCoveragePercent() != null && moon.getMountainCoveragePercent() > 10) {
+            if (!features.isEmpty()) features.append(", ");
+            features.append("Mountain ranges");
+        }
+
+        moon.setSurfaceFeatures(!features.isEmpty() ? features.toString() : "Barren surface");
+    }
+
 }

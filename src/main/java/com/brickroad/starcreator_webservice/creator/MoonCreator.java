@@ -27,6 +27,9 @@ public class MoonCreator {
     @Autowired
     private CompositionCreator compositionCreator;
 
+    @Autowired
+    private GeologyCreator geologyCreator;
+
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
 
@@ -81,9 +84,8 @@ public class MoonCreator {
         generateOrbitalProperties(moon, planet, hillSphereKm, innerRocheLimit, outerRocheLimit);
         calculateDerivedProperties(moon, planet, primaryStar);
         calculateTidalEffects(moon, planet);
-        determineGeologicalActivity(moon, planet);
+        determineGeologicalActivity(moon);
         generateAtmosphere(moon);
-        generateSurfaceFeatures(moon);
 
         PlanetaryComposition composition = generateMoonComposition(moon);
         if (composition != null) {
@@ -93,6 +95,7 @@ public class MoonCreator {
         }
 
         determineSubsurfaceOcean(moon);
+        geologyCreator.generateMoonGeology(moon);
 
         return moon;
     }
@@ -441,7 +444,7 @@ public class MoonCreator {
 
     private void calculateTidalEffects(Moon moon, Planet planet) {
 
-        double gravityFactor = (planet.getEarthMass() / 1.0) * Math.pow(100000.0 / moon.getSemiMajorAxisKm(), 3);
+        double gravityFactor = (planet.getEarthMass()) * Math.pow(100000.0 / moon.getSemiMajorAxisKm(), 3);
         double eccentricityFactor = moon.getEccentricity() * moon.getEccentricity() * 100;
         double sizeFactor = Math.pow(moon.getRadius() / 1000.0, 2);
 
@@ -467,7 +470,7 @@ public class MoonCreator {
         }
     }
 
-    private void determineGeologicalActivity(Moon moon, Planet planet) {
+    private void determineGeologicalActivity(Moon moon) {
         String tidalHeating = moon.getTidalHeatingLevel();
         Double tidalHeatingWattPerM2 = moon.getTidalHeatingWattPerM2();
 
@@ -495,53 +498,6 @@ public class MoonCreator {
         } else {
             moon.setGeologicalActivity("NONE");
         }
-    }
-
-    private void generateSurfaceFeatures(Moon moon) {
-        double age = moon.getAgeMY();
-        String activity = moon.getGeologicalActivity();
-
-        if ("NONE".equals(activity)) {
-            if (age > 3000) {
-                moon.setCrateringLevel("EXTREME");
-                moon.setEstimatedVisibleCraters(RandomUtils.rollRange(100000, 500000));
-            } else {
-                moon.setCrateringLevel("HEAVY");
-                moon.setEstimatedVisibleCraters(RandomUtils.rollRange(50000, 150000));
-            }
-        } else if ("LOW".equals(activity)) {
-            moon.setCrateringLevel("MODERATE");
-            moon.setEstimatedVisibleCraters(RandomUtils.rollRange(10000, 50000));
-        } else {
-            moon.setCrateringLevel("LIGHT");
-            moon.setEstimatedVisibleCraters(RandomUtils.rollRange(1000, 10000));
-        }
-
-        List<String> features = getFeatures(moon);
-        moon.setSurfaceFeatures(String.join(", ", features));
-    }
-
-    private static List<String> getFeatures(Moon moon) {
-        List<String> features = new ArrayList<>();
-
-        if (moon.getHasCryovolcanism()) {
-            features.add("Cryovolcanic plumes");
-            features.add("Ice geysers");
-        }
-
-        if (moon.getHasSubsurfaceOcean()) {
-            features.add("Subsurface ocean");
-            features.add("Tectonic stress patterns");
-        }
-
-        if ("EXTREME".equals(moon.getCrateringLevel())) {
-            features.add("Ancient impact basins");
-        }
-
-        if ("ICY".equals(moon.getCompositionType())) {
-            features.add("Water ice plains");
-        }
-        return features;
     }
 
     private void generateAtmosphere(Moon moon) {

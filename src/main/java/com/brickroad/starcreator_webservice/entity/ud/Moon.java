@@ -149,4 +149,34 @@ public class Moon extends CelestialBody {
 
     @Column(name = "composition_classification", length = 50)
     private String compositionClassification;
+
+    @Column(name = "mountain_coverage_percent")
+    private Double mountainCoveragePercent;
+
+    @Column(name = "average_elevation_km")
+    private Double averageElevationKm;
+
+    @Column(name = "max_elevation_km")
+    private Double maxElevationKm;
+
+    @Column(name = "min_elevation_km")
+    private Double minElevationKm;
+
+    @Column(name = "terrain_roughness")
+    private Double terrainRoughness;
+
+    @Column(name = "erosion_level", length = 30)
+    private String erosionLevel;
+
+    @Column(name = "primary_erosion_agent", length = 50)
+    private String primaryErosionAgent;
+
+    @Column(name = "volcanism_type", length = 50)
+    private String volcanismType;
+
+    @Column(name = "volcanic_intensity", length = 30)
+    private String volcanicIntensity;
+
+    @Column(name = "estimated_active_volcanoes")
+    private Integer estimatedActiveVolcanoes;
 }

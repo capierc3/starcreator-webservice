@@ -23,7 +23,7 @@ public class SystemTests extends AbstractCreatorTest {
     @Autowired
     private SystemCreator systemCreator;
 
-    //@Test
+    @Test
     public void findSystem() throws JsonProcessingException {
 
         String targetType = "Terrestrial Planet";
