@@ -1,11 +1,7 @@
 package com.brickroad.starcreator_webservice.creator;
 
-import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
+import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
-import com.brickroad.starcreator_webservice.entity.ud.Planet;
-import com.brickroad.starcreator_webservice.entity.ud.Sector;
-import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
-import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -99,6 +95,9 @@ public class SystemCreator {
                     planet.setName(parentStar.getName() + " " + orbitalPosition);
                     for (int i = 0; i < planet.getMoons().size(); i++) {
                         planet.getMoons().get(i).setName(planet.getName() + "-" + numberToRoman((i + 1)));
+                    }
+                    for (int i = 0; i < planet.getRings().size(); i++) {
+                        planet.getRings().get(i).setName(planet.getName() + " Ring " + (char) ('A' + i));
                     }
                 } else {
                     planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));

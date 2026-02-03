@@ -176,6 +176,10 @@ public class Planet extends CelestialBody {
     @JsonManagedReference
     private List<Moon> moons = new ArrayList<>();
 
+    @OneToMany(mappedBy = "planet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    private List<Ring> rings = new ArrayList<>();
+
     public Planet() {}
 
     // Getters and Setters
@@ -505,5 +509,13 @@ public class Planet extends CelestialBody {
 
     public void setMoons(List<Moon> moons) {
         this.moons = moons;
+    }
+
+    public List<Ring> getRings() {
+        return rings;
+    }
+
+    public void setRings(List<Ring> rings) {
+        this.rings = rings;
     }
 }

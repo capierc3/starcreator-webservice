@@ -194,8 +194,6 @@ public class PlanetCreator {
         planet.setMoons(moons);
         planet.setNumberOfMoons(moons.size());
 
-        planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
-
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());
     }
