@@ -87,10 +87,10 @@ public class MoonCreator {
         moon.setMoonType(predeterminedMoonType);
         setFormationType(moon, predeterminedMoonType);
 
-        double parentTemp = planet.getSurfaceTemp();
-        if (parentTemp < 150) {
+        double estimatedTemp = estimateMoonTemperature(planet, primaryStar);
+        if (estimatedTemp < 150) {
             moon.setCompositionType("ICY");
-        } else if (parentTemp < 300) {
+        } else if (estimatedTemp < 250) {
             moon.setCompositionType("MIXED");
         } else {
             moon.setCompositionType("ROCKY");
@@ -114,6 +114,24 @@ public class MoonCreator {
         geologyCreator.generateMoonGeology(moon);
 
         return moon;
+    }
+
+    private double estimateMoonTemperature(Planet planet, Star primaryStar) {
+        double distanceAU = planet.getSemiMajorAxisAU();
+        double stellarLuminosity = calculateEffectiveLuminosity(primaryStar, distanceAU);
+
+        double typicalAlbedo = 0.12;
+        double baseTemp = 278.0 * Math.pow(stellarLuminosity * (1 - typicalAlbedo), 0.25)
+                / Math.sqrt(distanceAU);
+
+        double tidalEstimate = 0;
+        if (planet.getEarthMass() > 10) {
+            tidalEstimate = 20;
+        } else if (planet.getEarthMass() > 1) {
+            tidalEstimate = 5;
+        }
+
+        return baseTemp + tidalEstimate;
     }
 
     private PlanetaryComposition generateMoonComposition(Moon moon) {

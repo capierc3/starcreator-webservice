@@ -317,11 +317,28 @@ public class GeologyCreator {
                     .gasGiantStorms(false, 0, "Minimal")
                     .terrain(null, null, null, null, 5.0);  // Only roughness
         } else {
-            builder.plateTectonics(false, null, "None")
-                    .volcanism(false, "None", 0, "None")
-                    .terrain(null, null, null, null, null)  // All null - will be set during terrain generation
-                    .cratering("Heavy", 50000)
-                    .erosion("None", "None");
+            if (activityScore > 2.0) {
+                builder.plateTectonics(true, RandomUtils.rollRange(8, 20), "Hyperactive")
+                        .volcanism(true, "Silicate", RandomUtils.rollRange(200, 800), "Continuous")
+                        .cratering("Pristine", RandomUtils.rollRange(10, 100))
+                        .erosion("Heavy", "Volcanic");
+            } else if (activityScore > 0.5) {
+                builder.plateTectonics(true, RandomUtils.rollRange(5, 15), "Active")
+                        .volcanism(true, "Silicate", RandomUtils.rollRange(10, 50), "Moderate")
+                        .cratering("Moderate", RandomUtils.rollRange(1000, 10000))
+                        .erosion("Moderate", "Wind");
+            } else if (activityScore > 0.1) {
+                builder.plateTectonics(false, null, "Stagnant Lid")
+                        .volcanism(true, "Silicate", RandomUtils.rollRange(1, 10), "Rare")
+                        .cratering("Heavy", RandomUtils.rollRange(10000, 100000))
+                        .erosion("Minimal", "Wind");
+            } else {
+                builder.plateTectonics(false, null, "None")
+                        .volcanism(false, "None", 0, "None")
+                        .cratering("Saturated", RandomUtils.rollRange(100000, 1000000))
+                        .erosion("None", "None");
+            }
+            builder.terrain(null, null, null, null, null);
         }
 
         return builder.build();
