@@ -135,16 +135,14 @@ public class StarCreator {
         String name = type.getName().toLowerCase();
 
         if (name.contains("main sequence")) {
-            // Main sequence: L ≈ M^3.5
             return Math.pow(mass, 3.5);
+        } else if (name.contains("brown dwarf")) {
+            return Math.pow(mass, 2.3) * 0.001;
         } else if (name.contains("giant")) {
-            // Giants are much more luminous
             return Math.pow(mass, 3.5) * RandomUtils.rollRange(50, 500);
         } else if (name.contains("white dwarf")) {
-            // White dwarfs are dim
             return 0.0001 * mass;
         } else if (name.contains("neutron")) {
-            // Neutron stars don't shine like normal stars
             return 0.00001;
         }
 
@@ -159,6 +157,7 @@ public class StarCreator {
             if (name.contains("white dwarf")) return RandomUtils.rollRange(8000, 40000);
             if (name.contains("neutron")) return RandomUtils.rollRange(600000, 1000000);
             if (name.contains("giant")) return RandomUtils.rollRange(3000, 5000);
+            if (name.contains("brown dwarf")) return RandomUtils.rollRange(500, 2400);
             return 5778; // Default to Sun-like
         }
 
@@ -171,6 +170,9 @@ public class StarCreator {
             case "G" -> RandomUtils.rollRange(5200, 6000);
             case "K" -> RandomUtils.rollRange(3700, 5200);
             case "M" -> RandomUtils.rollRange(2400, 3700);
+            case "L" -> RandomUtils.rollRange(1300, 2400);
+            case "T" -> RandomUtils.rollRange(500, 1300);
+            case "Y" -> RandomUtils.rollRange(250, 500);
             default -> 5778;
         };
     }
@@ -182,13 +184,14 @@ public class StarCreator {
             return RandomUtils.rollRange(0.1, 10);
         } else if (typeName.contains("main sequence")) {
             double maxLifespan = 10000 / Math.pow(solarMass, 2.5);
-
             double maxAge = Math.min(maxLifespan * 0.8, 13800);
             return RandomUtils.rollRange(100, maxAge);
         } else if (typeName.contains("giant")) {
             return RandomUtils.rollRange(5000, 13000);
         } else if (typeName.contains("white dwarf")) {
             return RandomUtils.rollRange(1000, 13000);
+        } else if (typeName.contains("brown dwarf")) {
+            return RandomUtils.rollRange(100, 13000);
         }
 
         return RandomUtils.rollRange(1000, 10000);
@@ -207,7 +210,10 @@ public class StarCreator {
         if (surfaceTemp > 6000) return "Yellow-White";
         if (surfaceTemp > 5200) return "Yellow";
         if (surfaceTemp > 3700) return "Orange";
-        return "Red";
+        if (surfaceTemp > 2400) return "Red";
+        if (surfaceTemp > 1300) return "Deep Red";
+        if (surfaceTemp > 500) return "Magenta";
+        return "Infrared";
     }
 
     private boolean isStarVariable(StarTypeRef type) {
