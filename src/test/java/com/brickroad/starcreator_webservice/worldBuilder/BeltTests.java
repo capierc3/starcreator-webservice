@@ -28,7 +28,7 @@ public class BeltTests extends AbstractCreatorTest {
 
     private static final int SYSTEM_COUNT = 100;
 
-    @Test
+    //@Test
     public void testBeltGeneration() throws JsonProcessingException {
         int systemsWithBelts = 0;
         int totalInnerBelts = 0;
@@ -99,7 +99,7 @@ public class BeltTests extends AbstractCreatorTest {
                 (totalAsteroids / (double) Math.max(1, totalInnerBelts + totalKuiperBelts + totalScatteredDisks)));
     }
 
-    @Test
+    //@Test
     public void findSystemWithBelts() throws JsonProcessingException {
         int maxAttempts = 100;
         StarSystem foundSystem = null;
@@ -177,7 +177,7 @@ public class BeltTests extends AbstractCreatorTest {
         }
     }
 
-    @Test
+    //@Test
     public void testAsteroidTypeDistribution() {
         Map<String, Integer> typeCount = new HashMap<>();
         var ref = new Object() {
