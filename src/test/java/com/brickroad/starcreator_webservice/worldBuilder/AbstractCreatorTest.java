@@ -70,6 +70,8 @@ public abstract class AbstractCreatorTest {
         private int planetCount = 0;
         private int moonCount = 0;
         private int ringCount = 0;
+        private int beltCount = 0;
+        private int asteroidCount = 0;
         private int tempCount = 0;
 
         public void incrementSystemCount() {systemCount++;}
@@ -94,6 +96,14 @@ public abstract class AbstractCreatorTest {
             tempCount++;
         }
         public void incrementTempCount(int count) {tempCount += count;}
+        public void incrementBeltCount() {
+            beltCount++;
+        }
+        public void incrementBeltCount(int count) {beltCount += count;}
+        public void incrementAsteroidCount() {
+            asteroidCount++;
+        }
+        public void incrementAsteroidCount(int count) {asteroidCount += count;}
 
     }
 
