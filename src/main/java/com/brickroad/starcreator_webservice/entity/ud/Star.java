@@ -40,6 +40,44 @@ public class Star extends CelestialBody {
         TERTIARY      // Third star in trinary
     }
 
+    private Double activityCycleYears;
+    private Double activityCyclePhase;
+    private String activityLevel;
+
+    private Boolean inGrandMinimum;
+    private Double grandMinimumDurationYears;
+    private Double grandMinimumDepth;
+
+    private Double flareFrequencyPerDay;
+    @Column(name = "max_flare_energy_ergs")
+    private Double maxFlareEnergyErgs;
+    private String flareClass;
+    private Boolean superflareCapable;
+
+    private Double starspotCoveragePercent;
+    @Column(name = "starspot_temp_contrast_k")
+    private Double starspotTempContrastK;
+    private Boolean hasPolarSpots;
+
+    private Double stellarWindMassLossRate;
+    @Column(name = "stellar_wind_velocity_km_s")
+    private Double stellarWindVelocityKmS;
+    @Column(name = "stellar_wind_density_at_1au")
+    private Double stellarWindDensityAt1AU;
+
+    @Column(name = "coronal_temp_mk")
+    private Double coronalTempMK;
+    private String xrayLuminosityClass;
+    private Boolean hasCorona;
+
+    private Double mainSequenceFraction;
+    private String evolutionaryStage;
+    @Column(name = "estimated_remaining_ms_my")
+    private Double estimatedRemainingMsMy;
+
+    private Double logRPrimeHk;
+    private Double rossbyNumber;
+
     public Star() {}
 
     public Boolean isVariable() {
