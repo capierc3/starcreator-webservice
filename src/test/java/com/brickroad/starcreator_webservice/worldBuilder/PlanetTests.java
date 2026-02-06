@@ -6,19 +6,13 @@ import com.brickroad.starcreator_webservice.creator.SystemCreator;
 import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
-import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +34,7 @@ public class PlanetTests extends AbstractCreatorTest {
 
     //@Test
     public void findPlanetByType() throws JsonProcessingException {
-        String targetType = "Ocean Planet";
+        String targetType = "Lava Planet";
         int maxAttempts = 1000;
 
         Planet foundPlanet = null;
@@ -135,91 +129,28 @@ public class PlanetTests extends AbstractCreatorTest {
     }
 
     //@Test
-    public void discoverAllPlanetTypes() {
-        int systemsToGenerate = 500;
-        java.util.Map<String, Integer> typeCount = new java.util.HashMap<>();
-        java.util.Map<String, Planet> typeExamples = new java.util.HashMap<>();
-
-        System.out.println("Generating " + systemsToGenerate + " systems to discover planet types...");
-        System.out.println("---");
-
-        for (int i = 0; i < systemsToGenerate; i++) {
-            Star star = starCreator.generateStar();
-            List<Planet> planets = planetCreator.generatePlanetarySystem(star);
-
-            for (Planet planet : planets) {
-                String type = planet.getPlanetType();
-                typeCount.put(type, typeCount.getOrDefault(type, 0) + 1);
-
-                // Keep first example of each type
-                if (!typeExamples.containsKey(type)) {
-                    typeExamples.put(type, planet);
-                }
+    public void planetProbabilityTest() throws JsonProcessingException {
+        int systemsAmount = 1000;
+        List<Planet> capturedPlanets = new ArrayList<>();
+        for (int i = 0; i < systemsAmount; i++) {
+            StarSystem system = systemCreator.generateSystem();
+            for (CelestialBody planet : system.getPlanets()) {
+                Planet capturedPlanet = (Planet) planet;
+                if (!capturedPlanet.getRings().isEmpty()) capturedPlanets.add(capturedPlanet);
             }
-
-            if ((i + 1) % 100 == 0) {
-                System.out.println("Processed " + (i + 1) + " systems...");
-            }
+            if (i % 100 == 0) System.out.println("Systems created " + (i));
         }
-
-        System.out.println("\n✅ PLANET TYPE DISTRIBUTION");
-        System.out.println("=====================================");
-
-        typeCount.entrySet().stream()
-                .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-                .forEach(entry -> {
-                    String type = entry.getKey();
-                    int count = entry.getValue();
-                    double percentage = (count * 100.0) / systemsToGenerate;
-
-                    System.out.printf("%-20s : %4d planets (%.1f%% of systems)%n",
-                            type, count, percentage);
-                });
-
-        System.out.println("\nTotal unique types: " + typeCount.size());
-
-        // Assert we found some planets
-        assertTrue(!typeCount.isEmpty(), "No planets found!");
-    }
-
-    //@Test
-    public void findPlanetWithCharacteristics() {
-        int maxAttempts = 1000;
-        Planet foundPlanet = null;
-
-        System.out.println("Searching for planet with strong magnetic field and auroras...");
-        System.out.println("---");
-
-        for (int i = 0; i < maxAttempts; i++) {
-            Star star = starCreator.generateStar();
-            List<Planet> planets = planetCreator.generatePlanetarySystem(star);
-
-            for (Planet planet : planets) {
-                if (planet.getMagneticField() != null &&
-                        planet.getMagneticField().getStrengthComparedToEarth() > 1.0 &&
-                        planet.getMagneticField().getHasAuroras() != null &&
-                        planet.getMagneticField().getHasAuroras() &&
-                        planet.getMagneticField().getAuroralColors() != null) {
-
-                    foundPlanet = planet;
-                    System.out.println("\n✅ FOUND after " + (i + 1) + " attempts!");
-                    break;
-                }
-            }
-
-            if (foundPlanet != null) break;
+        System.out.println("------------------------------------------------------------");
+        System.out.println("Found " + capturedPlanets.size() + " planets with rings");
+        System.out.println("Probability: " + (capturedPlanets.size() * 100.0) / systemsAmount + "%");
+        System.out.println("------------------------------------------------------------");
+        Map<Integer, Integer> ringCounts = new HashMap<>();
+        for (Planet planet : capturedPlanets) {
+            ringCounts.put(planet.getRings().size(), ringCounts.getOrDefault(planet.getRings().size(), 0) + 1);
         }
-
-        assertNotNull(foundPlanet, "Failed to find matching planet");
-
-        System.out.println("=====================================");
-        System.out.println("Planet: " + foundPlanet.getName());
-        System.out.println("Type: " + foundPlanet.getPlanetType());
-        System.out.println("Magnetic Field: " +
-                foundPlanet.getMagneticField().getStrengthComparedToEarth() + "× Earth");
-        System.out.println("Auroral Colors: " +
-                foundPlanet.getMagneticField().getAuroralColors());
-        System.out.println("Atmosphere: " + foundPlanet.getAtmosphereComposition());
+        for (int ringCount : ringCounts.keySet()) {
+            System.out.println("Rings " + ringCount + ": " + ringCounts.get(ringCount) + " (" + (ringCounts.get(ringCount) * 100.0) / capturedPlanets.size() + "%)");
+        }
     }
 
 }

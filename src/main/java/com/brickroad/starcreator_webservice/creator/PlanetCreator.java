@@ -131,7 +131,10 @@ public class PlanetCreator {
         planet.setPlanetType(type.getName());
 
         if (parentStar != null) {
-            planet.setAgeMY(parentStar.getAgeMY() + RandomUtils.rollRange(-100, 100));
+            double starAge = parentStar.getAgeMY();
+            double maxDelay = Math.min(100.0, starAge * 0.1);
+            double formationDelay = RandomUtils.rollRange(Math.min(10.0, maxDelay), maxDelay);
+            planet.setAgeMY(starAge - formationDelay);
         } else {
             planet.setAgeMY(RandomUtils.rollRange(100.0, 10000));
         }
@@ -193,8 +196,6 @@ public class PlanetCreator {
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);
         planet.setNumberOfMoons(moons.size());
-
-        planet.setHasRings(type.getCanHaveRings() && Math.random() < type.getRingProbability());
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());

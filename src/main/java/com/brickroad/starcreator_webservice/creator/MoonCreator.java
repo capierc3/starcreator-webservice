@@ -30,15 +30,26 @@ public class MoonCreator {
     @Autowired
     private GeologyCreator geologyCreator;
 
+    @Autowired
+    private RingCreator ringCreator;
+
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
 
     public List<Moon> createMoons(Planet planet, Star primaryStar, PlanetTypeRef planetType) {
         List<Moon> moons = new ArrayList<>();
 
-        double totalMassBudget = calculateTotalMoonMassBudget(planet, planetType, primaryStar);
-        int numMoons = determineNumberOfMoons(planet, primaryStar, totalMassBudget, planetType);
-        if (numMoons == 0) {
+        double totalSatelliteMassBudget = calculateTotalMoonMassBudget(planet, planetType, primaryStar);
+
+        RingCreator.RingSystemData ringPlan = ringCreator.planRingSystem(planet, totalSatelliteMassBudget);
+
+        double moonMassBudget = totalSatelliteMassBudget - ringPlan.ringMassBudget;
+        int numRegularMoons = determineNumberOfMoons(planet, primaryStar, moonMassBudget, planetType);
+
+        if (numRegularMoons == 0 && ringPlan.suggestedShepherdMoons == 0) {
+            if (ringPlan.shouldHaveRings) {
+                createAndAttachRings(planet, ringPlan, ringPlan.ringMassBudget);
+            }
             return moons;
         }
 
@@ -46,9 +57,14 @@ public class MoonCreator {
         double innerRocheLimit = calculateRocheLimit(planet, 3.3);
         double outerRocheLimit = calculateRocheLimit(planet, 1.0);
 
-        List<MoonGenerationData> moonDataList = distributeMoonMassesAndTypes(numMoons, totalMassBudget, planet);
+        List<MoonGenerationData> moonDataList = distributeMoonMassesAndTypes(
+                numRegularMoons, moonMassBudget, planet, ringPlan);
 
-        for (int i = 0; i < numMoons; i++) {
+        if (ringPlan.shouldHaveRings) {
+            createAndAttachRings(planet, ringPlan, ringPlan.ringMassBudget);
+        }
+
+        for (int i = 0; i < moonDataList.size(); i++) {
             MoonGenerationData moonData = moonDataList.get(i);
             Moon moon = createMoon(planet, primaryStar, i + 1, hillSphereKm,
                     innerRocheLimit, outerRocheLimit,
@@ -71,10 +87,10 @@ public class MoonCreator {
         moon.setMoonType(predeterminedMoonType);
         setFormationType(moon, predeterminedMoonType);
 
-        double parentTemp = planet.getSurfaceTemp();
-        if (parentTemp < 150) {
+        double estimatedTemp = estimateMoonTemperature(planet, primaryStar);
+        if (estimatedTemp < 150) {
             moon.setCompositionType("ICY");
-        } else if (parentTemp < 300) {
+        } else if (estimatedTemp < 250) {
             moon.setCompositionType("MIXED");
         } else {
             moon.setCompositionType("ROCKY");
@@ -98,6 +114,24 @@ public class MoonCreator {
         geologyCreator.generateMoonGeology(moon);
 
         return moon;
+    }
+
+    private double estimateMoonTemperature(Planet planet, Star primaryStar) {
+        double distanceAU = planet.getSemiMajorAxisAU();
+        double stellarLuminosity = calculateEffectiveLuminosity(primaryStar, distanceAU);
+
+        double typicalAlbedo = 0.12;
+        double baseTemp = 278.0 * Math.pow(stellarLuminosity * (1 - typicalAlbedo), 0.25)
+                / Math.sqrt(distanceAU);
+
+        double tidalEstimate = 0;
+        if (planet.getEarthMass() > 10) {
+            tidalEstimate = 20;
+        } else if (planet.getEarthMass() > 1) {
+            tidalEstimate = 5;
+        }
+
+        return baseTemp + tidalEstimate;
     }
 
     private PlanetaryComposition generateMoonComposition(Moon moon) {
@@ -178,7 +212,8 @@ public class MoonCreator {
         return planetMass * baseMassRatio;
     }
 
-    private List<MoonGenerationData> distributeMoonMassesAndTypes(int numMoons, double totalMassBudget, Planet planet) {
+    private List<MoonGenerationData> distributeMoonMassesAndTypes(int numMoons, double totalMassBudget,
+                                                                  Planet planet, RingCreator.RingSystemData ringPlan) {
         List<MoonGenerationData> moonData = new ArrayList<>();
 
         List<String> moonTypes = new ArrayList<>();
@@ -204,10 +239,15 @@ public class MoonCreator {
                     refB.getMassDistributionPriority());
         });
 
-        double[] weights = new double[numMoons];
+        int totalMoonCount = numMoons;
+        if (ringPlan != null && ringPlan.suggestedShepherdMoons > 0) {
+            totalMoonCount += ringPlan.suggestedShepherdMoons;
+        }
+
+        double[] weights = new double[totalMoonCount];
         double totalWeight = 0;
 
-        for (int i = 0; i < numMoons; i++) {
+        for (int i = 0; i < totalMoonCount; i++) {
             weights[i] = 1.0 / Math.pow(i + 1, 1.5);
             totalWeight += weights[i];
         }
@@ -216,6 +256,19 @@ public class MoonCreator {
             String moonType = sortedTypes.get(i);
             double massShare = (weights[i] / totalWeight) * totalMassBudget;
             moonData.add(new MoonGenerationData(moonType, massShare));
+        }
+
+        if (ringPlan != null && ringPlan.suggestedShepherdMoons > 0) {
+            int shepherdCount = ringPlan.suggestedShepherdMoons;
+
+            for (int i = 0; i < shepherdCount; i++) {
+                int weightIndex = numMoons + i;
+                double massShare = (weights[weightIndex] / totalWeight) * totalMassBudget;
+
+                double shepherdMass = Math.max(0.0000000001, Math.min(massShare, 0.00001));
+
+                moonData.add(new MoonGenerationData("SHEPHERD", shepherdMass));
+            }
         }
 
         return moonData;
@@ -228,11 +281,10 @@ public class MoonCreator {
                 planet.getPlanetType().contains("Ice Giant") ||
                 planet.getPlanetType().contains("Jupiter")) {
 
-            if (rand < 0.45) return "REGULAR_LARGE";
-            else if (rand < 0.70) return "REGULAR_MEDIUM";
-            else if (rand < 0.85) return "REGULAR_SMALL";
-            else if (rand < 0.92) return "IRREGULAR_CAPTURED";
-            else if (rand < 0.97) return "SHEPHERD";
+            if (rand < 0.47) return "REGULAR_LARGE";
+            else if (rand < 0.73) return "REGULAR_MEDIUM";
+            else if (rand < 0.89) return "REGULAR_SMALL";
+            else if (rand < 0.97) return "IRREGULAR_CAPTURED";
             else return "TROJAN";
 
         } else {
@@ -312,9 +364,13 @@ public class MoonCreator {
 
     private void generateOrbitalProperties(Moon moon, Planet planet, double hillSphereKm, double innerRocheLimit, double outerRocheLimit) {
 
+        if ("SHEPHERD".equals(moon.getMoonType())) {
+            generateShepherdMoonOrbit(moon, planet, innerRocheLimit, outerRocheLimit);
+            return;
+        }
+
         double rocheLimit = "ICY".equals(moon.getCompositionType()) ?
                 outerRocheLimit : innerRocheLimit;
-
         double minOrbitKm = rocheLimit * 1.5;
         double maxOrbitKm = hillSphereKm * 0.5;
 
@@ -323,6 +379,21 @@ public class MoonCreator {
             semiMajorAxisKm = RandomUtils.rollRange(maxOrbitKm * 0.3, maxOrbitKm);
         } else {
             semiMajorAxisKm = RandomUtils.rollRange(minOrbitKm, maxOrbitKm * 0.3);
+        }
+
+        for (Ring ring : planet.getRings()) {
+            double ringInner = ring.getInnerRadiusKm();
+            double ringOuter = ring.getOuterRadiusKm();
+            double ringMargin = (ringOuter - ringInner) * 0.1;
+
+            if (semiMajorAxisKm >= (ringInner - ringMargin) &&
+                    semiMajorAxisKm <= (ringOuter + ringMargin)) {
+                if (semiMajorAxisKm < ringInner) {
+                    semiMajorAxisKm = ringInner - ringMargin - RandomUtils.rollRange(1000, 5000);
+                } else {
+                    semiMajorAxisKm = ringOuter + ringMargin + RandomUtils.rollRange(1000, 5000);
+                }
+            }
         }
 
         moon.setSemiMajorAxisKm(semiMajorAxisKm);
@@ -360,6 +431,67 @@ public class MoonCreator {
             moon.setOrbitStability("UNSTABLE");
         } else if (semiMajorAxisKm > hillSphereKm * 0.4) {
             moon.setOrbitStability("MARGINALLY_STABLE");
+        } else {
+            moon.setOrbitStability("STABLE");
+        }
+    }
+
+    private void generateShepherdMoonOrbit(Moon moon, Planet planet,
+                                           double innerRocheLimit, double outerRocheLimit) {
+        double planetRadiusKm = planet.getRadius();
+        double minOrbit = Math.max(outerRocheLimit * 1.1, planetRadiusKm * 1.5);
+        double maxOrbit = planetRadiusKm * 5.0;
+
+        double semiMajorAxisKm;
+        if (planet.getRings() != null && !planet.getRings().isEmpty()) {
+            Ring targetRing = planet.getRings().getFirst();
+            for (Ring ring : planet.getRings()) {
+                if (ring.getHasShepherdMoons() != null && ring.getHasShepherdMoons()) {
+                    targetRing = ring;
+                    break;
+                }
+            }
+
+            double innerEdge = targetRing.getInnerRadiusKm();
+            double outerEdge = targetRing.getOuterRadiusKm();
+            double ringWidth = outerEdge - innerEdge;
+
+            if (RandomUtils.rollRange(0.0, 1.0) < 0.5) {
+                semiMajorAxisKm = innerEdge - (ringWidth * RandomUtils.rollRange(0.05, 0.10));
+            } else {
+                semiMajorAxisKm = outerEdge + (ringWidth * RandomUtils.rollRange(0.05, 0.10));
+            }
+
+            semiMajorAxisKm = Math.max(minOrbit, Math.min(semiMajorAxisKm, maxOrbit));
+        } else {
+            semiMajorAxisKm = RandomUtils.rollRange(minOrbit, maxOrbit);
+        }
+
+        moon.setSemiMajorAxisKm(semiMajorAxisKm);
+
+        double eccentricity = RandomUtils.rollRange(0.0001, 0.01);
+        moon.setEccentricity(eccentricity);
+
+        double inclination = RandomUtils.rollRange(0.0, 2.0);
+        moon.setOrbitalInclinationDegrees(inclination);
+
+        double periodSeconds = 2 * Math.PI * Math.sqrt(
+                Math.pow(semiMajorAxisKm * 1000, 3) /
+                        (ConversionFormulas.GRAVITATIONAL_CONSTANT * planet.getMass())
+        );
+        double periodDays = periodSeconds / (24 * 3600);
+        moon.setOrbitalPeriodDays(periodDays);
+
+        moon.setTidallyLocked(true);
+        moon.setRotationPeriodHours(periodDays * 24);
+
+        moon.setAxialTilt(RandomUtils.rollRange(0.0, 10.0));
+
+        double rocheLimit = "ICY".equals(moon.getCompositionType()) ?
+                outerRocheLimit : innerRocheLimit;
+
+        if (semiMajorAxisKm < rocheLimit * 1.2) {
+            moon.setOrbitStability("UNSTABLE");
         } else {
             moon.setOrbitStability("STABLE");
         }
@@ -858,6 +990,19 @@ public class MoonCreator {
                 baseShellThickness * 1.3
         );
         moon.setIceShellThicknessKm(iceShellThickness);
+    }
+
+    private void createAndAttachRings(Planet planet, RingCreator.RingSystemData ringPlan, double ringMassEarth) {
+        List<Ring> rings = ringCreator.createRings(planet, ringPlan, ringMassEarth);
+
+        if (!rings.isEmpty()) {
+            planet.setRings(rings);
+            planet.setHasRings(true);
+
+            ringCreator.linkShepherdMoons(planet);
+        } else {
+            planet.setHasRings(false);
+        }
     }
 
     private record MoonGenerationData(String moonType, double massEarthMasses) {
