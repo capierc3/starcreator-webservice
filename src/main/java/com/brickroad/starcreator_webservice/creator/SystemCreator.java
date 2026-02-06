@@ -21,6 +21,9 @@ public class SystemCreator {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private BeltCreator beltCreator;
+
     public StarSystem generateSystem() {
         StarSystem system = new StarSystem();
         Sector sector = new Sector();
@@ -61,8 +64,11 @@ public class SystemCreator {
 
         List<CelestialBody> planets = generatePlanetsForSystem(system, stars, config);
         system.setPlanets(planets);
-        assignPlanetNames(planets);
 
+        List<Belt> belts = beltCreator.createBelts(system, primary);
+        system.setBelts(belts);
+
+        assignPlanetNames(planets);
         system.setDescription(generateDescription(system));
 
         return system;
@@ -408,23 +414,6 @@ public class SystemCreator {
 
     private List<Planet> generateCircumbinaryPlanets(StarSystem system, Star primary, double binarySeparation) {
         List<Planet> planets = planetCreator.generatePlanetarySystem(primary);
-
-//        double minStableDistance = binarySeparation * 2.5;
-//        planets.forEach(planet -> {
-//            if (planet.getSemiMajorAxisAU() != null && planet.getSemiMajorAxisAU() < minStableDistance) {
-//                double newDistance = minStableDistance + (planet.getSemiMajorAxisAU() * 0.5);
-//                planet.setSemiMajorAxisAU(newDistance);
-//
-//                double orbitalPeriod = calculateOrbitalPeriod(newDistance, primary.getSolarMass());
-//                planet.setOrbitalPeriodDays(orbitalPeriod);
-//
-//                if (planet.getAlbedo() != null) {
-//                    double temp = TemperatureCalculator.calculateCircumbinaryTemperature(system, newDistance, planet.getAlbedo());
-//                    planet.setSurfaceTemp(temp);
-//                }
-//            }
-//        });
-
         return planets;
     }
 

@@ -33,15 +33,17 @@ public class SystemTests extends AbstractCreatorTest {
     private static final Map<String, Integer> PLANET_TYPES = new HashMap<>();
     private static final Map<String, Integer> MOON_TYPES = new HashMap<>();
     private static final Map<String, Integer> RING_TYPES = new HashMap<>();
+    private static final Map<String, Integer> BELT_TYPES = new HashMap<>();
+    private static final Map<String, Integer> ASTEROID_TYPES = new HashMap<>();
     private static final ProbabilityCounts COUNTS = new ProbabilityCounts();
     private static final PerformanceTimer TIMER = new PerformanceTimer();
 
-    private static final int SYSTEM_AMOUNT = 1000;
+    private static final int SYSTEM_AMOUNT = 100_000;
 
     //@Test
     public void findSystem() throws JsonProcessingException {
 
-        String targetType = "lava Planet";
+        String targetType = "Terrestrial Planet";
         int maxAttempts = 1000;
 
         Planet foundPlanet = null;
@@ -76,14 +78,14 @@ public class SystemTests extends AbstractCreatorTest {
     }
 
     //@Test
-    public void SystemProbabilityTest() throws JsonProcessingException {
+    public void SystemProbabilityTest() {
 
         COUNTS.setSystemCount(SYSTEM_AMOUNT);
         TIMER.start();
 
         for (int i = 0; i < COUNTS.getSystemCount(); i++) {
 
-            if (i % 10 == 0 && i != 0) {
+            if (i % 1000 == 0 && i != 0) {
                 printETA(TIMER.averageLap(),COUNTS.getSystemCount(),i);
             }
 
@@ -99,6 +101,11 @@ public class SystemTests extends AbstractCreatorTest {
             for (CelestialBody planet : system.getPlanets()) {
                 planetTestData((Planet) planet);
             }
+
+            COUNTS.incrementBeltCount(system.getBelts().size());
+            for (Belt belt : system.getBelts()) {
+                beltTestData(belt);
+            }
             TIMER.lap();
         }
         TIMER.stop();
@@ -109,9 +116,7 @@ public class SystemTests extends AbstractCreatorTest {
     private void saveProbabilityResults() {
 
         File targetFolder = new File("target/probability_reports/");
-        if (!targetFolder.exists()) {
-            targetFolder.mkdirs();
-        }
+        if (!targetFolder.exists()) targetFolder.mkdirs();
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMdd_HHmm");
         String timestamp = LocalDateTime.now().format(formatter);
@@ -128,6 +133,8 @@ public class SystemTests extends AbstractCreatorTest {
             writer.println("- Planets Created: " + COUNTS.getPlanetCount());
             writer.println("- Moons Created: " + COUNTS.getMoonCount());
             writer.println("- Rings Created: " + COUNTS.getRingCount());
+            writer.println("- Belts Created: " + COUNTS.getBeltCount());
+            writer.println("- Asteroids Created: " + COUNTS.getAsteroidCount());
             writer.println("");
             writer.println("Average time to create one system: " + TIMER.averageLap() + "ms");
             writer.println("");
@@ -166,12 +173,27 @@ public class SystemTests extends AbstractCreatorTest {
                     .sorted(Map.Entry.comparingByValue())
                     .forEach(entry -> writer.println("* " + entry.getKey() + ": " + entry.getValue() + " (" + (entry.getValue() * 100.0) / COUNTS.getRingCount() + "%)"));
 
+            writer.println("---");
+            writer.println("## Belt Types");
+            BELT_TYPES.entrySet()
+                    .stream()
+                    .sorted(Map.Entry.comparingByValue())
+                    .forEach(entry -> writer.println("* " + entry.getKey() + ": " + entry.getValue() + " (" + (entry.getValue() * 100.0) / COUNTS.getBeltCount() + "%)"));
+
+            writer.println("---");
+            writer.println("## Asteroid Types");
+            ASTEROID_TYPES.entrySet()
+                    .stream()
+                    .sorted(Map.Entry.comparingByValue())
+                    .forEach(entry -> writer.println("* " + entry.getKey() + ": " + entry.getValue() + " (" + (entry.getValue() * 100.0) / COUNTS.getAsteroidCount() + "%)"));
+            writer.println("");
+            writer.println("Dwarf Planets in Belts: " + COUNTS.getTempCount());
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void planetTestData(Planet planet) throws JsonProcessingException {
+    private void planetTestData(Planet planet) {
         PLANET_TYPES.put(planet.getPlanetType(), PLANET_TYPES.getOrDefault(planet.getPlanetType(), 0) + 1);
 
         COUNTS.incrementMoonCount(planet.getMoons().size());
@@ -192,5 +214,14 @@ public class SystemTests extends AbstractCreatorTest {
 
     private void ringTestData(Ring ring) {
         RING_TYPES.put(ring.getRingType(), RING_TYPES.getOrDefault(ring.getRingType(), 0) + 1);
+    }
+
+    private void beltTestData(Belt belt) {
+        BELT_TYPES.put(belt.getBeltType().getCode(), BELT_TYPES.getOrDefault(belt.getBeltType().getCode(), 0) + 1);
+        COUNTS.incrementAsteroidCount(belt.getNotableAsteroids().size());
+        for (Asteroid asteroid : belt.getNotableAsteroids()) {
+            ASTEROID_TYPES.put(asteroid.getAsteroidType().getCode(), ASTEROID_TYPES.getOrDefault(asteroid.getAsteroidType().getCode(), 0) + 1);
+        }
+        COUNTS.incrementTempCount(belt.getDwarfPlanets().size());
     }
 }

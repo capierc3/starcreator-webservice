@@ -77,6 +77,10 @@ public class StarSystem {
     @Column(name = "modified_at")
     private LocalDateTime modifiedAt;
 
+    @OneToMany(mappedBy = "starSystem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<Belt> belts = new ArrayList<>();
+
     public Set<Faction> getFactions() {
         return factionPresences.stream()
                 .map(FactionPresence::getFaction)
@@ -100,6 +104,18 @@ public class StarSystem {
 
     public void setPlanets(List<CelestialBody> bodies) {
         this.bodies = bodies;
+    }
+
+        public void setBelts(List<Belt> belts) {
+        this.belts = belts;
+        for (Belt belt : belts) {
+            belt.setStarSystem(this);
+        }
+    }
+
+    public void addBelt(Belt belt) {
+        belts.add(belt);
+        belt.setStarSystem(this);
     }
 
 
