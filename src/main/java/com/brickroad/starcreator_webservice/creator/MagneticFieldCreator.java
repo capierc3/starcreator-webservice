@@ -620,35 +620,42 @@ public class MagneticFieldCreator {
     }
 
     private void determineProtectionLevel(PlanetaryMagneticField field, double baseStrength,
-                                          Star parentStar, Planet planet) {
-        // Calculate the threat level
-        double threatFactor = 1.0; // Solar baseline
+                                           Star parentStar, Planet planet) {
+        double threatFactor = 1.0;
         if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
             threatFactor = StellarEnvironment.atmosphericStrippingFactor(
                     parentStar, planet.getSemiMajorAxisAU());
         }
 
         // Protection ratio: field strength vs. threat
-        // For Sun at 1 AU with Earth field: ~1.0/1.0 = 1.0 → STRONG
-        // For active M dwarf at 0.1 AU with Earth field: ~1.0/100 = 0.01 → NONE
-        double protectionRatio = baseStrength / Math.max(0.01, Math.sqrt(threatFactor));
+        // Using cube root instead of square root — still dampened (a 1000x threat
+        // doesn't need a 1000x field to deflect) but less forgiving than sqrt.
+        // Also apply a log boost for high-threat environments so VERY_ACTIVE/HYPERACTIVE
+        // stars maintain pressure even at moderate distances.
+        double effectiveThreat = Math.cbrt(threatFactor);
+        if (threatFactor > 3.0) {
+            // Bonus penalty for genuinely active environments
+            effectiveThreat *= (1.0 + 0.3 * Math.log10(threatFactor));
+        }
 
-        if (protectionRatio < 0.01) {
+        double protectionRatio = baseStrength / Math.max(0.01, effectiveThreat);
+
+        if (protectionRatio < 0.05) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);
             field.setShieldsFromStellarWind(false);
             field.setShieldsFromCosmicRays(false);
             field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 8.0));
-        } else if (protectionRatio < 0.1) {
+        } else if (protectionRatio < 0.3) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.MINIMAL);
             field.setShieldsFromStellarWind(false);
             field.setShieldsFromCosmicRays(false);
             field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 5.0));
-        } else if (protectionRatio < 0.5) {
+        } else if (protectionRatio < 0.8) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.MODERATE);
             field.setShieldsFromStellarWind(true);
             field.setShieldsFromCosmicRays(false);
             field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 2.0));
-        } else if (protectionRatio < 2.0) {
+        } else if (protectionRatio < 2.5) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.STRONG);
             field.setShieldsFromStellarWind(true);
             field.setShieldsFromCosmicRays(true);
