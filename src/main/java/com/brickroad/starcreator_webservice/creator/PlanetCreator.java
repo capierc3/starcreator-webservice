@@ -9,6 +9,7 @@ import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryComposition;
+import com.brickroad.starcreator_webservice.utils.planets.StellarEnvironment;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -132,9 +133,14 @@ public class PlanetCreator {
 
         if (parentStar != null) {
             double starAge = parentStar.getAgeMY();
-            double maxDelay = Math.min(100.0, starAge * 0.1);
-            double formationDelay = RandomUtils.rollRange(Math.min(10.0, maxDelay), maxDelay);
-            planet.setAgeMY(starAge - formationDelay);
+
+            if ("PRE_MAIN_SEQUENCE".equals(parentStar.getEvolutionaryStage())) {
+                planet.setAgeMY(RandomUtils.rollRange(0.1, Math.min(10.0, starAge)));
+            } else {
+                double maxDelay = Math.min(100.0, starAge * 0.1);
+                double formationDelay = RandomUtils.rollRange(Math.min(10.0, maxDelay), maxDelay);
+                planet.setAgeMY(starAge - formationDelay);
+            }
         } else {
             planet.setAgeMY(RandomUtils.rollRange(100.0, 10000));
         }
@@ -189,7 +195,7 @@ public class PlanetCreator {
         populateCompositionProperties(planet);
         geologyCreator.populateGeologicalProperties(planet);
 
-        PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet);
+        PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet, parentStar);
         planet.setMagneticField(magneticField);
         planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
 
@@ -217,8 +223,12 @@ public class PlanetCreator {
     private void populateRotationProperties(Planet planet, PlanetTypeRef type, Star parentStar) {
         double rotationHours;
 
+        double tidalLockThreshold = 0.1; // default
+        if (parentStar != null) {
+            tidalLockThreshold = StellarEnvironment.tidalLockingThresholdAU(parentStar);
+        }
         if (parentStar != null && planet.getSemiMajorAxisAU() != null &&
-                planet.getSemiMajorAxisAU() < 0.1) {
+                planet.getSemiMajorAxisAU() < tidalLockThreshold) {
             planet.setTidallyLocked(true);
             rotationHours = planet.getOrbitalPeriodDays() * 24;
         } else {
@@ -312,21 +322,29 @@ public class PlanetCreator {
             return;
         }
 
+        Star parentStar = planet.getParentStar();
+        double distanceAU = planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : 1.0;
+
+        // Use star-aware atmosphere generation
         AtmosphereCreator.AtmosphereResult result = atmosphereCreator.generateAtmosphereWithTemplate(
                 planet.getPlanetType(),
                 planet.getSurfaceTemp(),
                 planet.getEarthMass(),
-                planet.getSemiMajorAxisAU()
+                distanceAU,
+                parentStar
         );
 
         PlanetaryAtmosphere atmosphere = result.atmosphere();
         planet.setAtmosphereComposition(atmosphere.toCompactString());
         planet.setAtmosphereClassification(atmosphere.getClassification().name());
 
+        // Use star-aware surface pressure calculation
         double pressure = atmosphereCreator.calculateSurfacePressure(
                 planet.getEarthMass(),
                 planet.getSurfaceTemp(),
-                result.template()
+                result.template(),
+                parentStar,
+                distanceAU
         );
         planet.setSurfacePressure(pressure);
 
@@ -441,6 +459,11 @@ public class PlanetCreator {
         if (age > 8000) {
             basePlanets = Math.max(1, basePlanets - RandomUtils.rollRange(0, 2));
         }
+
+        // Evolutionary stage: evolved stars may have consumed or ejected planets
+        double evoFactor = StellarEnvironment.evolutionaryPlanetFactor(star);
+        basePlanets = (int) Math.round(basePlanets * evoFactor);
+        basePlanets = Math.max(1, basePlanets);
 
         return basePlanets;
     }
