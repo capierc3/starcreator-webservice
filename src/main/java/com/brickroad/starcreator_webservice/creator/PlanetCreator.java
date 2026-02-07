@@ -40,6 +40,12 @@ public class PlanetCreator {
     @Autowired
     private MoonCreator moonCreator;
 
+    @Autowired
+    private WaterCreator waterCreator;
+
+    @Autowired
+    private HabitabilityCreator habitabilityCreator;
+
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
     private static final double MIN_VIABLE_PLANET_TEMP_K = 10.0;
@@ -183,14 +189,6 @@ public class PlanetCreator {
             ));
         }
 
-        if (type.getName().toLowerCase().contains("ocean planet")) {
-            planet.setWaterCoveragePercent(RandomUtils.rollRange(60, 100.0));
-        } else if(type.getHabitable() && "habitable".equals(planet.getHabitableZonePosition())) {
-            if (planet.getSurfacePressure() >= 0.5 && planet.getSurfaceTemp() >= 273.15 && planet.getSurfaceTemp() <= 373.15) {
-                planet.setWaterCoveragePercent(RandomUtils.rollRange(10, 90.0));
-            }
-        }
-
         planet.setCoreType(type.getTypicalCoreType());
         populateCompositionProperties(planet);
         geologyCreator.populateGeologicalProperties(planet);
@@ -199,9 +197,14 @@ public class PlanetCreator {
         planet.setMagneticField(magneticField);
         planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
 
+        waterCreator.populateWaterProperties(planet, parentStar);
+
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);
         planet.setNumberOfMoons(moons.size());
+
+        PlanetaryHabitability habitability = habitabilityCreator.assess(planet, parentStar);
+        planet.setHabitability(habitability);
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());

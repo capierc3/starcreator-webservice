@@ -76,6 +76,21 @@ public class Planet extends CelestialBody {
     @Column(name = "water_coverage_percent")
     private Double waterCoveragePercent;
 
+    @Column(name = "water_inventory", length = 30)
+    private String waterInventory;
+
+    @Column(name = "liquid_water_coverage_percent")
+    private Double liquidWaterCoveragePercent;
+
+    @Column(name = "ice_coverage_percent")
+    private Double iceCoveragePercent;
+
+    @Column(name = "has_subsurface_water")
+    private Boolean hasSubsurfaceWater;
+
+    @Column(name = "subsurface_water_depth_km")
+    private Double subsurfaceWaterDepthKm;
+
     @Column(name = "core_type")
     private String coreType;
 
@@ -171,6 +186,11 @@ public class Planet extends CelestialBody {
     @JsonProperty("magneticField")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private PlanetaryMagneticField magneticField;
+
+    @Transient
+    @JsonProperty("habitability")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private PlanetaryHabitability habitability;
 
     @OneToMany(mappedBy = "planet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
@@ -518,4 +538,22 @@ public class Planet extends CelestialBody {
     public void setRings(List<Ring> rings) {
         this.rings = rings;
     }
+
+    public String getWaterInventory() { return waterInventory; }
+    public void setWaterInventory(String waterInventory) { this.waterInventory = waterInventory; }
+
+    public Double getLiquidWaterCoveragePercent() { return liquidWaterCoveragePercent; }
+    public void setLiquidWaterCoveragePercent(Double liquidWaterCoveragePercent) { this.liquidWaterCoveragePercent = liquidWaterCoveragePercent; }
+
+    public Double getIceCoveragePercent() { return iceCoveragePercent; }
+    public void setIceCoveragePercent(Double iceCoveragePercent) { this.iceCoveragePercent = iceCoveragePercent; }
+
+    public Boolean getHasSubsurfaceWater() { return hasSubsurfaceWater; }
+    public void setHasSubsurfaceWater(Boolean hasSubsurfaceWater) { this.hasSubsurfaceWater = hasSubsurfaceWater; }
+
+    public Double getSubsurfaceWaterDepthKm() { return subsurfaceWaterDepthKm; }
+    public void setSubsurfaceWaterDepthKm(Double subsurfaceWaterDepthKm) { this.subsurfaceWaterDepthKm = subsurfaceWaterDepthKm; }
+
+    public PlanetaryHabitability getHabitability() { return habitability; }
+    public void setHabitability(PlanetaryHabitability habitability) { this.habitability = habitability; }
 }
