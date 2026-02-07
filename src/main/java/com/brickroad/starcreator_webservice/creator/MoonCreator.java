@@ -670,7 +670,8 @@ public class MoonCreator {
                 moonType,
                 moon.getSurfaceTemp(),
                 moon.getEarthMass(),
-                planet.getSemiMajorAxisAU()
+                planet.getSemiMajorAxisAU(),
+                planet.getParentStar()
         );
 
         PlanetaryAtmosphere generatedAtmosphere = result.atmosphere();
@@ -716,6 +717,18 @@ public class MoonCreator {
             );
 
             return RandomUtils.rollRange(0.0, 1.0) < strippingProbability;
+        }
+
+        if (planet.getMagneticField() != null && planet.getMagneticField().getMagnetosphereExists()
+                && planet.getMagneticField().getMagnetopauseDistancePlanetRadii() != null
+                && moon.getSemiMajorAxisKm() != null && planet.getRadius() > 0) {
+
+            double moonDistanceRadii = moon.getSemiMajorAxisKm() / planet.getRadius();
+            double magnetopauseRadii = planet.getMagneticField().getMagnetopauseDistancePlanetRadii();
+
+            if (moonDistanceRadii < magnetopauseRadii * 0.8) {
+                return false;
+            }
         }
 
         return false;

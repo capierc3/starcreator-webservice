@@ -20,9 +20,6 @@ public class StarCreator {
     @Autowired
     private StarTypeRefRepository starTypeRefRepository;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
     private static final double VARIANCE = 0.15;
     private List<StarTypeRef> cachedStarTypes;
 
@@ -56,9 +53,22 @@ public class StarCreator {
 
         Star companion = generateStarByType(companionType);
 
-        // Match ages and metallicity (binary stars form together)
         companion.setAgeMY(primary.getAgeMY() + RandomUtils.rollRange(-500, 500));
         companion.setMetallicity(primary.getMetallicity() + RandomUtils.rollRange(-0.1, 0.1));
+
+        if (primary.getActivityCycleYears() != null && companion.getActivityCycleYears() != null) {
+            if (Math.random() < 0.4) {
+                companion.setActivityCyclePhase(primary.getActivityCyclePhase());
+            }
+        }
+
+        if (Boolean.TRUE.equals(primary.getInGrandMinimum()) && Math.random() < 0.3) {
+            companion.setInGrandMinimum(true);
+            companion.setGrandMinimumDurationYears(
+                    primary.getGrandMinimumDurationYears() + RandomUtils.rollRange(-20, 20));
+            companion.setGrandMinimumDepth(
+                    primary.getGrandMinimumDepth() + RandomUtils.rollRange(-0.1, 0.1));
+        }
 
         return companion;
     }
@@ -89,6 +99,8 @@ public class StarCreator {
         if (star.isVariable()) {
             star.setVariabilityPeriod(RandomUtils.rollRange(0.1, 100));
         }
+
+        populateStellarActivity(star, type);
 
         star.setCreatedAt(LocalDateTime.now());
         star.setModifiedAt(LocalDateTime.now());
@@ -272,4 +284,523 @@ public class StarCreator {
 
         return types.getFirst();
     }
+
+    private void populateStellarActivity(Star star, StarTypeRef type) {
+        double mass = star.getSolarMass();
+        double age = star.getAgeMY();
+        double rotationDays = star.getRotationDays();
+
+        populateEvolutionaryState(star, type, mass, age);
+        populateChromosphericActivity(star, type, mass, rotationDays);
+        populateActivityCycle(star, type, rotationDays);
+        populateGrandMinimum(star, type);
+        populateFlareActivity(star, type, mass, rotationDays);
+        populateStarSpots(star, type);
+        populateStellarWind(star, type, mass);
+        populateCoronalProperties(star, type);
+    }
+
+    private void populateEvolutionaryState(Star star, StarTypeRef type, double mass, double ageMY) {
+        String typeName = type.getName().toLowerCase();
+
+        if (typeName.contains("proto") || typeName.contains("t tauri")) {
+            star.setEvolutionaryStage("PRE_MAIN_SEQUENCE");
+            star.setMainSequenceFraction(null);
+            star.setEstimatedRemainingMsMy(null);
+            return;
+        }
+
+        if (typeName.contains("white dwarf")) {
+            star.setEvolutionaryStage("WHITE_DWARF_COOLING");
+            star.setMainSequenceFraction(null);
+            star.setEstimatedRemainingMsMy(null);
+            return;
+        }
+
+        if (typeName.contains("neutron")) {
+            star.setEvolutionaryStage("NEUTRON_STAR");
+            star.setMainSequenceFraction(null);
+            star.setEstimatedRemainingMsMy(null);
+            return;
+        }
+
+        if (typeName.contains("brown dwarf")) {
+            star.setEvolutionaryStage("BROWN_DWARF_COOLING");
+            star.setMainSequenceFraction(null);
+            star.setEstimatedRemainingMsMy(null);
+            return;
+        }
+
+        if (typeName.contains("giant")) {
+            // Determine which giant phase
+            if (typeName.contains("super")) {
+                star.setEvolutionaryStage("ASYMPTOTIC_GIANT");
+            } else {
+                star.setEvolutionaryStage(Math.random() < 0.7 ? "RED_GIANT_BRANCH" : "HORIZONTAL_BRANCH");
+            }
+            star.setMainSequenceFraction(null);
+            star.setEstimatedRemainingMsMy(null);
+            return;
+        }
+
+        double msLifespan = 10000.0 / Math.pow(mass, 2.5);
+        double fraction = ageMY / msLifespan;
+        fraction = Math.min(fraction, 0.99);
+
+        star.setMainSequenceFraction(fraction);
+        star.setEstimatedRemainingMsMy(Math.max(0, msLifespan - ageMY));
+
+        if (fraction < 0.1) {
+            star.setEvolutionaryStage("EARLY_MAIN_SEQUENCE");
+        } else if (fraction < 0.5) {
+            star.setEvolutionaryStage("MID_MAIN_SEQUENCE");
+        } else if (fraction < 0.85) {
+            star.setEvolutionaryStage("LATE_MAIN_SEQUENCE");
+        } else {
+            star.setEvolutionaryStage("SUBGIANT_TRANSITION");
+        }
+    }
+
+    private void populateChromosphericActivity(Star star, StarTypeRef type, double mass, double rotationDays) {
+        String typeName = type.getName().toLowerCase();
+
+        if (!hasConvectiveEnvelope(type)) {
+            star.setRossbyNumber(null);
+            star.setLogRPrimeHk(null);
+            star.setActivityLevel("INACTIVE");
+            return;
+        }
+
+        if (typeName.contains("white dwarf") || typeName.contains("neutron") || typeName.contains("brown dwarf")) {
+            star.setRossbyNumber(null);
+            star.setLogRPrimeHk(null);
+            star.setActivityLevel("INACTIVE");
+            return;
+        }
+
+        if (typeName.contains("proto") || typeName.contains("t tauri")) {
+            star.setRossbyNumber(null);
+            star.setLogRPrimeHk(RandomUtils.rollRange(-4.0, -3.9));
+            star.setActivityLevel("HYPERACTIVE");
+            return;
+        }
+
+        double tauConv = calculateConvectiveTurnover(mass);
+        double rossby = rotationDays / tauConv;
+        star.setRossbyNumber(rossby);
+
+        double logRHK;
+        if (rossby < 0.1) {
+            // Saturated regime — activity maxes out
+            logRHK = RandomUtils.rollRange(-4.2, -4.0);
+        } else if (rossby < 5.0) {
+            // Power-law regime with steeper slope and lower base
+            // Spreads stars from VERY_ACTIVE (Ro~0.3) through LOW (Ro~3-4)
+            logRHK = -4.7 - 0.5 * Math.log10(rossby) + RandomUtils.rollRange(-0.1, 0.1);
+        } else {
+            // Very inactive — old slow rotators
+            logRHK = RandomUtils.rollRange(-5.2, -5.0);
+        }
+        logRHK = Math.max(-5.2, Math.min(-3.9, logRHK));
+        star.setLogRPrimeHk(logRHK);
+
+        // Activity level classification (unchanged thresholds)
+        if (logRHK > -4.2) {
+            star.setActivityLevel("HYPERACTIVE");
+        } else if (logRHK > -4.5) {
+            star.setActivityLevel("VERY_ACTIVE");
+        } else if (logRHK > -4.75) {
+            star.setActivityLevel("ACTIVE");
+        } else if (logRHK > -4.95) {
+            star.setActivityLevel("MODERATE");
+        } else if (logRHK > -5.1) {
+            star.setActivityLevel("LOW");
+        } else {
+            star.setActivityLevel("INACTIVE");
+        }
+    }
+
+    private double calculateConvectiveTurnover(double mass) {
+        if (mass > 1.3) return 5.0;
+        if (mass > 1.1) return 12.0;
+        if (mass > 0.9) return 22.0;
+        if (mass > 0.7) return 35.0;
+        if (mass > 0.5) return 55.0;
+        if (mass > 0.35) return 90.0;
+        if (mass > 0.2) return 140.0;
+        return 200.0;
+    }
+
+    private boolean hasConvectiveEnvelope(StarTypeRef type) {
+        String spectral = type.getSpectralClass();
+        if (spectral == null) return true;
+        return !spectral.equals("O") && !spectral.equals("B");
+    }
+
+    private void populateActivityCycle(Star star, StarTypeRef type, double rotationDays) {
+        String typeName = type.getName().toLowerCase();
+
+        if (!hasConvectiveEnvelope(type) || typeName.contains("white dwarf") ||
+                typeName.contains("neutron") || typeName.contains("brown dwarf")) {
+            star.setActivityCycleYears(null);
+            star.setActivityCyclePhase(null);
+            return;
+        }
+
+        double cyclePeriod;
+        if (rotationDays < 3) {
+            cyclePeriod = RandomUtils.rollRange(1.0, 5.0);
+        } else if (rotationDays < 10) {
+            cyclePeriod = 0.72 * Math.pow(rotationDays, 0.8) * RandomUtils.rollRange(0.7, 1.3);
+        } else {
+            cyclePeriod = 0.72 * Math.pow(rotationDays, 0.8) * RandomUtils.rollRange(0.7, 1.3);
+        }
+        cyclePeriod = Math.max(2.0, Math.min(30.0, cyclePeriod));
+        star.setActivityCycleYears(cyclePeriod);
+
+        star.setActivityCyclePhase(RandomUtils.rollRange(0.0, 1.0));
+    }
+
+    private void populateGrandMinimum(Star star, StarTypeRef type) {
+        String typeName = type.getName().toLowerCase();
+
+        if (!typeName.contains("main sequence") || !hasConvectiveEnvelope(type)) {
+            star.setInGrandMinimum(false);
+            star.setGrandMinimumDurationYears(null);
+            star.setGrandMinimumDepth(null);
+            return;
+        }
+
+        double baseProb = 0.17;
+        String activity = star.getActivityLevel();
+        if ("VERY_ACTIVE".equals(activity) || "HYPERACTIVE".equals(activity)) {
+            baseProb = 0.02;
+        } else if ("ACTIVE".equals(activity)) {
+            baseProb = 0.08;
+        } else if ("LOW".equals(activity) || "INACTIVE".equals(activity)) {
+            baseProb = 0.25;
+        }
+
+        boolean inMinimum = Math.random() < baseProb;
+        star.setInGrandMinimum(inMinimum);
+
+        if (inMinimum) {
+            star.setGrandMinimumDurationYears(RandomUtils.rollRange(30.0, 200.0));
+            star.setGrandMinimumDepth(RandomUtils.rollRange(0.5, 1.0));
+            star.setActivityCyclePhase(RandomUtils.rollRange(0.0, 0.15));
+        }
+    }
+
+    private void populateFlareActivity(Star star, StarTypeRef type, double mass, double rotationDays) {
+        String typeName = type.getName().toLowerCase();
+
+        if (typeName.contains("white dwarf") || typeName.contains("neutron")) {
+            star.setFlareFrequencyPerDay(0.0);
+            star.setMaxFlareEnergyErgs(null);
+            star.setFlareClass("NONE");
+            star.setSuperflareCapable(false);
+            return;
+        }
+
+        if (!hasConvectiveEnvelope(type)) {
+            star.setFlareFrequencyPerDay(0.0);
+            star.setMaxFlareEnergyErgs(null);
+            star.setFlareClass("NONE");
+            star.setSuperflareCapable(false);
+            return;
+        }
+
+        if (typeName.contains("brown dwarf")) {
+            star.setFlareFrequencyPerDay(RandomUtils.rollRange(0.0, 0.05));
+            star.setMaxFlareEnergyErgs(RandomUtils.rollRange(27.0, 29.0));
+            star.setFlareClass("MICROFLARE");
+            star.setSuperflareCapable(false);
+            return;
+        }
+
+        if (typeName.contains("proto") || typeName.contains("t tauri")) {
+            star.setFlareFrequencyPerDay(RandomUtils.rollRange(5.0, 30.0));
+            star.setMaxFlareEnergyErgs(RandomUtils.rollRange(33.0, 36.0));
+            star.setFlareClass("SUPERFLARE");
+            star.setSuperflareCapable(true);
+            return;
+        }
+
+        double baseRate;
+        String spectral = type.getSpectralClass();
+
+        switch (spectral) {
+            case "M" -> {
+                if (rotationDays < 5) {
+                    baseRate = RandomUtils.rollRange(10.0, 50.0);
+                } else if (rotationDays < 20) {
+                    baseRate = RandomUtils.rollRange(2.0, 15.0);
+                } else if (rotationDays < 60) {
+                    baseRate = RandomUtils.rollRange(0.3, 3.0);
+                } else {
+                    baseRate = RandomUtils.rollRange(0.01, 0.5); // Old slow M dwarfs
+                }
+            }
+            case "K" -> {
+                if (rotationDays < 10) {
+                    baseRate = RandomUtils.rollRange(1.0, 8.0);
+                } else if (rotationDays < 30) {
+                    baseRate = RandomUtils.rollRange(0.2, 2.0);
+                } else {
+                    baseRate = RandomUtils.rollRange(0.01, 0.5);
+                }
+            }
+            case "G" -> {
+                if (rotationDays < 15) {
+                    baseRate = RandomUtils.rollRange(0.5, 3.0);
+                } else if (rotationDays < 30) {
+                    baseRate = RandomUtils.rollRange(0.05, 0.8);
+                } else {
+                    baseRate = RandomUtils.rollRange(0.005, 0.1);
+                }
+            }
+            case "F" -> baseRate = RandomUtils.rollRange(0.005, 0.3);
+            case "A" -> baseRate = RandomUtils.rollRange(0.0, 0.02);
+            case null, default -> baseRate = RandomUtils.rollRange(0.01, 0.5);
+        }
+
+        double cyclePhase = star.getActivityCyclePhase() != null ? star.getActivityCyclePhase() : 0.5;
+        double cycleModulation = 0.2 + 0.8 * Math.sin(Math.PI * cyclePhase);
+
+        if (Boolean.TRUE.equals(star.getInGrandMinimum())) {
+            double depth = star.getGrandMinimumDepth() != null ? star.getGrandMinimumDepth() : 0.8;
+            cycleModulation *= (1.0 - depth * 0.9);
+        }
+
+        star.setFlareFrequencyPerDay(baseRate * cycleModulation);
+
+        double maxEnergy;
+        if ("M".equals(spectral)) {
+            maxEnergy = RandomUtils.rollRange(30.0, 34.0);
+        } else if ("K".equals(spectral)) {
+            maxEnergy = RandomUtils.rollRange(30.0, 33.5);
+        } else if ("G".equals(spectral)) {
+            maxEnergy = RandomUtils.rollRange(29.0, 32.5);
+        } else if ("F".equals(spectral)) {
+            maxEnergy = RandomUtils.rollRange(28.0, 31.0);
+        } else {
+            maxEnergy = RandomUtils.rollRange(27.0, 30.0);
+        }
+
+        boolean superflareCapable = false;
+        if (rotationDays < 10 && mass < 1.4) {
+            maxEnergy += RandomUtils.rollRange(0.5, 2.5);
+            superflareCapable = true;
+        }
+        star.setMaxFlareEnergyErgs(maxEnergy);
+        star.setSuperflareCapable(superflareCapable);
+
+        if (maxEnergy >= 34) {
+            star.setFlareClass("SUPERFLARE");
+        } else if (maxEnergy >= 32) {
+            star.setFlareClass("X_CLASS");
+        } else if (maxEnergy >= 31) {
+            star.setFlareClass("M_CLASS");
+        } else if (maxEnergy >= 30) {
+            star.setFlareClass("C_CLASS");
+        } else if (maxEnergy >= 28) {
+            star.setFlareClass("MICROFLARE");
+        } else {
+            star.setFlareClass("NANOFLARE");
+        }
+    }
+
+    private void populateStarSpots(Star star, StarTypeRef type) {
+        String typeName = type.getName().toLowerCase();
+
+        if (!hasConvectiveEnvelope(type) || typeName.contains("white dwarf") ||
+                typeName.contains("neutron") || typeName.contains("brown dwarf")) {
+            star.setStarspotCoveragePercent(0.0);
+            star.setStarspotTempContrastK(null);
+            star.setHasPolarSpots(false);
+            return;
+        }
+
+        if (typeName.contains("proto") || typeName.contains("t tauri")) {
+            star.setStarspotCoveragePercent(RandomUtils.rollRange(20.0, 60.0));
+            star.setStarspotTempContrastK(RandomUtils.rollRange(500.0, 1500.0));
+            star.setHasPolarSpots(true);
+            return;
+        }
+
+        double rossby = star.getRossbyNumber() != null ? star.getRossbyNumber() : 1.0;
+        String spectral = type.getSpectralClass();
+
+        double maxCoverageForType = switch (spectral != null ? spectral : "") {
+            case "A" -> 0.5;
+            case "F" -> 3.0;
+            case "K" -> 15.0;
+            case "M" -> 12.0;
+            default -> 5.0;
+        };
+
+        double baseFraction;
+        if (rossby < 0.1) {
+            baseFraction = RandomUtils.rollRange(0.6, 1.0); // Near ceiling
+        } else if (rossby < 0.3) {
+            baseFraction = RandomUtils.rollRange(0.3, 0.7);
+        } else if (rossby < 0.8) {
+            baseFraction = RandomUtils.rollRange(0.1, 0.4);
+        } else if (rossby < 1.5) {
+            baseFraction = RandomUtils.rollRange(0.02, 0.15); // Sun-like ~0.06 of max
+        } else {
+            baseFraction = RandomUtils.rollRange(0.005, 0.05); // Very quiet
+        }
+
+        double baseCoverage = maxCoverageForType * baseFraction;
+
+        double phase = star.getActivityCyclePhase() != null ? star.getActivityCyclePhase() : 0.5;
+        double phaseModulation = 0.1 + 0.9 * Math.sin(Math.PI * phase);
+
+        if (Boolean.TRUE.equals(star.getInGrandMinimum())) {
+            double depth = star.getGrandMinimumDepth() != null ? star.getGrandMinimumDepth() : 0.8;
+            phaseModulation *= (1.0 - depth * 0.95);
+        }
+
+        double finalCoverage = baseCoverage * phaseModulation;
+
+        finalCoverage = Math.min(finalCoverage, maxCoverageForType);
+
+        star.setStarspotCoveragePercent(finalCoverage);
+
+        double surfaceTemp = star.getSurfaceTemp();
+        double contrast;
+        if (surfaceTemp > 6000) {
+            contrast = RandomUtils.rollRange(1200, 2200);
+        } else if (surfaceTemp > 5000) {
+            contrast = RandomUtils.rollRange(800, 1600);
+        } else if (surfaceTemp > 4000) {
+            contrast = RandomUtils.rollRange(400, 1000);
+        } else {
+            contrast = RandomUtils.rollRange(100, 500);
+        }
+        star.setStarspotTempContrastK(contrast);
+
+        star.setHasPolarSpots(rossby < 0.3 && Math.random() < 0.7);
+    }
+
+    private void populateStellarWind(Star star, StarTypeRef type, double mass) {
+        String typeName = type.getName().toLowerCase();
+
+        if (typeName.contains("neutron")) {
+            star.setStellarWindMassLossRate(RandomUtils.rollRange(1e-18, 1e-15));
+            star.setStellarWindVelocityKmS(RandomUtils.rollRange(10000.0, 200000.0));
+            star.setStellarWindDensityAt1AU(RandomUtils.rollRange(0.01, 0.5));
+            return;
+        }
+
+        if (typeName.contains("white dwarf")) {
+            star.setStellarWindMassLossRate(RandomUtils.rollRange(1e-17, 1e-14));
+            star.setStellarWindVelocityKmS(RandomUtils.rollRange(500.0, 2000.0));
+            star.setStellarWindDensityAt1AU(RandomUtils.rollRange(0.01, 1.0));
+            return;
+        }
+
+        if (typeName.contains("brown dwarf")) {
+            star.setStellarWindMassLossRate(RandomUtils.rollRange(1e-18, 1e-15));
+            star.setStellarWindVelocityKmS(RandomUtils.rollRange(10.0, 100.0));
+            star.setStellarWindDensityAt1AU(RandomUtils.rollRange(0.001, 0.1));
+            return;
+        }
+
+        if (typeName.contains("giant") || typeName.contains("super")) {
+            // Giants have massive, slow winds
+            star.setStellarWindMassLossRate(RandomUtils.rollRange(1e-8, 1e-5));
+            star.setStellarWindVelocityKmS(RandomUtils.rollRange(10.0, 50.0));
+            star.setStellarWindDensityAt1AU(RandomUtils.rollRange(100.0, 10000.0));
+            return;
+        }
+
+        if (typeName.contains("proto") || typeName.contains("t tauri")) {
+            // Young stars have powerful winds
+            star.setStellarWindMassLossRate(RandomUtils.rollRange(1e-10, 1e-7));
+            star.setStellarWindVelocityKmS(RandomUtils.rollRange(200.0, 500.0));
+            star.setStellarWindDensityAt1AU(RandomUtils.rollRange(50.0, 5000.0));
+            return;
+        }
+
+        double activity = star.getLogRPrimeHk() != null ? star.getLogRPrimeHk() : -4.9;
+        double activityScaler = Math.pow(10, activity + 5.0);
+
+        double baseLossRate = 2e-14 * Math.pow(mass, 1.5);
+        star.setStellarWindMassLossRate(baseLossRate * activityScaler * RandomUtils.rollRange(0.5, 2.0));
+
+        double surfaceTemp = star.getSurfaceTemp();
+        double baseVelocity;
+        if (surfaceTemp > 7000) {
+            baseVelocity = RandomUtils.rollRange(800, 2500);
+        } else if (surfaceTemp > 5500) {
+            baseVelocity = RandomUtils.rollRange(300, 800);
+        } else if (surfaceTemp > 4000) {
+            baseVelocity = RandomUtils.rollRange(200, 500);
+        } else {
+            baseVelocity = RandomUtils.rollRange(100, 350);
+        }
+        star.setStellarWindVelocityKmS(baseVelocity);
+
+        double densityScale = (star.getStellarWindMassLossRate() / 2e-14) * (400.0 / baseVelocity);
+        star.setStellarWindDensityAt1AU(6.0 * densityScale * RandomUtils.rollRange(0.6, 1.4));
+    }
+
+    private void populateCoronalProperties(Star star, StarTypeRef type) {
+        String typeName = type.getName().toLowerCase();
+
+        if (typeName.contains("white dwarf") || typeName.contains("neutron") || typeName.contains("brown dwarf")) {
+            star.setHasCorona(false);
+            star.setCoronalTempMK(null);
+            star.setXrayLuminosityClass("DARK");
+            return;
+        }
+
+        if (type.getSpectralClass() != null &&
+                (type.getSpectralClass().equals("O") || type.getSpectralClass().equals("B"))) {
+            star.setHasCorona(false);
+            star.setCoronalTempMK(RandomUtils.rollRange(0.5, 3.0));
+            star.setXrayLuminosityClass("BRIGHT");
+            return;
+        }
+
+        star.setHasCorona(true);
+
+        double activity = star.getLogRPrimeHk() != null ? star.getLogRPrimeHk() : -4.9;
+        double coronalTemp;
+        if (activity > -4.3) {
+            coronalTemp = RandomUtils.rollRange(8.0, 30.0);
+        } else if (activity > -4.6) {
+            coronalTemp = RandomUtils.rollRange(3.0, 12.0);
+        } else if (activity > -4.9) {
+            coronalTemp = RandomUtils.rollRange(1.5, 5.0);
+        } else {
+            coronalTemp = RandomUtils.rollRange(0.5, 2.0);
+        }
+        star.setCoronalTempMK(coronalTemp);
+
+        if (coronalTemp > 15) {
+            star.setXrayLuminosityClass("INTENSE");
+        } else if (coronalTemp > 5) {
+            star.setXrayLuminosityClass("BRIGHT");
+        } else if (coronalTemp > 2) {
+            star.setXrayLuminosityClass("MODERATE");
+        } else {
+            star.setXrayLuminosityClass("DIM");
+        }
+
+        if (typeName.contains("proto") || typeName.contains("t tauri")) {
+            star.setCoronalTempMK(RandomUtils.rollRange(10.0, 50.0));
+            star.setXrayLuminosityClass("INTENSE");
+        }
+    }
+
+
+
+
+
+
+
+
 }

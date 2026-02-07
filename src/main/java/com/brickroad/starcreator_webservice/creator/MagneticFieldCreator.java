@@ -2,7 +2,9 @@ package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField;
+import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.planets.StellarEnvironment;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,14 +14,18 @@ public class MagneticFieldCreator {
     private static final double EARTH_MAGNETIC_MOMENT = 7.91e22; // A·m²
 
     public PlanetaryMagneticField generateMagneticField(Planet planet) {
+        return generateMagneticField(planet, planet.getParentStar());
+    }
+
+    public PlanetaryMagneticField generateMagneticField(Planet planet, Star parentStar) {
         PlanetaryMagneticField field = new PlanetaryMagneticField();
         field.setPlanet(planet);
 
         boolean canHaveDynamo = canGenerateDynamo(planet);
         if (!canHaveDynamo) {
-            generateWeakOrNoField(field, planet);
+            generateWeakOrNoField(field, planet, parentStar);
         } else {
-            generateActiveDynamoField(field, planet);
+            generateActiveDynamoField(field, planet, parentStar);
         }
         return field;
     }
@@ -54,7 +60,7 @@ public class MagneticFieldCreator {
         return true;
     }
 
-    private void generateActiveDynamoField(PlanetaryMagneticField field, Planet planet) {
+    private void generateActiveDynamoField(PlanetaryMagneticField field, Planet planet, Star parentStar) {
         double rotationFactor = calculateRotationFactor(planet);
         double massFactor = planet.getEarthMass() != null ? planet.getEarthMass() : 1.0;
         double densityFactor = calculateDensityFactor(planet);
@@ -81,14 +87,16 @@ public class MagneticFieldCreator {
         determineTemporalProperties(field, planet, baseStrength);
 
         if (baseStrength > 0.1) {
-            calculateMagnetosphere(field, planet, baseStrength);
+            calculateMagnetosphere(field, planet, baseStrength, parentStar);
         }
-        determineProtectionLevel(field, baseStrength);
+        determineProtectionLevel(field, baseStrength, parentStar, planet);
+
+        calculateAuroralProperties(field, planet, baseStrength, parentStar);
 
         calculateScientificProperties(field, planet, baseStrength);
     }
 
-    private void generateWeakOrNoField(PlanetaryMagneticField field, Planet planet) {
+    private void generateWeakOrNoField(PlanetaryMagneticField field, Planet planet, Star parentStar) {
         String coreType = planet.getCoreType();
 
         boolean hasRemnant = false;
@@ -150,10 +158,14 @@ public class MagneticFieldCreator {
         }
 
         double baseLossRate = 5.0;
-        if (planet.getSemiMajorAxisAU() != null && planet.getSemiMajorAxisAU() > 2.0) {
+        if (planet.getParentStar() != null && planet.getSemiMajorAxisAU() != null) {
+            double threat = StellarEnvironment.atmosphericStrippingFactor(
+                    planet.getParentStar(), planet.getSemiMajorAxisAU());
+            baseLossRate = 5.0 * Math.sqrt(Math.max(1.0, threat));
+        } else if (planet.getSemiMajorAxisAU() != null && planet.getSemiMajorAxisAU() > 2.0) {
             baseLossRate *= 0.8;
         }
-        field.setAtmosphericLossRateFactor(baseLossRate);
+        field.setAtmosphericLossRateFactor(Math.min(20.0, baseLossRate));
     }
 
     private void generateInducedField(PlanetaryMagneticField field, Planet planet) {
@@ -196,8 +208,13 @@ public class MagneticFieldCreator {
         field.setMagnetosphereExists(false);
         field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);
 
-        double lossRate = 8.0 / (1.0 + strength * 1000); // Slightly less loss if stronger induced field
-        field.setAtmosphericLossRateFactor(Math.max(5.0, lossRate));
+        double lossRate = 8.0 / (1.0 + strength * 1000);
+        if (planet.getParentStar() != null && planet.getSemiMajorAxisAU() != null) {
+            double threat = StellarEnvironment.atmosphericStrippingFactor(
+                    planet.getParentStar(), planet.getSemiMajorAxisAU());
+            lossRate *= Math.sqrt(Math.max(1.0, threat));
+        }
+        field.setAtmosphericLossRateFactor(Math.min(20.0, Math.max(3.0, lossRate)));
     }
 
     private void generateNoField(PlanetaryMagneticField field, Planet planet) {
@@ -215,8 +232,14 @@ public class MagneticFieldCreator {
         field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);
 
         double lossRate = 10.0;
-        if (planet.getSemiMajorAxisAU() != null && planet.getSemiMajorAxisAU() > 2.0) {
-            lossRate *= 0.7;
+        if (planet.getParentStar() != null && planet.getSemiMajorAxisAU() != null) {
+            double threat = StellarEnvironment.atmosphericStrippingFactor(
+                    planet.getParentStar(), planet.getSemiMajorAxisAU());
+            lossRate = 10.0 * Math.sqrt(Math.max(1.0, threat));
+        } else {
+            if (planet.getSemiMajorAxisAU() != null && planet.getSemiMajorAxisAU() > 2.0) {
+                lossRate *= 0.7;
+            }
         }
         if (planet.getEarthMass() != null && planet.getEarthMass() > 2.0) {
             lossRate *= 0.8;
@@ -224,8 +247,7 @@ public class MagneticFieldCreator {
         if (planet.getSurfacePressure() != null && planet.getSurfacePressure() > 50.0) {
             lossRate *= 0.9;
         }
-
-        field.setAtmosphericLossRateFactor(lossRate);
+        field.setAtmosphericLossRateFactor(Math.min(20.0, lossRate));
     }
 
     private double calculateRotationFactor(Planet planet) {
@@ -451,47 +473,85 @@ public class MagneticFieldCreator {
         }
     }
 
-    private void calculateMagnetosphere(PlanetaryMagneticField field, Planet planet, double baseStrength) {
+    private void calculateMagnetosphere(PlanetaryMagneticField field, Planet planet,
+                                        double baseStrength, Star parentStar) {
         field.setMagnetosphereExists(true);
 
-        double baseMagnetopause = 10.0 * Math.sqrt(baseStrength);
-        field.setMagnetopauseDistancePlanetRadii(baseMagnetopause * RandomUtils.rollRange(0.8, 1.2));
+        double magnetopauseRadii;
 
-        field.setBowShockDistancePlanetRadii(field.getMagnetopauseDistancePlanetRadii() * RandomUtils.rollRange(1.3, 1.6));
-        field.setMagnetotailLengthPlanetRadii(baseMagnetopause * RandomUtils.rollRange(15, 30));
+        if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
+            double ramPressure = StellarEnvironment.windRamPressureAtDistance(
+                    parentStar, planet.getSemiMajorAxisAU());
 
+            // Magnetic moment scales with field strength and planet volume
+            double planetRadiusM = planet.getRadius() * 1000.0;
+            double magneticMoment = EARTH_MAGNETIC_MOMENT * baseStrength
+                    * Math.pow(planetRadiusM / 6.371e6, 3);
+
+            // Chapman-Ferraro standoff distance (in meters)
+            // R_mp = (μ₀/(4π) * M² / (2 * P_ram))^(1/6)
+            double mu0_over_4pi = 1e-7; // T·m/A
+            double standoffM = Math.pow(
+                    mu0_over_4pi * magneticMoment * magneticMoment / (2.0 * ramPressure),
+                    1.0 / 6.0);
+
+            // Convert to planet radii
+            magnetopauseRadii = standoffM / planetRadiusM;
+
+            // Clamp to physical bounds (minimum ~1.5 radii, max ~100 radii)
+            magnetopauseRadii = Math.max(1.5, Math.min(100.0, magnetopauseRadii));
+
+            // Apply variance
+            magnetopauseRadii *= RandomUtils.rollRange(0.85, 1.15);
+        } else {
+            // Fallback: original generic scaling
+            magnetopauseRadii = 10.0 * Math.sqrt(baseStrength) * RandomUtils.rollRange(0.8, 1.2);
+        }
+
+        field.setMagnetopauseDistancePlanetRadii(magnetopauseRadii);
+
+        // Bow shock: typically 1.3-1.5x the magnetopause distance
+        // Higher wind Mach number → shock closer to magnetopause
+        double machFactor = 1.45; // default
+        if (parentStar != null && parentStar.getStellarWindVelocityKmS() != null) {
+            double windSpeed = parentStar.getStellarWindVelocityKmS();
+            // Faster wind → higher Mach → compression ratio closer to 4 → shock closer
+            if (windSpeed > 600) machFactor = 1.3;
+            else if (windSpeed > 400) machFactor = 1.35;
+            else machFactor = 1.45;
+        }
+        field.setBowShockDistancePlanetRadii(magnetopauseRadii * machFactor * RandomUtils.rollRange(0.95, 1.05));
+
+        // Magnetotail: length scales with wind speed (faster wind stretches tail further)
+        double tailMultiplier = 20.0; // default Earth-like
+        if (parentStar != null && parentStar.getStellarWindVelocityKmS() != null) {
+            tailMultiplier = 15.0 + 10.0 * (parentStar.getStellarWindVelocityKmS() / 400.0);
+            tailMultiplier = Math.min(60.0, tailMultiplier); // cap at 60x planet radii
+        }
+        field.setMagnetotailLengthPlanetRadii(magnetopauseRadii * tailMultiplier * RandomUtils.rollRange(0.8, 1.2));
+
+        // Radiation belts (unchanged logic, but compressed magnetosphere = more intense belts)
         if (baseStrength > 0.5) {
             field.setHasRadiationBelts(true);
-            
-            if (baseStrength > 2.0) {
-                field.setInnerBeltIntensity(RandomUtils.flipCoin() == 1 ? PlanetaryMagneticField.BeltIntensity.HIGH : PlanetaryMagneticField.BeltIntensity.EXTREME);
+
+            boolean compressed = magnetopauseRadii < 6.0;
+
+            if (baseStrength > 2.0 || compressed) {
+                field.setInnerBeltIntensity(RandomUtils.flipCoin() == 1
+                        ? PlanetaryMagneticField.BeltIntensity.EXTREME
+                        : PlanetaryMagneticField.BeltIntensity.HIGH);
+                field.setOuterBeltIntensity(PlanetaryMagneticField.BeltIntensity.HIGH);
+            } else if (baseStrength > 1.0) {
+                field.setInnerBeltIntensity(PlanetaryMagneticField.BeltIntensity.HIGH);
                 field.setOuterBeltIntensity(PlanetaryMagneticField.BeltIntensity.MODERATE);
             } else {
                 field.setInnerBeltIntensity(PlanetaryMagneticField.BeltIntensity.MODERATE);
                 field.setOuterBeltIntensity(PlanetaryMagneticField.BeltIntensity.LOW);
             }
-        }
-
-        if (planet.getAtmosphereComposition() != null && !planet.getAtmosphereComposition().equals("None") && baseStrength > 0.3) {
-            field.setHasAuroras(true);
-            field.setAuroralColors(determineAuroralColors(planet.getAtmosphereComposition()));
-
-            if (field.getFieldGeometry() == PlanetaryMagneticField.FieldGeometry.DIPOLE) {
-                field.setAuroralZoneLatitudeDegrees(RandomUtils.rollRange(60.0, 75.0));
-            } else {
-                field.setAuroralZoneLatitudeDegrees(RandomUtils.rollRange(30.0, 80.0));
-            }
-
-            if (baseStrength > 1.5) {
-                field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.FREQUENT);
-                field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.BRIGHT);
-            } else if (baseStrength > 0.8) {
-                field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.OCCASIONAL);
-                field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.MODERATE);
-            } else {
-                field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.RARE);
-                field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.FAINT);
-            }
+        } else {
+            field.setHasRadiationBelts(false);
+            field.setInnerBeltIntensity(PlanetaryMagneticField.BeltIntensity.NONE);
+            field.setOuterBeltIntensity(PlanetaryMagneticField.BeltIntensity.NONE);
         }
     }
 
@@ -559,33 +619,60 @@ public class MagneticFieldCreator {
         return colors.toString();
     }
 
-    private void determineProtectionLevel(PlanetaryMagneticField field, double baseStrength) {
-        if (baseStrength < 0.1) {
+    private void determineProtectionLevel(PlanetaryMagneticField field, double baseStrength,
+                                           Star parentStar, Planet planet) {
+        double threatFactor = 1.0;
+        if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
+            threatFactor = StellarEnvironment.atmosphericStrippingFactor(
+                    parentStar, planet.getSemiMajorAxisAU());
+        }
+
+        // Protection ratio: field strength vs. threat
+        // Using cube root instead of square root — still dampened (a 1000x threat
+        // doesn't need a 1000x field to deflect) but less forgiving than sqrt.
+        // Also apply a log boost for high-threat environments so VERY_ACTIVE/HYPERACTIVE
+        // stars maintain pressure even at moderate distances.
+        double effectiveThreat = Math.cbrt(threatFactor);
+        if (threatFactor > 3.0) {
+            // Bonus penalty for genuinely active environments
+            effectiveThreat *= (1.0 + 0.3 * Math.log10(threatFactor));
+        }
+
+        double protectionRatio = baseStrength / Math.max(0.01, effectiveThreat);
+
+        if (protectionRatio < 0.05) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);
             field.setShieldsFromStellarWind(false);
             field.setShieldsFromCosmicRays(false);
-            field.setAtmosphericLossRateFactor(10.0);
-        } else if (baseStrength < 0.5) {
+            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 8.0));
+        } else if (protectionRatio < 0.3) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.MINIMAL);
-            field.setShieldsFromStellarWind(true);
+            field.setShieldsFromStellarWind(false);
             field.setShieldsFromCosmicRays(false);
-            field.setAtmosphericLossRateFactor(RandomUtils.rollRange(3.0, 5.0));
-        } else if (baseStrength < 1.0) {
+            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 5.0));
+        } else if (protectionRatio < 0.8) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.MODERATE);
             field.setShieldsFromStellarWind(true);
-            field.setShieldsFromCosmicRays(true);
-            field.setAtmosphericLossRateFactor(RandomUtils.rollRange(0.8, 1.5));
-        } else if (baseStrength < 2.0) {
+            field.setShieldsFromCosmicRays(false);
+            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 2.0));
+        } else if (protectionRatio < 2.5) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.STRONG);
             field.setShieldsFromStellarWind(true);
             field.setShieldsFromCosmicRays(true);
-            field.setAtmosphericLossRateFactor(RandomUtils.rollRange(0.3, 0.7));
+            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 0.5));
         } else {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.EXCEPTIONAL);
             field.setShieldsFromStellarWind(true);
             field.setShieldsFromCosmicRays(true);
-            field.setAtmosphericLossRateFactor(RandomUtils.rollRange(0.1, 0.3));
+            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 0.2));
         }
+    }
+
+    private double calculateLossRate(double fieldStrength, double threatFactor, double baseLossRate) {
+        // Higher threat = higher loss rate; stronger field = lower loss rate
+        double ratio = threatFactor / Math.max(0.01, fieldStrength * fieldStrength);
+        double lossRate = baseLossRate * Math.sqrt(Math.max(1.0, ratio));
+        return Math.min(20.0, Math.max(0.05, lossRate * RandomUtils.rollRange(0.8, 1.2)));
     }
 
     private void calculateScientificProperties(PlanetaryMagneticField field, Planet planet, double baseStrength) {
@@ -602,6 +689,88 @@ public class MagneticFieldCreator {
                     planet.getAgeMY() * RandomUtils.rollRange(0.3, 0.8)
                 );
             }
+        }
+    }
+
+    private void calculateAuroralProperties(PlanetaryMagneticField field, Planet planet,
+                                            double baseStrength, Star parentStar) {
+        // No magnetosphere = no auroras (particles reach surface directly)
+        if (!Boolean.TRUE.equals(field.getMagnetosphereExists()) || baseStrength < 0.05) {
+            field.setHasAuroras(false);
+            return;
+        }
+
+        field.setHasAuroras(true);
+
+        // Auroral zone latitude: stronger dipole field = auroras closer to poles
+        double baseLatitude = 65.0 + RandomUtils.rollRange(-5, 5); // Earth-like default
+        if (baseStrength > 5.0) {
+            baseLatitude = 75.0 + RandomUtils.rollRange(-3, 3); // Strong field pushes auroras poleward
+        } else if (baseStrength < 0.3) {
+            baseLatitude = 45.0 + RandomUtils.rollRange(-10, 10); // Weak field = auroras at lower latitudes
+        }
+        field.setAuroralZoneLatitudeDegrees(baseLatitude);
+
+        if (parentStar == null) {
+            field.setAuroralFrequency(baseStrength > 1.0
+                    ? PlanetaryMagneticField.AuroralFrequency.OCCASIONAL
+                    : PlanetaryMagneticField.AuroralFrequency.RARE);
+            field.setAuroralIntensity(baseStrength > 1.0
+                    ? PlanetaryMagneticField.AuroralIntensity.MODERATE
+                    : PlanetaryMagneticField.AuroralIntensity.FAINT);
+            return;
+        }
+
+        // --- Star-driven auroral activity ---
+
+        // Particle flux = wind density at planet * wind velocity
+        double windDensity = StellarEnvironment.windDensityAtDistance(
+                parentStar, planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : 1.0);
+        double velocity = parentStar.getStellarWindVelocityKmS() != null
+                ? parentStar.getStellarWindVelocityKmS() : 400.0;
+        double particleFluxNormalized = (windDensity * velocity) / (6.0 * 400.0); // Normalized to solar at 1 AU
+
+        // Flare contribution: each flare event = auroral storm
+        double flareContribution = 0.0;
+        if (parentStar.getFlareFrequencyPerDay() != null) {
+            flareContribution = parentStar.getFlareFrequencyPerDay();
+            // X-class and superflares produce spectacular auroras
+            if ("SUPERFLARE".equals(parentStar.getFlareClass())) {
+                flareContribution *= 10.0;
+            } else if ("X_CLASS".equals(parentStar.getFlareClass())) {
+                flareContribution *= 3.0;
+            }
+        }
+
+        // Activity cycle phase: near maximum = more frequent auroras
+        double cycleModifier = 1.0;
+        if (parentStar.getActivityCyclePhase() != null) {
+            // Phase 0.7-1.0 = near solar max → more auroras
+            cycleModifier = 0.5 + parentStar.getActivityCyclePhase();
+        }
+
+        double auroralScore = (particleFluxNormalized + flareContribution) * cycleModifier;
+
+        // Frequency
+        if (auroralScore > 50) {
+            field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.CONSTANT);
+        } else if (auroralScore > 10) {
+            field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.FREQUENT);
+        } else if (auroralScore > 2) {
+            field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.OCCASIONAL);
+        } else {
+            field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.RARE);
+        }
+
+        // Intensity
+        if (auroralScore > 100 || "SUPERFLARE".equals(parentStar.getFlareClass())) {
+            field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.SPECTACULAR);
+        } else if (auroralScore > 20) {
+            field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.BRIGHT);
+        } else if (auroralScore > 3) {
+            field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.MODERATE);
+        } else {
+            field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.FAINT);
         }
     }
 }
