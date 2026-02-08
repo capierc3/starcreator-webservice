@@ -56,8 +56,40 @@ public class WaterCreator {
             return WaterInventory.OCEAN_WORLD;
         }
 
-        if (planetType.contains("ice world") || "ICE_RICH".equals(composition)) {
-            return WaterInventory.ABUNDANT;
+        if (planetType.contains("ice world")) {
+            double mass = planet.getEarthMass() != null ? planet.getEarthMass() : 0.5;
+            double pressure = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 0.0;
+            String atmoClass = planet.getAtmosphereClassification() != null
+                    ? planet.getAtmosphereClassification() : "";
+
+            int score = 0;
+
+            // Mass contribution (Ice Worlds range ~0.1 to 5+ Earth masses)
+            if (mass > 3.0) score += 35;
+            else if (mass > 1.5) score += 25;
+            else if (mass > 0.8) score += 15;
+            else if (mass > 0.3) score += 8;
+            // else: tiny ice bodies get 0
+
+            // Atmosphere retention helps preserve volatile inventory
+            if (pressure > 1.0) score += 25;
+            else if (pressure > 0.1) score += 15;
+            else if (pressure > 0.01) score += 8;
+            else if (pressure > 0.001) score += 3;
+            // stripped atmosphere = no bonus
+
+            // Atmosphere type matters
+            if ("TITAN_LIKE".equals(atmoClass) || "AMMONIA".equals(atmoClass)) score += 10;
+            else if ("NONE".equals(atmoClass)) score -= 10;
+
+            // Magnetic protection helps retain volatiles
+            Double magStrength = planet.getMagneticFieldStrength();
+            if (magStrength != null && magStrength > 0.5) score += 5;
+
+            if (score >= 55) return WaterInventory.ABUNDANT;
+            if (score >= 35) return WaterInventory.MODERATE;
+            if (score >= 15) return WaterInventory.SCARCE;
+            return WaterInventory.TRACE;
         }
 
         if (planetType.contains("lava") || planetType.contains("hot rocky")) {
