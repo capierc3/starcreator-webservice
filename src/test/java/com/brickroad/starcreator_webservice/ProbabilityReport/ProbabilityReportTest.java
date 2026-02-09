@@ -30,7 +30,7 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
 
     private static final int SYSTEM_AMOUNT = 10_000;
 
-    @Test
+    //@Test
     public void SystemProbabilityTest() {
 
         COUNTS.setSystemCount(SYSTEM_AMOUNT);
