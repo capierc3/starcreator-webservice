@@ -33,6 +33,15 @@ public class MoonCreator {
     @Autowired
     private RingCreator ringCreator;
 
+    @Autowired
+    private MagneticFieldCreator magneticFieldCreator;
+
+    @Autowired
+    private WaterCreator waterCreator;
+
+    @Autowired
+    private HabitabilityCreator habitabilityCreator;
+
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
 
@@ -112,6 +121,29 @@ public class MoonCreator {
 
         determineSubsurfaceOcean(moon);
         geologyCreator.generateMoonGeology(moon);
+
+        double moonMass = moon.getEarthMass() != null ? moon.getEarthMass() : 0;
+        if (moonMass >= 0.0005) {
+            // Magnetic field (Ganymede-style dynamos, Europa-style induced, or remnant)
+            PlanetaryMagneticField moonMagField = magneticFieldCreator.generateMoonMagneticField(
+                    moon, planet);
+            moon.setMagneticField(moonMagField);
+
+            // Water system (ice coverage, subsurface water, water inventory)
+            waterCreator.populateMoonWaterProperties(moon);
+
+            // Habitability assessment (must be LAST — reads all other moon data)
+            PlanetaryHabitability moonHab = habitabilityCreator.assessMoon(
+                    moon, planet, primaryStar);
+            moon.setHabitability(moonHab);
+        } else {
+            // Tiny moonlets: set sensible defaults
+            moon.setWaterInventory("NONE");
+            moon.setLiquidWaterCoveragePercent(0.0);
+            moon.setIceCoveragePercent(0.0);
+            moon.setWaterCoveragePercent(0.0);
+            moon.setHasSubsurfaceWater(false);
+        }
 
         return moon;
     }

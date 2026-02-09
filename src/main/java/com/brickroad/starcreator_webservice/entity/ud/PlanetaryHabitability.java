@@ -27,6 +27,13 @@ public class PlanetaryHabitability {
     @JsonIgnore
     private Planet planet;
 
+    @Column(name = "moon_id")
+    private Long moonId;
+
+    @Transient
+    @JsonIgnore
+    private Moon moon;
+
     // ================================================================
     // EARTH SIMILARITY INDEX
     // ================================================================

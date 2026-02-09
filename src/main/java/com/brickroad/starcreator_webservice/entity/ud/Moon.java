@@ -1,6 +1,8 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -179,4 +181,32 @@ public class Moon extends CelestialBody {
 
     @Column(name = "estimated_active_volcanoes")
     private Integer estimatedActiveVolcanoes;
+
+    @Column(name = "water_inventory", length = 30)
+    private String waterInventory;
+
+    @Column(name = "liquid_water_coverage_percent")
+    private Double liquidWaterCoveragePercent;
+
+    @Column(name = "ice_coverage_percent")
+    private Double iceCoveragePercent;
+
+    @Column(name = "water_coverage_percent")
+    private Double waterCoveragePercent;
+
+    @Column(name = "has_subsurface_water")
+    private Boolean hasSubsurfaceWater = false;
+
+    @Column(name = "subsurface_water_depth_km")
+    private Double subsurfaceWaterDepthKm;
+
+    @Transient
+    @JsonProperty("magneticField")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private PlanetaryMagneticField magneticField;
+
+    @Transient
+    @JsonProperty("habitability")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private PlanetaryHabitability habitability;
 }

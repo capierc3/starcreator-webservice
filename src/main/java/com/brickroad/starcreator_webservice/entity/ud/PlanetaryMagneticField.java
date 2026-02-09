@@ -18,12 +18,18 @@ public class PlanetaryMagneticField {
     private Long id;
 
     @Column(name = "planet_id", unique = true)
-    private Long planetId;  // Nullable until planet is saved
+    private Long planetId;
 
-    // Transient relationship for in-memory linking before save
     @Transient
     @JsonIgnore
     private Planet planet;
+
+    @Column(name = "moon_id")
+    private Long moonId;
+
+    @Transient
+    @JsonIgnore
+    private Moon moon;
 
     // ================================================================
     // FIELD STRENGTH
