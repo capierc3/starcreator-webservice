@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.creator;
 
+import com.brickroad.starcreator_webservice.entity.ud.Moon;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
@@ -27,6 +28,33 @@ public class MagneticFieldCreator {
         } else {
             generateActiveDynamoField(field, planet, parentStar);
         }
+        return field;
+    }
+
+    public PlanetaryMagneticField generateMoonMagneticField(Moon moon, Planet parentPlanet) {
+        PlanetaryMagneticField field = new PlanetaryMagneticField();
+        field.setMoon(moon);
+
+        MoonFieldType fieldType = determineMoonFieldType(moon, parentPlanet);
+
+        switch (fieldType) {
+            case INTRINSIC_DYNAMO:
+                generateMoonIntrinsicField(field, moon, parentPlanet);
+                break;
+            case INDUCED:
+                generateMoonInducedField(field, moon, parentPlanet);
+                break;
+            case REMNANT:
+                generateMoonRemnantField(field, moon);
+                break;
+            case NONE:
+            default:
+                generateMoonNoField(field, moon);
+                break;
+        }
+
+        field.setCreatedAt(java.time.LocalDateTime.now());
+        field.setModifiedAt(java.time.LocalDateTime.now());
         return field;
     }
 
@@ -518,7 +546,6 @@ public class MagneticFieldCreator {
             // Faster wind → higher Mach → compression ratio closer to 4 → shock closer
             if (windSpeed > 600) machFactor = 1.3;
             else if (windSpeed > 400) machFactor = 1.35;
-            else machFactor = 1.45;
         }
         field.setBowShockDistancePlanetRadii(magnetopauseRadii * machFactor * RandomUtils.rollRange(0.95, 1.05));
 
@@ -772,5 +799,308 @@ public class MagneticFieldCreator {
         } else {
             field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.FAINT);
         }
+    }
+
+    private MoonFieldType determineMoonFieldType(Moon moon, Planet parentPlanet) {
+        double mass = moon.getEarthMass() != null ? moon.getEarthMass() : 0;
+        String composition = moon.getCompositionType() != null ? moon.getCompositionType() : "";
+        boolean hasSubsurfaceOcean = Boolean.TRUE.equals(moon.getHasSubsurfaceOcean());
+        String tidalHeating = moon.getTidalHeatingLevel() != null ? moon.getTidalHeatingLevel() : "NONE";
+        double ageMY = moon.getAgeMY() != null ? moon.getAgeMY() : 5000;
+
+        // ---- INTRINSIC DYNAMO ----
+        // Requires: large moon + rocky/mixed composition + possible liquid core
+        // Tidal heating helps sustain liquid core longer
+        // Ganymede: 0.025 Earth masses, rocky/ice, tidal heating from Laplace resonance
+        if (mass >= 0.005 && ("ROCKY".equals(composition) || "MIXED".equals(composition))) {
+            double dynamoChance = 0;
+
+            // Mass factor: bigger = more likely to have liquid core
+            if (mass >= 0.02) dynamoChance += 25;       // Ganymede-class
+            else if (mass >= 0.01) dynamoChance += 12;   // Titan-class
+            else dynamoChance += 5;
+
+            // Tidal heating keeps core liquid
+            switch (tidalHeating) {
+                case "EXTREME" -> dynamoChance += 30;
+                case "HIGH" -> dynamoChance += 20;
+                case "MODERATE" -> dynamoChance += 10;
+            }
+
+            // Old moons have cooled cores
+            if (ageMY > 8000) dynamoChance *= 0.3;
+            else if (ageMY > 6000) dynamoChance *= 0.6;
+
+            // Rocky composition more likely to have iron core
+            if ("ROCKY".equals(composition)) dynamoChance *= 1.3;
+
+            if (RandomUtils.rollRange(0, 100) < dynamoChance) {
+                return MoonFieldType.INTRINSIC_DYNAMO;
+            }
+        }
+
+        // ---- INDUCED FIELD ----
+        // Requires: parent planet with strong magnetosphere + moon has conductive layer (ocean)
+        if (hasSubsurfaceOcean && parentPlanet.getMagneticField() != null) {
+            PlanetaryMagneticField parentField = parentPlanet.getMagneticField();
+            if (parentField.getMagnetosphereExists() != null && parentField.getMagnetosphereExists()
+                    && parentField.getStrengthComparedToEarth() != null
+                    && parentField.getStrengthComparedToEarth() > 0.5) {
+
+                // Check if moon is within parent's magnetosphere
+                if (moon.getSemiMajorAxisKm() != null && parentPlanet.getRadius() > 0
+                        && parentField.getMagnetopauseDistancePlanetRadii() != null) {
+                    double moonDistRadii = moon.getSemiMajorAxisKm() / parentPlanet.getRadius();
+                    double magnetopause = parentField.getMagnetopauseDistancePlanetRadii();
+
+                    if (moonDistRadii < magnetopause) {
+                        return MoonFieldType.INDUCED;
+                    }
+                }
+            }
+        }
+
+        // ---- REMNANT FIELD ----
+        // Old moons that COULD have had a dynamo once (mass > 0.003, rocky/mixed)
+        if (mass >= 0.003 && ("ROCKY".equals(composition) || "MIXED".equals(composition))) {
+            double remnantChance = 15; // Base 15% for qualifying moons
+            if (ageMY > 5000) remnantChance += 10;  // More time for dynamo to have existed and died
+            if (mass >= 0.01) remnantChance += 10;
+
+            if (RandomUtils.rollRange(0, 100) < remnantChance) {
+                return MoonFieldType.REMNANT;
+            }
+        }
+
+        return MoonFieldType.NONE;
+    }
+
+    private void generateMoonIntrinsicField(PlanetaryMagneticField field, Moon moon,
+                                            Planet parentPlanet) {
+        double mass = moon.getEarthMass() != null ? moon.getEarthMass() : 0.01;
+
+        // Moon dynamos are weak compared to planets
+        // Ganymede: ~750 nT surface = ~0.015 Earth field
+        double rotationFactor = 1.0;
+        if (moon.getRotationPeriodHours() != null) {
+            double period = moon.getRotationPeriodHours();
+            if (period < 24) rotationFactor = 1.2;
+            else if (period < 100) rotationFactor = 1.0;
+            else if (period < 500) rotationFactor = 0.6;
+            else rotationFactor = 0.3;
+        }
+
+        // Tidal heating sustains liquid core
+        double tidalFactor = 1.0;
+        String tidalLevel = moon.getTidalHeatingLevel();
+        if ("EXTREME".equals(tidalLevel)) tidalFactor = 1.5;
+        else if ("HIGH".equals(tidalLevel)) tidalFactor = 1.3;
+        else if ("MODERATE".equals(tidalLevel)) tidalFactor = 1.1;
+
+        // Base strength: much weaker than planets
+        // Scale: 0.005 - 0.05 Earth for most moon dynamos
+        double baseStrength = 0.005 * Math.pow(mass / 0.01, 0.4) * rotationFactor * tidalFactor;
+        baseStrength *= RandomUtils.rollRange(0.6, 1.5);
+        baseStrength = Math.max(0.002, Math.min(0.1, baseStrength));
+
+        field.setStrengthComparedToEarth(baseStrength);
+        field.setDynamoType(PlanetaryMagneticField.DynamoType.CORE_DYNAMO);
+        field.setDynamoEfficiency(RandomUtils.rollRange(0.1, 0.4)); // Less efficient than planets
+
+        double avgField = baseStrength * EARTH_SURFACE_FIELD_MICROTESLAS;
+        double minField = avgField * RandomUtils.rollRange(0.5, 0.8);
+        double maxField = avgField * RandomUtils.rollRange(1.3, 2.0);
+        field.setSurfaceFieldMicroteslasMin(minField);
+        field.setSurfaceFieldMicroteslasMax(maxField);
+        field.setSurfaceFieldMicroteslasAvg(avgField);
+
+        // Geometry: moons tend toward simpler dipoles
+        field.setFieldGeometry(PlanetaryMagneticField.FieldGeometry.DIPOLE);
+        field.setDipoleTiltDegrees(RandomUtils.rollRange(2.0, 30.0));
+        double moonRadiusKm = moon.getRadius() > 0 ? moon.getRadius() : 500.0;
+        field.setMagneticAxisOffsetKm(moonRadiusKm * RandomUtils.rollRange(0.0, 0.15));
+
+        // Temporal: moon dynamos can be somewhat unstable
+        field.setTemporalStability(RandomUtils.rollRange(0, 100) < 60
+                ? PlanetaryMagneticField.TemporalStability.STABLE
+                : PlanetaryMagneticField.TemporalStability.FLUXING);
+
+        // Magnetosphere (small but real)
+        field.setMagnetosphereExists(true);
+        double moonRadiusM = moon.getRadius() * 1000.0;
+        double magneticMoment = EARTH_MAGNETIC_MOMENT * baseStrength
+                * Math.pow(moonRadiusM / 6.371e6, 3);
+        field.setMagneticMoment(magneticMoment);
+
+        // Magnetopause: depends on parent planet's field pressure, not stellar wind
+        // Moon inside parent magnetosphere experiences parent's field as "wind"
+        double parentFieldAtMoon = estimateParentFieldAtMoon(parentPlanet, moon);
+        if (parentFieldAtMoon > 0) {
+            // Parent field pressure ~ B²/2μ₀
+            double mu0 = 4e-7 * Math.PI;
+            double parentPressure = (parentFieldAtMoon * 1e-6) * (parentFieldAtMoon * 1e-6) / (2 * mu0);
+            double standoffM = Math.pow(1e-7 * magneticMoment * magneticMoment / (2 * parentPressure), 1.0 / 6.0);
+            double standoffRadii = standoffM / moonRadiusM;
+            field.setMagnetopauseDistancePlanetRadii(Math.max(1.2, Math.min(10.0, standoffRadii)));
+        } else {
+            field.setMagnetopauseDistancePlanetRadii(RandomUtils.rollRange(1.5, 5.0));
+        }
+
+        // Protection: moon dynamos provide limited but real protection
+        field.setShieldsFromStellarWind(true);
+        field.setShieldsFromCosmicRays(baseStrength > 0.01);
+        field.setProtectionLevel(baseStrength > 0.02
+                ? PlanetaryMagneticField.ProtectionLevel.MODERATE
+                : PlanetaryMagneticField.ProtectionLevel.MINIMAL);
+        field.setAtmosphericLossRateFactor(RandomUtils.rollRange(2.0, 8.0));
+
+        // Auroras: possible if moon has atmosphere
+        field.setHasAuroras(Boolean.TRUE.equals(moon.getHasAtmosphere()));
+        if (field.getHasAuroras()) {
+            field.setAuroralZoneLatitudeDegrees(RandomUtils.rollRange(50.0, 80.0));
+            field.setAuroralFrequency(PlanetaryMagneticField.AuroralFrequency.OCCASIONAL);
+            field.setAuroralIntensity(PlanetaryMagneticField.AuroralIntensity.FAINT);
+        }
+
+        field.setHasRadiationBelts(false); // Too small for radiation belts
+        field.setSurfacePowerFluxWattsPerM2(baseStrength * RandomUtils.rollRange(0.001, 0.01));
+    }
+
+    private void generateMoonInducedField(PlanetaryMagneticField field, Moon moon,
+                                          Planet parentPlanet) {
+        field.setDynamoType(PlanetaryMagneticField.DynamoType.INDUCED);
+        field.setDynamoEfficiency(0.0); // No internal dynamo
+
+        // Induced field strength depends on parent field at moon's orbit and ocean conductivity
+        double parentFieldNT = estimateParentFieldAtMoon(parentPlanet, moon);
+        // Induced field is typically 10-50% of the ambient field
+        double inductionEfficiency = RandomUtils.rollRange(0.1, 0.5);
+
+        // Ocean depth and salinity affect conductivity
+        if (moon.getOceanDepthKm() != null && moon.getOceanDepthKm() > 50) {
+            inductionEfficiency *= 1.3; // Deep ocean = better conductor
+        }
+
+        double inducedFieldNT = parentFieldNT * inductionEfficiency;
+        double strengthEarth = inducedFieldNT / (EARTH_SURFACE_FIELD_MICROTESLAS * 1000.0); // nT to Earth units
+
+        // Europa: ~200-300 nT induced field, Earth surface ~50,000 nT → ~0.004-0.006 Earth
+        strengthEarth = Math.max(0.0001, Math.min(0.01, strengthEarth));
+
+        field.setStrengthComparedToEarth(strengthEarth);
+        field.setSurfaceFieldMicroteslasAvg(inducedFieldNT / 1000.0); // nT to µT
+        field.setSurfaceFieldMicroteslasMin(field.getSurfaceFieldMicroteslasAvg() * 0.3);
+        field.setSurfaceFieldMicroteslasMax(field.getSurfaceFieldMicroteslasAvg() * 1.8);
+
+        // Induced fields are time-varying — they oscillate as moon moves through parent field
+        field.setFieldGeometry(PlanetaryMagneticField.FieldGeometry.DIPOLE);
+        field.setDipoleTiltDegrees(RandomUtils.rollRange(0.0, 90.0)); // Orientation varies with orbit
+        field.setTemporalStability(PlanetaryMagneticField.TemporalStability.FLUXING);
+
+        // Flux period matches orbital period (field changes as moon orbits through parent magnetosphere)
+        if (moon.getOrbitalPeriodDays() != null) {
+            field.setFluxPeriodHours((int) (moon.getOrbitalPeriodDays() * 24));
+        }
+        field.setFluxAmplitudePercent(RandomUtils.rollRange(40.0, 80.0));
+        field.setFluxPeakMicroteslas(field.getSurfaceFieldMicroteslasMax());
+        field.setFluxLowMicroteslas(field.getSurfaceFieldMicroteslasMin());
+
+        // No real magnetosphere — induced field doesn't create a cavity
+        field.setMagnetosphereExists(false);
+        field.setMagnetopauseDistancePlanetRadii(null);
+        field.setShieldsFromStellarWind(false);
+        field.setShieldsFromCosmicRays(false);
+        field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);
+        field.setAtmosphericLossRateFactor(RandomUtils.rollRange(8.0, 15.0));
+
+        field.setHasAuroras(false);
+        field.setHasRadiationBelts(false);
+        field.setMagneticMoment(0.0);
+        field.setSurfacePowerFluxWattsPerM2(0.0);
+    }
+
+    private void generateMoonRemnantField(PlanetaryMagneticField field, Moon moon) {
+        field.setDynamoType(PlanetaryMagneticField.DynamoType.REMNANT);
+        field.setDynamoEfficiency(0.0); // Dynamo is dead
+
+        // Remnant fields are very weak and patchy
+        // Earth's Moon: 1-100 nT in spots, mostly < 10 nT → ~0.0001 Earth
+        double baseStrength = RandomUtils.rollRange(0.00005, 0.001);
+        field.setStrengthComparedToEarth(baseStrength);
+
+        double avgField = baseStrength * EARTH_SURFACE_FIELD_MICROTESLAS;
+        field.setSurfaceFieldMicroteslasAvg(avgField);
+        field.setSurfaceFieldMicroteslasMin(0.0); // Many areas have no field
+        field.setSurfaceFieldMicroteslasMax(avgField * RandomUtils.rollRange(5.0, 20.0)); // Patchy hot spots
+
+        // Remnant fields are chaotic and locked into the crust
+        field.setFieldGeometry(PlanetaryMagneticField.FieldGeometry.CHAOTIC);
+        field.setTemporalStability(PlanetaryMagneticField.TemporalStability.STABLE); // Frozen in rock
+
+        // No magnetosphere
+        field.setMagnetosphereExists(false);
+        field.setMagnetopauseDistancePlanetRadii(null);
+        field.setShieldsFromStellarWind(false);
+        field.setShieldsFromCosmicRays(false);
+        field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);
+        field.setAtmosphericLossRateFactor(RandomUtils.rollRange(10.0, 20.0));
+
+        field.setHasAuroras(false);
+        field.setHasRadiationBelts(false);
+        field.setMagneticMoment(0.0);
+        field.setSurfacePowerFluxWattsPerM2(0.0);
+
+        // Paleomagnetic record exists by definition
+        field.setHasPaleomagneticRecord(true);
+        if (moon.getAgeMY() != null) {
+            field.setOldestMagneticRocksMillionYears(moon.getAgeMY() * RandomUtils.rollRange(0.4, 0.9));
+        }
+    }
+
+    private void generateMoonNoField(PlanetaryMagneticField field, Moon moon) {
+        field.setStrengthComparedToEarth(0.0);
+        field.setSurfaceFieldMicroteslasMin(0.0);
+        field.setSurfaceFieldMicroteslasMax(0.0);
+        field.setSurfaceFieldMicroteslasAvg(0.0);
+
+        field.setDynamoType(PlanetaryMagneticField.DynamoType.NONE);
+        field.setDynamoEfficiency(0.0);
+        field.setFieldGeometry(PlanetaryMagneticField.FieldGeometry.NONE);
+        field.setTemporalStability(PlanetaryMagneticField.TemporalStability.STABLE);
+
+        field.setMagnetosphereExists(false);
+        field.setShieldsFromStellarWind(false);
+        field.setShieldsFromCosmicRays(false);
+        field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);
+        field.setAtmosphericLossRateFactor(20.0);
+
+        field.setHasAuroras(false);
+        field.setHasRadiationBelts(false);
+        field.setMagneticMoment(0.0);
+        field.setSurfacePowerFluxWattsPerM2(0.0);
+    }
+
+    private double estimateParentFieldAtMoon(Planet parentPlanet, Moon moon) {
+        if (parentPlanet.getMagneticField() == null || moon.getSemiMajorAxisKm() == null) return 0;
+
+        PlanetaryMagneticField parentField = parentPlanet.getMagneticField();
+        if (parentField.getSurfaceFieldMicroteslasAvg() == null) return 0;
+
+        double surfaceFieldNT = parentField.getSurfaceFieldMicroteslasAvg() * 1000.0; // µT to nT
+        double planetRadiusKm = parentPlanet.getRadius();
+        double moonDistKm = moon.getSemiMajorAxisKm();
+
+        if (planetRadiusKm <= 0 || moonDistKm <= 0) return 0;
+
+        // Dipole: B(r) = B_surface * (R_planet / r)^3
+        double ratio = planetRadiusKm / moonDistKm;
+        return surfaceFieldNT * ratio * ratio * ratio;
+    }
+
+    private enum MoonFieldType {
+        INTRINSIC_DYNAMO,  // Self-sustaining (Ganymede)
+        INDUCED,           // From parent magnetosphere (Europa)
+        REMNANT,           // Dead ancient field (Luna)
+        NONE               // No field at all
     }
 }

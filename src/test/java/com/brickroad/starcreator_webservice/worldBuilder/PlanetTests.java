@@ -76,7 +76,7 @@ public class PlanetTests extends AbstractCreatorTest {
 
     //@Test
     public void findMultiplePlanetsOfType() throws JsonProcessingException {
-        String targetType = "Desert Planet";
+        String targetType = "Terrestrial Planet";
         int examplesNeeded = 10;
         int maxAttempts = 20000;
 
@@ -90,7 +90,8 @@ public class PlanetTests extends AbstractCreatorTest {
             systemsGenerated++;
             StarSystem system = systemCreator.generateSystem();
             for (CelestialBody planet : system.getPlanets()) {
-                if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())) {
+                if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())
+                && "habitable".equalsIgnoreCase(((Planet) planet).getHabitableZonePosition())) {
                     foundPlanets.add(((Planet) planet));
                     System.out.println("Found #" + foundPlanets.size() + " after " +
                             systemsGenerated + " systems");
@@ -125,6 +126,7 @@ public class PlanetTests extends AbstractCreatorTest {
             System.out.println("envelope: " + foundPlanets.get(i).getEnvelopeComposition());
             System.out.println("system size: " + foundPlanets.get(i).getParentStar().getSystem().getSizeAu());
         }
+        saveJson(listToJsonString(output), "planet_examples");
         //printJSON(output, title);
     }
 
