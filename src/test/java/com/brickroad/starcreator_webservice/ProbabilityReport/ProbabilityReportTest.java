@@ -28,9 +28,9 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
     private static final ProbabilityCounts COUNTS = new ProbabilityCounts();
     private static final PerformanceTimer TIMER = new PerformanceTimer();
 
-    private static final int SYSTEM_AMOUNT = 100;
+    private static final int SYSTEM_AMOUNT = 10_000;
 
-    //@Test
+    @Test
     public void SystemProbabilityTest() {
 
         COUNTS.setSystemCount(SYSTEM_AMOUNT);
@@ -100,6 +100,19 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
         writer.println("- Asteroids Created: " + COUNTS.getAsteroidCount());
         writer.println("");
         writer.println("Average time to create one system: " + TIMER.averageLap() + "ms");
+        writer.println("");
+        writer.println("---");
+        writer.println("## Table of Contents");
+        writer.println("1. [Star Amounts](#star-amounts)");
+        writer.println("2. [Star Types](#star-types)");
+        writer.println("3. [Planet Types](#planet-types)");
+        writer.println("4. [Atmosphere & Magnetic Fields](#atmosphere-classifications-all-planets)");
+        writer.println("5. [Geology](#geology-rockysurface-planets)");
+        writer.println("6. [Water System](#water-system-rockysurface-planets-only)");
+        writer.println("7. [Planetary Habitability](#planetary-habitability)");
+        writer.println("8. [Moon Types](#moon-types)");
+        writer.println("9. [Ring Types](#ring-types)");
+        writer.println("10. [Belt Types](#belt-types)");
         writer.println("");
     }
 }

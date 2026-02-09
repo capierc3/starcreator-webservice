@@ -22,23 +22,14 @@ public class BeltData {
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        writer.println("---");
-        writer.println("## Belt Types");
-        BELT_TYPES.entrySet()
-                .stream()
-                .sorted(Map.Entry.comparingByValue())
-                .forEach(entry -> writer.println("* " + entry.getKey() + ": " + entry.getValue() + " (" + (entry.getValue() * 100.0) / counts.getBeltCount() + "%)"));
+        ReportUtils.printSection(writer, "Belt Types");
+        ReportUtils.printSortedTable(writer, BELT_TYPES, counts.getBeltCount(), "Belt Type");
 
-        writer.println("---");
-        writer.println("## Asteroid Types");
-        ASTEROID_TYPES.entrySet()
-                .stream()
-                .sorted(Map.Entry.comparingByValue())
-                .forEach(entry -> writer.println("* " + entry.getKey() + ": " + entry.getValue() + " (" + (entry.getValue() * 100.0) / counts.getAsteroidCount() + "%)"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Asteroid Types");
+        ReportUtils.printSortedTable(writer, ASTEROID_TYPES, counts.getAsteroidCount(), "Asteroid Type");
+
         writer.println("Dwarf Planets in Belts: " + counts.getTempCount());
         writer.println("");
-        writer.println("---");
     }
 
 }

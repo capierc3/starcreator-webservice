@@ -13,7 +13,7 @@ public class PlanetData {
     private static final Map<String, Integer> PROTECTION_LEVELS = new HashMap<>();
     private static final Map<String, Integer> AURORAL_FREQUENCIES = new HashMap<>();
     private static final Map<String, Integer> AURORAL_INTENSITIES = new HashMap<>();
-    private static final Map<String, Integer> TIDAL_LOCK_COUNTS = new HashMap<>(); // "LOCKED" / "NOT_LOCKED"
+    private static final Map<String, Integer> TIDAL_LOCK_COUNTS = new HashMap<>();
     private static final Map<String, Integer> HZ_POSITIONS = new HashMap<>();
 
     private static final Map<String, Integer> MAGNETOPAUSE_BINS = new HashMap<>();
@@ -21,8 +21,8 @@ public class PlanetData {
     private static final Map<String, Integer> BELT_INTENSITY_INNER = new HashMap<>();
     private static final Map<String, Integer> BELT_INTENSITY_OUTER = new HashMap<>();
 
-    private static final Map<String, int[]> ACTIVITY_VS_ATMOSPHERE = new HashMap<>(); // [total_rocky, stripped_count]
-    private static final Map<String, int[]> ACTIVITY_VS_PROTECTION = new HashMap<>(); // [total, none, minimal, moderate, strong, exceptional]
+    private static final Map<String, int[]> ACTIVITY_VS_ATMOSPHERE = new HashMap<>();
+    private static final Map<String, int[]> ACTIVITY_VS_PROTECTION = new HashMap<>();
     private static final Map<String, double[]> DISTANCE_VS_MAGNETOPAUSE = new HashMap<>();
 
     private static final Map<String, Integer> WATER_INVENTORIES = new HashMap<>();
@@ -42,13 +42,63 @@ public class PlanetData {
     private static int habAssessmentCount = 0;
     private static int breathablePlanets = 0;
 
+    // --- NEW: Additional tracking ---
+    private static int planetsWithRings = 0;
+    private static final Map<String, Integer> COMPOSITION_CLASSES = new HashMap<>();
+    private static final Map<String, Integer> SURFACE_TEMP_BINS = new HashMap<>();
+    private static final Map<String, Integer> GEOLOGICAL_ACTIVITY = new HashMap<>();
+    private static final Map<String, Integer> TECTONIC_LEVELS = new HashMap<>();
+    private static final Map<String, Integer> VOLCANISM_TYPES = new HashMap<>();
+    private static double totalMass = 0;
+    private static double totalRadius = 0;
+    private static double totalGravity = 0;
+    private static int physicalPropsCount = 0;
+    private static int planetsWithGeology = 0;
+
     static void analyzeData(Planet planet, ProbabilityCounts counts) {
         PLANET_TYPES.put(planet.getPlanetType(), PLANET_TYPES.getOrDefault(planet.getPlanetType(), 0) + 1);
+
+        // --- NEW: Composition classification ---
+        String compClass = planet.getCompositionClassification() != null ? planet.getCompositionClassification() : "NULL";
+        COMPOSITION_CLASSES.put(compClass, COMPOSITION_CLASSES.getOrDefault(compClass, 0) + 1);
+
+        // --- NEW: Rings ---
+        if (Boolean.TRUE.equals(planet.getHasRings())) planetsWithRings++;
+
+        // --- NEW: Geology (surface/rocky planets only) ---
+        if (isSurfaceType(planet.getPlanetType()) && planet.getGeologicalActivity() != null) {
+            planetsWithGeology++;
+            GEOLOGICAL_ACTIVITY.put(planet.getGeologicalActivity(),
+                    GEOLOGICAL_ACTIVITY.getOrDefault(planet.getGeologicalActivity(), 0) + 1);
+            if (planet.getTectonicActivityLevel() != null) {
+                TECTONIC_LEVELS.put(planet.getTectonicActivityLevel(),
+                        TECTONIC_LEVELS.getOrDefault(planet.getTectonicActivityLevel(), 0) + 1);
+            }
+            if (planet.getVolcanismType() != null) {
+                VOLCANISM_TYPES.put(planet.getVolcanismType(),
+                        VOLCANISM_TYPES.getOrDefault(planet.getVolcanismType(), 0) + 1);
+            }
+        }
+
+        // --- NEW: Surface temperature bins ---
+        if (planet.getSurfaceTemp() != null) {
+            String tempBin = binTemperature(planet.getSurfaceTemp());
+            SURFACE_TEMP_BINS.put(tempBin, SURFACE_TEMP_BINS.getOrDefault(tempBin, 0) + 1);
+        }
+
+        // --- NEW: Physical property averages ---
+        if (planet.getEarthMass() != null) {
+            totalMass += planet.getEarthMass();
+            totalRadius += planet.getEarthRadius() != null ? planet.getEarthRadius() : 0;
+            totalGravity += planet.getSurfaceGravity() != null ? planet.getSurfaceGravity() : 0;
+            physicalPropsCount++;
+        }
 
         // --- Stellar Activity Integration Data ---
 
         // Atmosphere classification
-        String atmClass = planet.getAtmosphereClassification() != null ? planet.getAtmosphereClassification() : "NULL";
+        String atmClass = planet.getAtmosphereClassification() != null ?
+                planet.getAtmosphereClassification() : "NULL";
         ATMOSPHERE_CLASSIFICATIONS.put(atmClass, ATMOSPHERE_CLASSIFICATIONS.getOrDefault(atmClass, 0) + 1);
 
         // Habitable zone position
@@ -62,37 +112,30 @@ public class PlanetData {
         // Magnetic field data
         PlanetaryMagneticField mf = planet.getMagneticField();
         if (mf != null) {
-            // Protection level
             String protection = mf.getProtectionLevel() != null ? mf.getProtectionLevel().name() : "NULL";
             PROTECTION_LEVELS.put(protection, PROTECTION_LEVELS.getOrDefault(protection, 0) + 1);
 
-            // Auroral frequency
             String auroraFreq = mf.getAuroralFrequency() != null ? mf.getAuroralFrequency().name() : "NONE";
             AURORAL_FREQUENCIES.put(auroraFreq, AURORAL_FREQUENCIES.getOrDefault(auroraFreq, 0) + 1);
 
-            // Auroral intensity
             String auroraInt = mf.getAuroralIntensity() != null ? mf.getAuroralIntensity().name() : "NONE";
             AURORAL_INTENSITIES.put(auroraInt, AURORAL_INTENSITIES.getOrDefault(auroraInt, 0) + 1);
 
-            // Radiation belt intensity
             String innerBelt = mf.getInnerBeltIntensity() != null ? mf.getInnerBeltIntensity().name() : "NULL";
             BELT_INTENSITY_INNER.put(innerBelt, BELT_INTENSITY_INNER.getOrDefault(innerBelt, 0) + 1);
             String outerBelt = mf.getOuterBeltIntensity() != null ? mf.getOuterBeltIntensity().name() : "NULL";
             BELT_INTENSITY_OUTER.put(outerBelt, BELT_INTENSITY_OUTER.getOrDefault(outerBelt, 0) + 1);
 
-            // Magnetopause distance binned
             if (mf.getMagnetopauseDistancePlanetRadii() != null) {
                 String mpBin = binMagnetopause(mf.getMagnetopauseDistancePlanetRadii());
                 MAGNETOPAUSE_BINS.put(mpBin, MAGNETOPAUSE_BINS.getOrDefault(mpBin, 0) + 1);
             }
 
-            // Atmospheric loss rate binned
             if (mf.getAtmosphericLossRateFactor() != null) {
                 String lossBin = binLossRate(mf.getAtmosphericLossRateFactor());
                 ATM_LOSS_RATE_BINS.put(lossBin, ATM_LOSS_RATE_BINS.getOrDefault(lossBin, 0) + 1);
             }
 
-            // Distance vs magnetopause (for compression analysis)
             if (planet.getSemiMajorAxisAU() != null && mf.getMagnetopauseDistancePlanetRadii() != null) {
                 String distBin = binDistance(planet.getSemiMajorAxisAU());
                 double[] stats = DISTANCE_VS_MAGNETOPAUSE.getOrDefault(distBin, new double[]{0, 0});
@@ -105,18 +148,17 @@ public class PlanetData {
         // Cross-reference: star activity vs atmosphere stripping (rocky planets only)
         Star parentStar = planet.getParentStar();
         if (parentStar != null && isRockyType(planet.getPlanetType())) {
-            String actLevel = parentStar.getActivityLevel() != null ? parentStar.getActivityLevel() : "UNKNOWN";
+            String actLevel = parentStar.getActivityLevel() != null ?
+                    parentStar.getActivityLevel() : "UNKNOWN";
 
             int[] atmCounts = ACTIVITY_VS_ATMOSPHERE.getOrDefault(actLevel, new int[]{0, 0});
-            atmCounts[0]++; // total rocky planets
+            atmCounts[0]++;
             if ("NONE".equals(planet.getAtmosphereClassification())) {
-                atmCounts[1]++; // stripped
+                atmCounts[1]++;
             }
             ACTIVITY_VS_ATMOSPHERE.put(actLevel, atmCounts);
 
-            // Activity vs protection level
             if (mf != null && mf.getProtectionLevel() != null) {
-                // [total, NONE, MINIMAL, MODERATE, STRONG, EXCEPTIONAL]
                 int[] protCounts = ACTIVITY_VS_PROTECTION.getOrDefault(actLevel, new int[]{0, 0, 0, 0, 0, 0});
                 protCounts[0]++;
                 switch (mf.getProtectionLevel()) {
@@ -130,7 +172,7 @@ public class PlanetData {
             }
         }
 
-        // Existing moon/ring tracking
+        // Moon/Ring tracking
         counts.incrementMoonCount(planet.getMoons().size());
         for (Moon moon : planet.getMoons()) {
             MoonData.analyzeData(moon);
@@ -149,7 +191,6 @@ public class PlanetData {
         String type = planet.getPlanetType();
         if (type == null) return;
 
-        // Only track water for rocky/surface bodies
         boolean isRocky = type.contains("Terrestrial") || type.contains("Super-Earth")
                 || type.contains("Desert") || type.contains("Ocean")
                 || type.contains("Iron") || type.contains("Carbon")
@@ -159,7 +200,8 @@ public class PlanetData {
         if (!isRocky) return;
         totalRockyPlanets++;
 
-        String inventory = planet.getWaterInventory() != null ? planet.getWaterInventory() : "NULL";
+        String inventory = planet.getWaterInventory() != null ?
+                planet.getWaterInventory() : "NULL";
         WATER_INVENTORIES.put(inventory, WATER_INVENTORIES.getOrDefault(inventory, 0) + 1);
 
         Double liquidPct = planet.getLiquidWaterCoveragePercent();
@@ -195,81 +237,63 @@ public class PlanetData {
         if (hab.getHabitabilityScore() != null) habScoreSum += hab.getHabitabilityScore();
         if (Boolean.TRUE.equals(hab.getIsBreathable())) breathablePlanets++;
 
-        // Track water phase from habitability assessment
         String waterPhase = hab.getWaterPhaseAtSurface() != null ? hab.getWaterPhaseAtSurface() : "NULL";
         WATER_PHASES.put(waterPhase, WATER_PHASES.getOrDefault(waterPhase, 0) + 1);
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        writer.println("---");
-        writer.println("## Planet Types");
+        ReportUtils.printSection(writer, "Planet Types");
+
+        // Summary stats
+        writer.println("**Summary:** " + counts.getPlanetCount() + " planets across "
+                + counts.getSystemCount() + " systems (avg "
+                + String.format("%.1f", counts.getPlanetCount() * 1.0 / Math.max(1, counts.getSystemCount()))
+                + " per system)");
+        writer.println("- With rings: " + planetsWithRings + " ("
+                + ReportUtils.pct(planetsWithRings, counts.getPlanetCount()) + "%)");
+        if (physicalPropsCount > 0) {
+            writer.println("- Avg mass: " + String.format("%.2f", totalMass / physicalPropsCount) + " M⊕"
+                    + " | Avg radius: " + String.format("%.2f", totalRadius / physicalPropsCount) + " R⊕"
+                    + " | Avg gravity: " + String.format("%.2f", totalGravity / physicalPropsCount) + " g");
+        }
         writer.println("");
-        writer.println("| Planet Type | Count | % |");
-        writer.println("| --- | --- | --- |");
-        PLANET_TYPES.entrySet()
-                .stream()
-                .sorted(Map.Entry.comparingByValue())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue() + " | " + (entry.getValue() * 100.0) / counts.getPlanetCount() + "% |"));
+
+        ReportUtils.printSortedTable(writer, PLANET_TYPES, counts.getPlanetCount(), "Planet Type");
+
+        // --- NEW: Composition Classification ---
+        ReportUtils.printSubSection(writer, "Composition Classification");
+        ReportUtils.printSortedTable(writer, COMPOSITION_CLASSES, counts.getPlanetCount(), "Classification");
+
+        // --- NEW: Surface Temperature ---
+        ReportUtils.printSubSection(writer, "Surface Temperature Distribution");
+        ReportUtils.printSortedTableByKey(writer, SURFACE_TEMP_BINS, counts.getPlanetCount(), "Temperature Range");
 
         writer.println("---");
         printAtmosphereData(writer, counts);
+
+        // --- NEW: Geology section ---
+        printGeologyData(writer);
+
         writer.println("---");
         printWaterAndHab(writer);
     }
 
     private static void printAtmosphereData(PrintWriter writer, ProbabilityCounts counts) {
-        // --- Atmosphere Classifications ---
-        writer.println("### Atmosphere Classifications (All Planets)");
-        writer.println("");
-        writer.println("| Classification | Count | % |");
-        writer.println("| --- | --- | --- |");
-        ATMOSPHERE_CLASSIFICATIONS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Atmosphere Classifications (All Planets)");
+        ReportUtils.printSortedTable(writer, ATMOSPHERE_CLASSIFICATIONS, counts.getPlanetCount(), "Classification");
 
-        // --- Tidal Locking ---
-        writer.println("### Tidal Locking");
-        writer.println("");
-        writer.println("| Status | Count | % |");
-        writer.println("| --- | --- | --- |");
-        TIDAL_LOCK_COUNTS.forEach((k, v) -> writer.println("| " + k + " | " + v + " | " +
-                String.format("%.1f", v * 100.0 / counts.getPlanetCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Tidal Locking");
+        ReportUtils.printSortedTable(writer, TIDAL_LOCK_COUNTS, counts.getPlanetCount(), "Status");
 
-        // --- Habitable Zone Positions ---
-        writer.println("### Habitable Zone Positions");
-        writer.println("");
-        writer.println("| Position | Count | % |");
-        writer.println("| --- | --- | --- |");
-        HZ_POSITIONS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Habitable Zone Positions");
+        ReportUtils.printSortedTable(writer, HZ_POSITIONS, counts.getPlanetCount(), "Position");
 
-        // --- Protection Levels ---
-        writer.println("### Magnetic Protection Levels");
-        writer.println("");
-        writer.println("| Level | Count | % |");
-        writer.println("| --- | --- | --- |");
-        PROTECTION_LEVELS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Magnetic Protection Levels");
+        ReportUtils.printSortedTable(writer, PROTECTION_LEVELS, counts.getPlanetCount(), "Level");
 
         // --- Magnetopause Distance Distribution ---
-        writer.println("### Magnetopause Distance Distribution");
-        writer.println("");
-        writer.println("| Range (planet radii) | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MAGNETOPAUSE_BINS.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Magnetopause Distance Distribution");
+        ReportUtils.printSortedTableByKey(writer, MAGNETOPAUSE_BINS, counts.getPlanetCount(), "Range (planet radii)");
 
         // --- Average Magnetopause by Distance from Star ---
         writer.println("### Average Magnetopause by Distance from Star");
@@ -282,43 +306,22 @@ public class PlanetData {
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(e -> {
                     double avg = e.getValue()[0] / e.getValue()[1];
-                    writer.println("| " + e.getKey() + " | " + String.format("%.1f", avg) + " | " +
-                            (int) e.getValue()[1] + " |");
+                    writer.println("| " + e.getKey() + " | " + String.format("%.1f", avg)
+                            + " | " + (int) e.getValue()[1] + " |");
                 });
         writer.println("");
 
         // --- Atmospheric Loss Rate Distribution ---
-        writer.println("### Atmospheric Loss Rate Distribution");
-        writer.println("");
-        writer.println("| Range | Count | % |");
-        writer.println("| --- | --- | --- |");
-        ATM_LOSS_RATE_BINS.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Atmospheric Loss Rate Distribution");
+        ReportUtils.printSortedTableByKey(writer, ATM_LOSS_RATE_BINS, counts.getPlanetCount(), "Range");
 
         // --- Auroral Frequency ---
-        writer.println("### Auroral Frequency");
-        writer.println("");
-        writer.println("| Frequency | Count | % |");
-        writer.println("| --- | --- | --- |");
-        AURORAL_FREQUENCIES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Auroral Frequency");
+        ReportUtils.printSortedTable(writer, AURORAL_FREQUENCIES, counts.getPlanetCount(), "Frequency");
 
         // --- Auroral Intensity ---
-        writer.println("### Auroral Intensity");
-        writer.println("");
-        writer.println("| Intensity | Count | % |");
-        writer.println("| --- | --- | --- |");
-        AURORAL_INTENSITIES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Auroral Intensity");
+        ReportUtils.printSortedTable(writer, AURORAL_INTENSITIES, counts.getPlanetCount(), "Intensity");
 
         // --- Radiation Belt Intensity ---
         writer.println("### Radiation Belt Intensity (Inner / Outer)");
@@ -328,14 +331,14 @@ public class PlanetData {
         BELT_INTENSITY_INNER.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
+                        ReportUtils.pct(e.getValue(), counts.getPlanetCount()) + "% |"));
         writer.println("");
         writer.println("| Outer Belt | Count | % |");
         writer.println("| --- | --- | --- |");
         BELT_INTENSITY_OUTER.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .forEach(e -> writer.println("| " + e.getKey() + " | " + e.getValue() + " | " +
-                        String.format("%.1f", e.getValue() * 100.0 / counts.getPlanetCount()) + "% |"));
+                        ReportUtils.pct(e.getValue(), counts.getPlanetCount()) + "% |"));
         writer.println("");
 
         // =====================================================
@@ -374,6 +377,29 @@ public class PlanetData {
         writer.println("");
     }
 
+    private static void printGeologyData(PrintWriter writer) {
+        if (GEOLOGICAL_ACTIVITY.isEmpty() && TECTONIC_LEVELS.isEmpty()) return;
+
+        ReportUtils.printSection(writer, "Geology (Rocky/Surface Planets)");
+        writer.println("Planets with geological data: " + planetsWithGeology);
+        writer.println("");
+
+        if (!GEOLOGICAL_ACTIVITY.isEmpty()) {
+            ReportUtils.printSubSection(writer, "Geological Activity");
+            ReportUtils.printSortedTable(writer, GEOLOGICAL_ACTIVITY, planetsWithGeology, "Activity");
+        }
+
+        if (!TECTONIC_LEVELS.isEmpty()) {
+            ReportUtils.printSubSection(writer, "Tectonic Activity Level");
+            ReportUtils.printSortedTable(writer, TECTONIC_LEVELS, planetsWithGeology, "Level");
+        }
+
+        if (!VOLCANISM_TYPES.isEmpty()) {
+            ReportUtils.printSubSection(writer, "Volcanism Type");
+            ReportUtils.printSortedTable(writer, VOLCANISM_TYPES, planetsWithGeology, "Type");
+        }
+    }
+
     private static void printWaterAndHab(PrintWriter writer) {
         // ============================================================
         // WATER SYSTEM
@@ -382,39 +408,23 @@ public class PlanetData {
         writer.println("");
         writer.println("Total rocky/surface planets analyzed: " + totalRockyPlanets);
         writer.println("- With liquid surface water: " + planetsWithLiquidWater
-                + " (" + String.format("%.1f", planetsWithLiquidWater * 100.0 / Math.max(1, totalRockyPlanets)) + "%)");
+                + " (" + ReportUtils.pct(planetsWithLiquidWater, totalRockyPlanets) + "%)");
         writer.println("- With ice coverage: " + planetsWithIce
-                + " (" + String.format("%.1f", planetsWithIce * 100.0 / Math.max(1, totalRockyPlanets)) + "%)");
+                + " (" + ReportUtils.pct(planetsWithIce, totalRockyPlanets) + "%)");
         writer.println("- With subsurface water: " + planetsWithSubsurfaceWater
-                + " (" + String.format("%.1f", planetsWithSubsurfaceWater * 100.0 / Math.max(1, totalRockyPlanets)) + "%)");
+                + " (" + ReportUtils.pct(planetsWithSubsurfaceWater, totalRockyPlanets) + "%)");
         writer.println("");
 
-        writer.println("### Water Inventory Distribution");
-        writer.println("");
-        writer.println("| Inventory | Count | % |");
-        writer.println("| --- | --- | --- |");
-        WATER_INVENTORIES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, totalRockyPlanets)) + "% |"));
+        ReportUtils.printSubSection(writer, "Water Inventory Distribution");
+        ReportUtils.printSortedTable(writer, WATER_INVENTORIES, totalRockyPlanets, "Inventory");
 
-        writer.println("");
-        writer.println("### Water Phase at Surface");
-        writer.println("");
-        writer.println("| Phase | Count | % |");
-        writer.println("| --- | --- | --- |");
-        WATER_PHASES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, habAssessmentCount)) + "% |"));
+        ReportUtils.printSubSection(writer, "Water Phase at Surface");
+        ReportUtils.printSortedTable(writer, WATER_PHASES, habAssessmentCount, "Phase");
 
         // ============================================================
         // HABITABILITY
         // ============================================================
-        writer.println("");
-        writer.println("---");
-        writer.println("## Planetary Habitability");
-        writer.println("");
+        ReportUtils.printSection(writer, "Planetary Habitability");
         writer.println("Planets assessed: " + habAssessmentCount);
         writer.println("- Average ESI: " + String.format("%.3f", esiSum / Math.max(1, habAssessmentCount)));
         writer.println("- Average Habitability Score: " + String.format("%.1f", habScoreSum / Math.max(1, habAssessmentCount)));
@@ -422,54 +432,20 @@ public class PlanetData {
                 + " (" + String.format("%.2f", breathablePlanets * 100.0 / Math.max(1, habAssessmentCount)) + "%)");
         writer.println("");
 
-        writer.println("### Habitability Class Distribution");
-        writer.println("");
-        writer.println("| Class | Count | % |");
-        writer.println("| --- | --- | --- |");
-        HABITABILITY_CLASSES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, habAssessmentCount)) + "% |"));
+        ReportUtils.printSubSection(writer, "Habitability Class Distribution");
+        ReportUtils.printSortedTable(writer, HABITABILITY_CLASSES, habAssessmentCount, "Class");
 
-        writer.println("");
-        writer.println("### Colonization Suitability");
-        writer.println("");
-        writer.println("| Suitability | Count | % |");
-        writer.println("| --- | --- | --- |");
-        COLONIZATION_SUITABILITIES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, habAssessmentCount)) + "% |"));
+        ReportUtils.printSubSection(writer, "Colonization Suitability");
+        ReportUtils.printSortedTable(writer, COLONIZATION_SUITABILITIES, habAssessmentCount, "Suitability");
 
-        writer.println("");
-        writer.println("### Terraforming Potential");
-        writer.println("");
-        writer.println("| Potential | Count | % |");
-        writer.println("| --- | --- | --- |");
-        TERRAFORMING_POTENTIALS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, habAssessmentCount)) + "% |"));
+        ReportUtils.printSubSection(writer, "Terraforming Potential");
+        ReportUtils.printSortedTable(writer, TERRAFORMING_POTENTIALS, habAssessmentCount, "Potential");
 
-        writer.println("");
-        writer.println("### Biosignature Potential");
-        writer.println("");
-        writer.println("| Potential | Count | % |");
-        writer.println("| --- | --- | --- |");
-        BIOSIGNATURE_POTENTIALS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, habAssessmentCount)) + "% |"));
+        ReportUtils.printSubSection(writer, "Biosignature Potential");
+        ReportUtils.printSortedTable(writer, BIOSIGNATURE_POTENTIALS, habAssessmentCount, "Potential");
 
-        writer.println("");
-        writer.println("### Life Complexity Potential");
-        writer.println("");
-        writer.println("| Potential | Count | % |");
-        writer.println("| --- | --- | --- |");
-        LIFE_COMPLEXITY_POTENTIALS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, habAssessmentCount)) + "% |"));
+        ReportUtils.printSubSection(writer, "Life Complexity Potential");
+        ReportUtils.printSortedTable(writer, LIFE_COMPLEXITY_POTENTIALS, habAssessmentCount, "Potential");
     }
 
     private static boolean isRockyType(String planetType) {
@@ -480,31 +456,51 @@ public class PlanetData {
                 || planetType.contains("Carbon") || planetType.contains("Iron");
     }
 
+    private static boolean isSurfaceType(String planetType) {
+        if (planetType == null) return false;
+        return planetType.contains("Terrestrial") || planetType.contains("Super-Earth")
+                || planetType.contains("Rocky") || planetType.contains("Desert")
+                || planetType.contains("Ocean") || planetType.contains("Lava")
+                || planetType.contains("Carbon") || planetType.contains("Iron")
+                || planetType.contains("Ice World") || planetType.contains("Dwarf")
+                || planetType.contains("Hot Rocky");
+    }
+
     private static String binMagnetopause(double radii) {
-        if (radii < 3) return "01: <3 (extreme compression)";
-        if (radii < 6) return "02: 3-6 (heavy compression)";
-        if (radii < 10) return "03: 6-10 (moderate compression)";
-        if (radii < 20) return "04: 10-20 (Earth-like)";
-        if (radii < 40) return "05: 20-40 (expanded)";
-        if (radii < 70) return "06: 40-70 (large)";
-        return "07: 70+ (massive)";
+        if (radii < 3) return "a: <3 (extreme compression)";
+        if (radii < 6) return "b: 3-6 (heavy compression)";
+        if (radii < 10) return "c: 6-10 (moderate compression)";
+        if (radii < 20) return "d: 10-20 (Earth-like)";
+        if (radii < 40) return "e: 20-40 (expanded)";
+        if (radii < 70) return "f: 40-70 (large)";
+        return "g: 70+ (massive)";
     }
 
     private static String binLossRate(double rate) {
-        if (rate < 0.3) return "01: <0.3 (very low)";
-        if (rate < 1.0) return "02: 0.3-1.0 (low)";
-        if (rate < 3.0) return "03: 1.0-3.0 (moderate)";
-        if (rate < 8.0) return "04: 3.0-8.0 (high)";
-        if (rate < 15.0) return "05: 8.0-15.0 (very high)";
-        return "06: 15+ (extreme)";
+        if (rate < 0.3) return "a: <0.3 (very low)";
+        if (rate < 1.0) return "b: 0.3-1.0 (low)";
+        if (rate < 3.0) return "c: 1.0-3.0 (moderate)";
+        if (rate < 8.0) return "d: 3.0-8.0 (high)";
+        if (rate < 15.0) return "e: 8.0-15.0 (very high)";
+        return "f: 15+ (extreme)";
     }
 
     private static String binDistance(double distanceAU) {
-        if (distanceAU < 0.1) return "01: <0.1 AU";
-        if (distanceAU < 0.3) return "02: 0.1-0.3 AU";
-        if (distanceAU < 1.0) return "03: 0.3-1.0 AU";
-        if (distanceAU < 3.0) return "04: 1.0-3.0 AU";
-        if (distanceAU < 10.0) return "05: 3.0-10.0 AU";
-        return "06: 10+ AU";
+        if (distanceAU < 0.1) return "a: <0.1 AU";
+        if (distanceAU < 0.3) return "b: 0.1-0.3 AU";
+        if (distanceAU < 1.0) return "c: 0.3-1.0 AU";
+        if (distanceAU < 3.0) return "d: 1.0-3.0 AU";
+        if (distanceAU < 10.0) return "e: 3.0-10.0 AU";
+        return "f: 10+ AU";
+    }
+
+    private static String binTemperature(double tempK) {
+        if (tempK < 50) return "01: <50K (ultra-cold)";
+        if (tempK < 150) return "02: 50-150K (cryogenic)";
+        if (tempK < 273) return "03: 150-273K (sub-freezing)";
+        if (tempK < 373) return "04: 273-373K (liquid water)";
+        if (tempK < 700) return "05: 373-700K (hot)";
+        if (tempK < 1500) return "06: 700-1500K (very hot)";
+        return "07: 1500K+ (extreme)";
     }
 }

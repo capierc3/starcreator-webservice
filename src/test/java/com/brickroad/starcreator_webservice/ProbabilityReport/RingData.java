@@ -15,12 +15,7 @@ public class RingData {
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        writer.println("---");
-        writer.println("## Ring Types");
-        RING_TYPES.entrySet()
-                .stream()
-                .sorted(Map.Entry.comparingByValue())
-                .forEach(entry -> writer.println("* " + entry.getKey() + ": " + entry.getValue() + " (" + (entry.getValue() * 100.0) / counts.getRingCount() + "%)"));
-
+        ReportUtils.printSection(writer, "Ring Types");
+        ReportUtils.printSortedTable(writer, RING_TYPES, counts.getRingCount(), "Ring Type");
     }
 }

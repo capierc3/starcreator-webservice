@@ -15,7 +15,7 @@ public class MoonData {
     private static final Map<String, Integer> MOON_DYNAMO_TYPES = new HashMap<>();
     private static final Map<String, Integer> MOON_PROTECTION_LEVELS = new HashMap<>();
     private static int moonsWithMagField = 0;
-    private static int moonsAssessed = 0; // moons above mass threshold that got full processing
+    private static int moonsAssessed = 0;
 
     // --- Moon Water ---
     private static final Map<String, Integer> MOON_WATER_INVENTORIES = new HashMap<>();
@@ -114,151 +114,59 @@ public class MoonData {
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        writer.println("---");
-        writer.println("## Moon Types");
-        writer.println("");
-        writer.println("| Moon Type | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_TYPES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / counts.getMoonCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSection(writer, "Moon Types");
+        ReportUtils.printSortedTable(writer, MOON_TYPES, counts.getMoonCount(), "Moon Type");
 
-        // --- Composition Types ---
-        writer.println("### Moon Composition Types");
-        writer.println("");
-        writer.println("| Composition | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_COMPOSITION_TYPES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / counts.getMoonCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Moon Composition Types");
+        ReportUtils.printSortedTable(writer, MOON_COMPOSITION_TYPES, counts.getMoonCount(), "Composition");
 
-        // --- Tidal Heating ---
-        writer.println("### Tidal Heating Levels");
-        writer.println("");
-        writer.println("| Level | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_TIDAL_HEATING_LEVELS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / counts.getMoonCount()) + "% |"));
-        writer.println("");
+        ReportUtils.printSubSection(writer, "Tidal Heating Levels");
+        ReportUtils.printSortedTable(writer, MOON_TIDAL_HEATING_LEVELS, counts.getMoonCount(), "Level");
 
         writer.println("Subsurface Oceans (from MoonCreator): " + moonsWithSubsurfaceOcean
-                + " (" + String.format("%.2f", moonsWithSubsurfaceOcean * 100.0 / Math.max(1, counts.getMoonCount())) + "%)");
+                + " (" + ReportUtils.pct(moonsWithSubsurfaceOcean, counts.getMoonCount()) + "%)");
         writer.println("");
 
-        // ================================================================
-        // DETAILED MOON SUBSYSTEMS (only moons above mass threshold)
-        // ================================================================
+        // --- Detailed Analysis (assessed moons) ---
         writer.println("---");
         writer.println("### Moon Detailed Analysis (mass >= 0.0005 Earth)");
         writer.println("");
-        writer.println("Moons assessed: " + moonsAssessed + " of " + counts.getMoonCount() + " total"
-                + " (" + String.format("%.1f", moonsAssessed * 100.0 / Math.max(1, counts.getMoonCount())) + "%)");
+        writer.println("Moons assessed: " + moonsAssessed + " of " + counts.getMoonCount()
+                + " total (" + ReportUtils.pct(moonsAssessed, counts.getMoonCount()) + "%)");
         writer.println("");
 
-        // --- Magnetic Field ---
-        writer.println("#### Moon Magnetic Fields");
-        writer.println("");
+        // --- Magnetic Fields ---
+        ReportUtils.printSubSubSection(writer, "Moon Magnetic Fields");
         writer.println("Moons with magnetic field data: " + moonsWithMagField
-                + " (" + String.format("%.1f", moonsWithMagField * 100.0 / Math.max(1, moonsAssessed)) + "% of assessed)");
+                + " (" + ReportUtils.pct(moonsWithMagField, moonsAssessed) + "% of assessed)");
         writer.println("");
-
-        writer.println("| Dynamo Type | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_DYNAMO_TYPES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, moonsWithMagField)) + "% |"));
-        writer.println("");
-
-        writer.println("| Protection Level | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_PROTECTION_LEVELS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, moonsWithMagField)) + "% |"));
-        writer.println("");
+        ReportUtils.printSortedTable(writer, MOON_DYNAMO_TYPES, moonsWithMagField, "Dynamo Type");
+        ReportUtils.printSortedTable(writer, MOON_PROTECTION_LEVELS, moonsWithMagField, "Protection Level");
 
         // --- Water ---
-        writer.println("#### Moon Water System");
-        writer.println("");
+        ReportUtils.printSubSubSection(writer, "Moon Water System");
         writer.println("- With liquid surface water: " + moonsWithLiquidWater
-                + " (" + String.format("%.2f", moonsWithLiquidWater * 100.0 / Math.max(1, counts.getMoonCount())) + "%)");
+                + " (" + ReportUtils.pct(moonsWithLiquidWater, counts.getMoonCount()) + "%)");
         writer.println("- With ice coverage: " + moonsWithIce
-                + " (" + String.format("%.1f", moonsWithIce * 100.0 / Math.max(1, counts.getMoonCount())) + "%)");
+                + " (" + ReportUtils.pct(moonsWithIce, counts.getMoonCount()) + "%)");
         writer.println("- With subsurface water: " + moonsWithSubsurfaceWater
-                + " (" + String.format("%.1f", moonsWithSubsurfaceWater * 100.0 / Math.max(1, counts.getMoonCount())) + "%)");
+                + " (" + ReportUtils.pct(moonsWithSubsurfaceWater, counts.getMoonCount()) + "%)");
         writer.println("");
-
-        writer.println("| Water Inventory | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_WATER_INVENTORIES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, counts.getMoonCount())) + "% |"));
-        writer.println("");
+        ReportUtils.printSortedTable(writer, MOON_WATER_INVENTORIES, counts.getMoonCount(), "Water Inventory");
 
         // --- Habitability ---
-        writer.println("#### Moon Habitability");
-        writer.println("");
+        ReportUtils.printSubSubSection(writer, "Moon Habitability");
         writer.println("Moons with habitability assessment: " + moonHabCount);
         writer.println("- Average ESI: " + String.format("%.4f", moonEsiSum / Math.max(1, moonHabCount)));
         writer.println("- Average Habitability Score: " + String.format("%.1f", moonHabScoreSum / Math.max(1, moonHabCount)));
         writer.println("");
 
-        writer.println("| Habitability Class | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_HABITABILITY_CLASSES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, moonHabCount)) + "% |"));
-        writer.println("");
-
-        writer.println("| Colonization Suitability | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_COLONIZATION_SUITABILITIES.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, moonHabCount)) + "% |"));
-        writer.println("");
-
-        writer.println("| Biosignature Potential | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_BIOSIGNATURE_POTENTIALS.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, moonHabCount)) + "% |"));
-        writer.println("");
-
-        writer.println("| Life Complexity | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_LIFE_COMPLEXITY.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, moonHabCount)) + "% |"));
-        writer.println("");
-
-        // --- Radiation from parent planet ---
-        writer.println("| Radiation Belt Surface Dose | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_RADIATION_BELT_DOSE.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, moonHabCount)) + "% |"));
-        writer.println("");
-
-        // --- Tidal heating as energy source ---
-        writer.println("| Tidal Heating Contribution | Count | % |");
-        writer.println("| --- | --- | --- |");
-        MOON_TIDAL_CONTRIBUTION.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
-                        + " | " + String.format("%.1f", entry.getValue() * 100.0 / Math.max(1, moonHabCount)) + "% |"));
+        ReportUtils.printSortedTable(writer, MOON_HABITABILITY_CLASSES, moonHabCount, "Habitability Class");
+        ReportUtils.printSortedTable(writer, MOON_COLONIZATION_SUITABILITIES, moonHabCount, "Colonization Suitability");
+        ReportUtils.printSortedTable(writer, MOON_BIOSIGNATURE_POTENTIALS, moonHabCount, "Biosignature Potential");
+        ReportUtils.printSortedTable(writer, MOON_LIFE_COMPLEXITY, moonHabCount, "Life Complexity");
+        ReportUtils.printSortedTable(writer, MOON_RADIATION_BELT_DOSE, moonHabCount, "Radiation Belt Surface Dose");
+        ReportUtils.printSortedTable(writer, MOON_TIDAL_CONTRIBUTION, moonHabCount, "Tidal Heating Contribution");
     }
 
 }

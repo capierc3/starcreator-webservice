@@ -14,9 +14,15 @@ public class StarData {
     static final Map<String, Integer> STAR_TYPES = new HashMap<>();
     static final Map<String, Map<String, Map<String, Integer>>> STAR_TYPES_DATA = new HashMap<>();
     static final Map<Integer, Integer> STAR_AMOUNTS = new HashMap<>();
+    static final Map<String, Integer> STAR_ROLES = new HashMap<>();
 
     static void analyzeData(Star star) {
         STAR_TYPES.put(star.getType(), STAR_TYPES.getOrDefault(star.getType(), 0) + 1);
+
+        // Star role
+        String role = star.getStarRole() != null ? star.getStarRole().name() : "UNKNOWN";
+        STAR_ROLES.put(role, STAR_ROLES.getOrDefault(role, 0) + 1);
+
         Map<String, Map<String, Integer>> starTypesData = STAR_TYPES_DATA.getOrDefault(star.getType(), new HashMap<>());
 
         Map<String, Integer> activityData = starTypesData.getOrDefault("activity", new HashMap<>());
@@ -29,7 +35,8 @@ public class StarData {
 
         Map<String, Integer> spotData = starTypesData.getOrDefault("spot %", new HashMap<>());
         int spotPercent = (int) Math.round(star.getStarspotCoveragePercent());
-        spotData.put(Integer.toString(spotPercent), spotData.getOrDefault(Integer.toString(spotPercent),0) + 1);
+        String spotBin = binSpotCoverage(spotPercent);
+        spotData.put(spotBin, spotData.getOrDefault(spotBin, 0) + 1);
         starTypesData.put("spot %", spotData);
 
         Map<String, Integer> xrayData = starTypesData.getOrDefault("xray Luminosity", new HashMap<>());
@@ -44,76 +51,81 @@ public class StarData {
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        writer.println("---");
-        writer.println("## Star Amounts");
+        ReportUtils.printSection(writer, "Star Amounts");
         writer.println("| Amount | Count | % |");
         writer.println("| --- | --- | --- |");
         STAR_AMOUNTS.entrySet()
                 .stream()
-                .sorted(Map.Entry.comparingByValue())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " Star System | " + entry.getValue() + " | " + (entry.getValue() * 100.0) / counts.getSystemCount() + "% |"));
-        writer.println("---");
-        writer.println("## Star Types");
+                .sorted(Map.Entry.<Integer, Integer>comparingByValue().reversed())
+                .forEach(entry -> writer.println("| " + entry.getKey() + " Star System | " + entry.getValue()
+                        + " | " + ReportUtils.pct(entry.getValue(), counts.getSystemCount()) + "% |"));
+        writer.println("");
+
+        ReportUtils.printSection(writer, "Star Types");
         writer.println("| Star Type | Count | % |");
         writer.println("| --- | --- | --- |");
         STAR_TYPES.entrySet()
                 .stream()
-                .sorted(Map.Entry.comparingByValue())
-                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue() + " | " + (entry.getValue() * 100.0) / counts.getStarCount() + "% |"));
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(entry -> writer.println("| " + entry.getKey() + " | " + entry.getValue()
+                        + " | " + ReportUtils.pct(entry.getValue(), counts.getStarCount()) + "% |"));
+        writer.println("");
 
+        // Star Roles
+        ReportUtils.printSubSection(writer, "Star Roles");
+        ReportUtils.printSortedTable(writer, STAR_ROLES, counts.getStarCount(), "Role");
+
+        // Per-type breakdown
         for (Map.Entry<String, Map<String, Map<String, Integer>>> entry : STAR_TYPES_DATA.entrySet()) {
             Map<String, Map<String, Integer>> starTypeData = entry.getValue();
             int starTypeCount = STAR_TYPES.getOrDefault(entry.getKey(), 0);
+
+            // Condense uniform types to a single line
+            if (isUniformType(starTypeData)) {
+                writer.println("---");
+                writer.println("### " + entry.getKey() + " (" + starTypeCount + ")");
+                writer.println("");
+                Map<String, Integer> activityData = starTypeData.getOrDefault("activity", new HashMap<>());
+                Map<String, Integer> evoData = starTypeData.getOrDefault("evolutionary stage", new HashMap<>());
+                String activity = activityData.keySet().stream().findFirst().orElse("N/A");
+                String evo = evoData.keySet().stream().findFirst().orElse("N/A");
+                writer.println("*Uniform profile — Activity: " + activity + ", Stage: " + evo + "*");
+                writer.println("");
+                continue;
+            }
+
             writer.println("---");
             writer.println("### " + entry.getKey() + " Star Type Data");
             writer.println("");
 
-            Map<String, Integer> activityData = starTypeData.getOrDefault("activity", new HashMap<>());
-            writer.println("| Activity Level | Count | % |");
-            writer.println("| --- | --- | --- |");
-            activityData.entrySet()
-                    .stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .forEach(activity -> writer.println("| " + activity.getKey() + " | " + activity.getValue() + " | " + (activity.getValue() * 100.0) / starTypeCount + "% |"));
-            writer.println("");
-
-            Map<String, Integer> flareData = starTypeData.getOrDefault("flare class", new HashMap<>());
-            writer.println("| Flare Class | Count | % |");
-            writer.println("| --- | --- | --- |");
-            flareData.entrySet()
-                    .stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .forEach(flare -> writer.println("| " + flare.getKey() + " | " + flare.getValue() + " | " + (flare.getValue() * 100.0) / starTypeCount + "% |"));
-            writer.println("");
-
-            Map<String, Integer> spotData = starTypeData.getOrDefault("spot %", new HashMap<>());
-            writer.println("| Spot Coverage % | Count | % |");
-            writer.println("| --- | --- | --- |");
-            spotData.entrySet()
-                    .stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .forEach(spot -> writer.println("| " + spot.getKey() + " | " + spot.getValue() + " | " + (spot.getValue() * 100.0) / starTypeCount + "% |"));
-            writer.println("");
-
-            Map<String, Integer> xrayData = starTypeData.getOrDefault("xray Luminosity", new HashMap<>());
-            writer.println("| X-Ray Luminosity | Count | % |");
-            writer.println("| --- | --- | --- |");
-            xrayData.entrySet()
-                    .stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .forEach(xray -> writer.println("| " + xray.getKey() + " | " + xray.getValue() + " | " + (xray.getValue() * 100.0) / starTypeCount + "% |"));
-            writer.println("");
-
-            Map<String, Integer> evoData = starTypeData.getOrDefault("evolutionary stage", new HashMap<>());
-            writer.println("| Evolutionary Stage | Count | % |");
-            writer.println("| --- | --- | --- |");
-            evoData.entrySet()
-                    .stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .forEach(evo -> writer.println("| " + evo.getKey() + " | " + evo.getValue() + " | " + (evo.getValue() * 100.0) / starTypeCount + "% |"));
-            writer.println("");
-
+            printStarSubTable(writer, starTypeData, "activity", "Activity Level", starTypeCount);
+            printStarSubTable(writer, starTypeData, "flare class", "Flare Class", starTypeCount);
+            printStarSubTable(writer, starTypeData, "spot %", "Spot Coverage", starTypeCount);
+            printStarSubTable(writer, starTypeData, "xray Luminosity", "X-Ray Luminosity", starTypeCount);
+            printStarSubTable(writer, starTypeData, "evolutionary stage", "Evolutionary Stage", starTypeCount);
         }
     }
 
+    private static boolean isUniformType(Map<String, Map<String, Integer>> typeData) {
+        for (Map<String, Integer> subcategory : typeData.values()) {
+            if (subcategory.size() > 1) return false;
+        }
+        return true;
+    }
+
+    private static void printStarSubTable(PrintWriter writer, Map<String, Map<String, Integer>> typeData,
+                                          String key, String label, int total) {
+        Map<String, Integer> data = typeData.getOrDefault(key, new HashMap<>());
+        if (data.isEmpty()) return;
+        ReportUtils.printSortedTable(writer, data, total, label);
+    }
+
+    private static String binSpotCoverage(int pct) {
+        if (pct == 0) return "0% (none)";
+        if (pct <= 2) return "1-2% (low)";
+        if (pct <= 5) return "3-5% (moderate)";
+        if (pct <= 10) return "6-10% (high)";
+        if (pct <= 25) return "11-25% (very high)";
+        return "26%+ (extreme)";
+    }
 }
