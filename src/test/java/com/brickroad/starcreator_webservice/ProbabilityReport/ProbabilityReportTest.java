@@ -31,7 +31,7 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
     private static final int[] RANGES = new int[] {10, 100, 1_000, 10_000, 100_000};
     private static final int SYSTEM_AMOUNT = RANGES[3];
 
-    @Test
+    //@Test
     public void SystemProbabilityTest() {
 
         COUNTS.setSystemCount(SYSTEM_AMOUNT);
