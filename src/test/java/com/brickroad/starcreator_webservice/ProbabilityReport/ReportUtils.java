@@ -33,6 +33,27 @@ public class ReportUtils {
         writer.println("");
     }
 
+    static void printLinkedTable(PrintWriter writer, Map<String, Integer> data, int total, String col1Name) {
+        writer.println("| " + col1Name + " | Count | % |");
+        writer.println("| --- | --- | --- |");
+        data.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> {
+                    String anchor = toAnchor(e.getKey());
+                    writer.println("| [" + e.getKey() + "](#" + anchor + ") | "
+                            + e.getValue() + " | " + pct(e.getValue(), total) + "% |");
+                });
+        writer.println("");
+    }
+
+    static String toAnchor(String text) {
+        return text.toLowerCase().replace(" ", "-").replaceAll("[^a-z0-9\\-]", "");
+    }
+
+    static void printAnchor(PrintWriter writer, String text) {
+        writer.println("<a id=\"" + toAnchor(text) + "\"></a>");
+    }
+
     static void printSection(PrintWriter writer, String title) {
         writer.println("---");
         writer.println("## " + title);

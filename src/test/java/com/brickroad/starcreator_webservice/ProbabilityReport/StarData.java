@@ -67,7 +67,7 @@ public class StarData {
                         + " | " + ReportUtils.pct(entry.getValue(), counts.getSystemCount()) + "% |"));
         writer.println("");
 
-        ReportUtils.printSection(writer, "Star Types");
+        ReportUtils.printLinkedTable(writer, STAR_TYPES, counts.getStarCount(), "Star Type");
         writer.println("| Star Type | Count | % |");
         writer.println("| --- | --- | --- |");
         STAR_TYPES.entrySet()
@@ -89,6 +89,7 @@ public class StarData {
             // Condense uniform types to a single line
             if (isUniformType(starTypeData)) {
                 writer.println("---");
+                ReportUtils.printAnchor(writer, entry.getKey());
                 writer.println("### " + entry.getKey() + " (" + starTypeCount + ")");
                 writer.println("");
                 Map<String, Integer> activityData = starTypeData.getOrDefault("activity", new HashMap<>());
@@ -101,6 +102,7 @@ public class StarData {
             }
 
             writer.println("---");
+            ReportUtils.printAnchor(writer, entry.getKey());
             writer.println("### " + entry.getKey() + " Star Type Data");
             writer.println("");
 
