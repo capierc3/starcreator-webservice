@@ -47,6 +47,12 @@ public class StarData {
         evoData.put(star.getEvolutionaryStage(), evoData.getOrDefault(star.getEvolutionaryStage(),0) + 1);
         starTypesData.put("evolutionary stage", evoData);
 
+        Map<String, Integer> planetCountData = starTypesData.getOrDefault("planets per system", new HashMap<>());
+        int planetCount = star.getSystem() != null ? star.getSystem().getPlanets().size() : 0;
+        String planetBin = binPlanetCount(planetCount);
+        planetCountData.put(planetBin, planetCountData.getOrDefault(planetBin, 0) + 1);
+        starTypesData.put("planets per system", planetCountData);
+
         STAR_TYPES_DATA.put(star.getType(), starTypesData);
     }
 
@@ -103,6 +109,7 @@ public class StarData {
             printStarSubTable(writer, starTypeData, "spot %", "Spot Coverage", starTypeCount);
             printStarSubTable(writer, starTypeData, "xray Luminosity", "X-Ray Luminosity", starTypeCount);
             printStarSubTable(writer, starTypeData, "evolutionary stage", "Evolutionary Stage", starTypeCount);
+            printStarSubTable(writer, starTypeData, "planets per system", "Planets Per System", starTypeCount);
         }
     }
 
@@ -128,5 +135,14 @@ public class StarData {
         if (pct <= 10) return "6-10% (high)";
         if (pct <= 25) return "11-25% (very high)";
         return "26%+ (extreme)";
+    }
+
+    private static String binPlanetCount(int count) {
+        if (count == 0) return "0";
+        if (count <= 2) return "1-2";
+        if (count <= 4) return "3-4";
+        if (count <= 6) return "5-6";
+        if (count <= 8) return "7-8";
+        return "9+";
     }
 }

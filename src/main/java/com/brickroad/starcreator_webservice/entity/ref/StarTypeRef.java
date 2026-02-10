@@ -23,5 +23,7 @@ public class StarTypeRef {
     private Double radiusMultiplierMax;
     private Integer rarityWeight;
     private String description;
+    private Double minPlanetFormationAu;
+    private Double maxPlanetFormationAu;
 
 }
