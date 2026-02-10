@@ -28,7 +28,7 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
     private static final ProbabilityCounts COUNTS = new ProbabilityCounts();
     private static final PerformanceTimer TIMER = new PerformanceTimer();
 
-    private static final int SYSTEM_AMOUNT = 10_000;
+    private static final int SYSTEM_AMOUNT = 100_000;
 
     //@Test
     public void SystemProbabilityTest() {

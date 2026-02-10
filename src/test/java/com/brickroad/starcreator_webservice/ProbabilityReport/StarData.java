@@ -34,8 +34,8 @@ public class StarData {
         starTypesData.put("flare class", flareData);
 
         Map<String, Integer> spotData = starTypesData.getOrDefault("spot %", new HashMap<>());
-        int spotPercent = (int) Math.round(star.getStarspotCoveragePercent());
-        String spotBin = binSpotCoverage(spotPercent);
+        String spotBin = binSpotCoverage(star.getStarspotCoveragePercent() != null
+                ? star.getStarspotCoveragePercent() : 0.0);
         spotData.put(spotBin, spotData.getOrDefault(spotBin, 0) + 1);
         starTypesData.put("spot %", spotData);
 
@@ -120,8 +120,9 @@ public class StarData {
         ReportUtils.printSortedTable(writer, data, total, label);
     }
 
-    private static String binSpotCoverage(int pct) {
-        if (pct == 0) return "0% (none)";
+    private static String binSpotCoverage(double pct) {
+        if (pct < 0.1) return "0% (none)";
+        if (pct < 1.0) return "<1% (trace)";
         if (pct <= 2) return "1-2% (low)";
         if (pct <= 5) return "3-5% (moderate)";
         if (pct <= 10) return "6-10% (high)";

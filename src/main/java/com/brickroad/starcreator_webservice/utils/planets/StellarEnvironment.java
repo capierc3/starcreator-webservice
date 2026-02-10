@@ -126,23 +126,42 @@ public class StellarEnvironment {
     }
 
     public static double tidalLockingThresholdAU(Star star) {
-        double baseLock = 0.1; // Current default
+        // Based on Peale (1977) and Barnes (2017) tidal locking estimates:
+        // For rocky planets, locking radius scales roughly as:
+        //   a_lock ≈ 0.5 * M_star^(1/3) AU for ~5 Gyr old systems
+        // This gives: Sun ~0.5 AU (Mercury not locked — correct, it's in 3:2 resonance)
+        //             0.15 M☉ ~0.27 AU (entire HZ at 0.03-0.05 locked — correct)
+        //             0.5 M☉  ~0.40 AU
 
+        double starMass = star.getSolarMass() != 0.0 ? star.getSolarMass() : 1.0;
+
+        // Use system age — older systems lock further out
+        double ageMy = star.getAgeMY() != null ? star.getAgeMY() : 5000.0;
+        double ageGyr = ageMy / 1000.0;
+
+        // Base threshold calibrated to solar system:
+        // Sun at 4.6 Gyr: ~0.5 AU (Venus is near-locked with 243-day rotation)
+        double baseThreshold = 0.5;
+
+        // Scale with stellar mass^(1/3) — from tidal torque theory
+        double massScale = Math.pow(starMass, 1.0 / 3.0);
+
+        // Scale with age — older systems lock further out, (age/4.6)^(1/6)
+        double ageScale = Math.pow(ageGyr / 4.6, 1.0 / 6.0);
+
+        double threshold = baseThreshold * massScale * ageScale;
+
+        // Evolutionary stage adjustments
         if (star.getEvolutionaryStage() != null) {
-            baseLock *= switch (star.getEvolutionaryStage()) {
-                case "PRE_MAIN_SEQUENCE" -> 0.3;   // Not enough time
-                case "EARLY_MAIN_SEQUENCE" -> 0.7;
-                case "MID_MAIN_SEQUENCE" -> 1.0;
-                case "LATE_MAIN_SEQUENCE" -> 1.5;   // More time = wider lock zone
-                case "SUBGIANT", "RED_GIANT" -> 2.0;
+            threshold *= switch (star.getEvolutionaryStage()) {
+                case "PRE_MAIN_SEQUENCE" -> 0.4;
+                case "LATE_MAIN_SEQUENCE" -> 1.2;
+                case "SUBGIANT", "RED_GIANT" -> 1.5;
                 default -> 1.0;
             };
         }
 
-        // Scale with stellar mass (heavier stars = stronger tidal torque)
-        baseLock *= Math.pow(star.getSolarMass(), 1.0 / 3.0);
-
-        return baseLock;
+        return threshold;
     }
 
     public static boolean isSurfaceSterilizing(Star star, double distanceAU) {

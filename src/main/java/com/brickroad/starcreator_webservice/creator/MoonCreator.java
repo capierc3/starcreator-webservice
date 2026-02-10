@@ -137,12 +137,23 @@ public class MoonCreator {
                     moon, planet, primaryStar);
             moon.setHabitability(moonHab);
         } else {
-            // Tiny moonlets: set sensible defaults
-            moon.setWaterInventory("NONE");
-            moon.setLiquidWaterCoveragePercent(0.0);
-            moon.setIceCoveragePercent(0.0);
-            moon.setWaterCoveragePercent(0.0);
-            moon.setHasSubsurfaceWater(false);
+            // Tiny moonlets: set sensible defaults, but respect subsurface ocean if present
+            if (Boolean.TRUE.equals(moon.getHasSubsurfaceOcean())) {
+                moon.setWaterInventory("MODERATE");
+                moon.setLiquidWaterCoveragePercent(0.0);
+                moon.setIceCoveragePercent(RandomUtils.rollRange(40.0, 90.0));
+                moon.setWaterCoveragePercent(moon.getIceCoveragePercent());
+                moon.setHasSubsurfaceWater(true);
+                if (moon.getSubsurfaceWaterDepthKm() == null && moon.getIceShellThicknessKm() != null) {
+                    moon.setSubsurfaceWaterDepthKm(moon.getIceShellThicknessKm());
+                }
+            } else {
+                moon.setWaterInventory("NONE");
+                moon.setLiquidWaterCoveragePercent(0.0);
+                moon.setIceCoveragePercent(0.0);
+                moon.setWaterCoveragePercent(0.0);
+                moon.setHasSubsurfaceWater(false);
+            }
         }
 
         return moon;
@@ -456,8 +467,22 @@ public class MoonCreator {
         }
 
         moon.setAxialTilt(RandomUtils.rollRange(0.0, 25));
-        moon.setHillSphereRadiusKm(hillSphereKm);
-        moon.setRocheLimitKm(rocheLimit);
+
+        // Per-moon Hill sphere: how far this moon's gravity dominates vs parent planet
+        double moonMassKg = moon.getMass();
+        double planetMassKg = planet.getMass();
+        double moonSemiMajorAxisKm = moon.getSemiMajorAxisKm();
+        double moonHillSphere = moonSemiMajorAxisKm * Math.cbrt(moonMassKg / (3 * planetMassKg));
+        moon.setHillSphereRadiusKm(moonHillSphere);
+
+        // Per-moon Roche limit: how close an object can orbit this moon
+        double moonDensity = moon.getDensity();
+        double moonRadiusKm = moon.getRadius();
+        // Assume a rocky debris density of ~2.5 g/cm³ for the orbiting body
+        double debrisDensity = 2.5;
+        double moonRocheLimit = 2.46 * moonRadiusKm * Math.cbrt(moonDensity / debrisDensity);
+        moon.setRocheLimitKm(moonRocheLimit);
+
 
         if (semiMajorAxisKm < rocheLimit * 1.2) {
             moon.setOrbitStability("UNSTABLE");
@@ -519,10 +544,17 @@ public class MoonCreator {
 
         moon.setAxialTilt(RandomUtils.rollRange(0.0, 10.0));
 
-        double rocheLimit = "ICY".equals(moon.getCompositionType()) ?
+        double moonHillSphere = moon.getSemiMajorAxisKm() * Math.cbrt(moon.getMass() / (3 * planet.getMass()));
+        moon.setHillSphereRadiusKm(moonHillSphere);
+
+        double debrisDensity = 2.5;
+        double moonRocheLimit = 2.46 * moon.getRadius() * Math.cbrt(moon.getDensity() / debrisDensity);
+        moon.setRocheLimitKm(moonRocheLimit);
+
+        double planetRocheLimit = "ICY".equals(moon.getCompositionType()) ?
                 outerRocheLimit : innerRocheLimit;
 
-        if (semiMajorAxisKm < rocheLimit * 1.2) {
+        if (moon.getSemiMajorAxisKm() < planetRocheLimit * 1.2) {
             moon.setOrbitStability("UNSTABLE");
         } else {
             moon.setOrbitStability("STABLE");

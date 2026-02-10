@@ -28,7 +28,7 @@ public class SystemTests extends AbstractCreatorTest {
     //@Test
     public void findSystem() throws JsonProcessingException {
 
-        String targetType = "Terrestrial Planet";
+        String targetType = "ANY";
         String tempTarget = "habitable";
         int maxAttempts = 1000;
 
@@ -44,7 +44,9 @@ public class SystemTests extends AbstractCreatorTest {
 
             system = systemCreator.generateSystem();
             for (CelestialBody planet : system.getPlanets()) {
-                if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())
+                if (targetType.equalsIgnoreCase("ANY")) {
+                    foundPlanet = (Planet) planet;
+                } else if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())
                 && tempTarget.equalsIgnoreCase(((Planet) planet).getHabitableZonePosition())) {
                     foundPlanet = (Planet) planet;
                 }

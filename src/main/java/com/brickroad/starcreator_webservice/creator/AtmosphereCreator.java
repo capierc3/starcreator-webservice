@@ -85,6 +85,10 @@ public class AtmosphereCreator {
                 case "PRE_MAIN_SEQUENCE" -> 2.0;
                 case "EARLY_MAIN_SEQUENCE" -> 0.8;
                 case "LATE_MAIN_SEQUENCE" -> 1.3;
+                case "WHITE_DWARF_COOLING" -> 0.3;
+                case "NEUTRON_STAR", "BROWN_DWARF_COOLING" -> 0.2;
+                case "SUBGIANT_TRANSITION" -> 1.5;
+                case "RED_GIANT_BRANCH", "HORIZONTAL_BRANCH", "ASYMPTOTIC_GIANT" -> 2.5;
                 default -> 1.0;
             };
         }
