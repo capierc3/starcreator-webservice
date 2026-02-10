@@ -574,18 +574,13 @@ public class StarCreator {
 
         star.setFlareFrequencyPerDay(baseRate * cycleModulation);
 
-        double maxEnergy;
-        if ("M".equals(spectral)) {
-            maxEnergy = RandomUtils.rollRange(30.0, 34.0);
-        } else if ("K".equals(spectral)) {
-            maxEnergy = RandomUtils.rollRange(30.0, 33.5);
-        } else if ("G".equals(spectral)) {
-            maxEnergy = RandomUtils.rollRange(29.0, 32.5);
-        } else if ("F".equals(spectral)) {
-            maxEnergy = RandomUtils.rollRange(28.0, 31.0);
-        } else {
-            maxEnergy = RandomUtils.rollRange(27.0, 30.0);
-        }
+        double maxEnergy = switch (spectral) {
+            case "M" -> 30.0 + 4.0 * Math.pow(Math.random(), 2.0);
+            case "K" -> 29.5 + 4.0 * Math.pow(Math.random(), 2.0);
+            case "G" -> 29.0 + 3.5 * Math.pow(Math.random(), 2.2);
+            case "F" -> 28.0 + 3.0 * Math.pow(Math.random(), 2.5);
+            case null, default -> 27.0 + 3.0 * Math.pow(Math.random(), 2.5);
+        };
 
         boolean superflareCapable = false;
         if (rotationDays < 10 && mass < 1.4) {

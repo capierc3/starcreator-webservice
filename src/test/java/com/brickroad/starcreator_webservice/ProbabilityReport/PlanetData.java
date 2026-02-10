@@ -147,7 +147,7 @@ public class PlanetData {
 
         // Cross-reference: star activity vs atmosphere stripping (rocky planets only)
         Star parentStar = planet.getParentStar();
-        if (parentStar != null && isRockyType(planet.getPlanetType())) {
+        if (parentStar != null && isRockyTypeWithAtmospherePotential(planet.getPlanetType())) {
             String actLevel = parentStar.getActivityLevel() != null ?
                     parentStar.getActivityLevel() : "UNKNOWN";
 
@@ -502,5 +502,14 @@ public class PlanetData {
         if (tempK < 700) return "05: 373-700K (hot)";
         if (tempK < 1500) return "06: 700-1500K (very hot)";
         return "07: 1500K+ (extreme)";
+    }
+
+    private static boolean isRockyTypeWithAtmospherePotential(String planetType) {
+        if (planetType == null) return false;
+        // Exclude types where NONE is a common natural template outcome
+        return planetType.contains("Terrestrial") || planetType.contains("Super-Earth")
+                || planetType.contains("Desert") || planetType.contains("Ocean")
+                || planetType.contains("Lava");
+        // Excludes: Iron Planet, Carbon Planet, Hot Rocky Planet, Dwarf Planet
     }
 }

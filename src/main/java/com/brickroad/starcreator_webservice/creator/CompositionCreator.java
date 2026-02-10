@@ -43,26 +43,37 @@ public class CompositionCreator {
 
     private List<CompositionTemplateRef> findMatchingTemplates(String planetType, double surfaceTemp) {
 
+        // Step 1: Match by planet type AND temperature (ideal)
         List<CompositionTemplateRef> matches = cachedTemplates.stream()
                 .filter(template -> template.matches(planetType, surfaceTemp))
                 .collect(Collectors.toList());
 
-        if (matches.isEmpty()) {
-            matches = templateRepository.findMatchingTempTemplates(surfaceTemp);
-        }
+        if (!matches.isEmpty()) return matches;
 
-        if (matches.isEmpty()) {
-            matches = cachedTemplates.stream()
-                    .filter(template -> template.getPlanetTypes() != null && 
-                                      template.getPlanetTypes().toLowerCase().contains(planetType.toLowerCase()))
-                    .collect(Collectors.toList());
-        }
+        // Step 2: Match by planet type only (temp out of range — still use correct type)
+        matches = cachedTemplates.stream()
+                .filter(template -> template.getPlanetTypes() != null &&
+                        template.getPlanetTypes().toLowerCase().contains(planetType.toLowerCase()))
+                .collect(Collectors.toList());
 
-        if (matches.isEmpty()) {
-            matches = cachedTemplates;
-        }
-        
-        return matches;
+        if (!matches.isEmpty()) return matches;
+
+        // Step 3: Match by temperature only, but exclude templates for incompatible planet types
+        // Only use templates with null planet_types (universal) or matching type
+        matches = cachedTemplates.stream()
+                .filter(template -> {
+                    boolean tempMatch = (template.getMinSurfaceTempK() == null || surfaceTemp >= template.getMinSurfaceTempK() - 5.0) &&
+                            (template.getMaxSurfaceTempK() == null || surfaceTemp <= template.getMaxSurfaceTempK() + 5.0);
+                    boolean typeCompatible = template.getPlanetTypes() == null; // Only universal templates
+                    return tempMatch && typeCompatible;
+                })
+                .collect(Collectors.toList());
+
+        if (!matches.isEmpty()) return matches;
+
+        // Step 4: Last resort — use all templates for this planet type's broad category
+        // This should essentially never happen with proper template coverage
+        return cachedTemplates;
     }
 
     private CompositionTemplateRef selectTemplateByWeight(List<CompositionTemplateRef> templates) {
@@ -84,27 +95,29 @@ public class CompositionCreator {
     }
 
     private PlanetaryComposition generateFromTemplate(CompositionTemplateRef template) {
-            PlanetaryComposition.Builder builder = new PlanetaryComposition.Builder()
-                    .classification(template.getClassification());
+        PlanetaryComposition.Builder builder = new PlanetaryComposition.Builder()
+                .classification(template.getClassification());
 
-        for (CompositionTemplateComponentRef component : template.getComponents()) {
-            if ("INTERIOR".equals(component.getLayerType())) {
-                double percentage = RandomUtils.rollRange(
-                        component.getMinPercentage(),
-                        component.getMaxPercentage()
-                );
-                builder.addInteriorMineral(component.getMineral(), percentage);
-            }
+        List<CompositionTemplateComponentRef> interiorComponents = template.getComponents().stream()
+                .filter(c -> "INTERIOR".equals(c.getLayerType())).toList();
+        double[] interiorPcts = interiorComponents.stream()
+                .mapToDouble(c -> RandomUtils.rollRange(c.getMinPercentage(), c.getMaxPercentage())).toArray();
+        double interiorTotal = 0;
+        for (double p : interiorPcts) interiorTotal += p;
+        for (int i = 0; i < interiorComponents.size(); i++) {
+            builder.addInteriorMineral(interiorComponents.get(i).getMineral(),
+                    interiorPcts[i] * 100.0 / interiorTotal);
         }
 
-        for (CompositionTemplateComponentRef component : template.getComponents()) {
-            if ("ENVELOPE".equals(component.getLayerType())) {
-                double percentage = RandomUtils.rollRange(
-                        component.getMinPercentage(),
-                        component.getMaxPercentage()
-                );
-                builder.addEnvelopeMineral(component.getMineral(), percentage);
-            }
+        List<CompositionTemplateComponentRef> envelopeComponents = template.getComponents().stream()
+                .filter(c -> "ENVELOPE".equals(c.getLayerType())).toList();
+        double[] envelopePcts = envelopeComponents.stream()
+                .mapToDouble(c -> RandomUtils.rollRange(c.getMinPercentage(), c.getMaxPercentage())).toArray();
+        double envelopeTotal = 0;
+        for (double p : envelopePcts) envelopeTotal += p;
+        for (int i = 0; i < envelopeComponents.size(); i++) {
+            builder.addEnvelopeMineral(envelopeComponents.get(i).getMineral(),
+                    envelopePcts[i] * 100.0 / envelopeTotal);
         }
 
         return builder.build();
