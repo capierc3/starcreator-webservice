@@ -99,14 +99,21 @@ public class PlanetCreator {
             currentDistance = minStableDistanceAU * RandomUtils.rollRange(1.0, 1.2);
         } else {
             hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
-            currentDistance = RandomUtils.rollRange(0.1, 0.5);
-        };
+            double massScaleFactor = Math.max(0.1, parentStar.getSolarMass());
+            double minStart = 0.02 * massScaleFactor;
+            double maxStart = 0.15 * massScaleFactor;
+            currentDistance = RandomUtils.rollRange(minStart, maxStart);
+        }
         for (int i = 0; i < numPlanets; i++) {
             double estimatedTempK = TemperatureCalculator.calculatePlanetTemperature(parentStar, currentDistance, 0.3);
             if (estimatedTempK < MIN_VIABLE_PLANET_TEMP_K) {
                 break;
             }
             PlanetTypeRef type = selectPlanetTypeByTemp(currentDistance, frostLine, hz, parentStar, estimatedTempK);
+
+            if (type == null) {
+                break;
+            }
 
             Planet planet = generatePlanetByType(type, parentStar, i + 1, currentDistance);
             planets.add(planet);
@@ -118,9 +125,10 @@ public class PlanetCreator {
     }
 
     private static double getMaxSystemDistance(Star parentStar) {
-        double maxSystemDistance = 50.0;
+        double maxSystemDistance = Math.max(5.0, 50.0 * parentStar.getSolarMass());
+
         if (parentStar.getSystem() != null && parentStar.getSystem().getSizeAu() != null) {
-            maxSystemDistance = parentStar.getSystem().getSizeAu();
+            maxSystemDistance = Math.min(maxSystemDistance, parentStar.getSystem().getSizeAu());
 
             BinaryConfiguration config = parentStar.getSystem().getBinaryConfiguration();
             if (config == BinaryConfiguration.S_TYPE_WIDE) {
@@ -526,7 +534,7 @@ public class PlanetCreator {
         if (!tempFilteredTypes.isEmpty()) {
             return selectFromList(tempFilteredTypes);
         }
-        return selectPlanetTypeByRarity();
+        return null;
     }
 
     private double calculateNextOrbitDistance(double currentDistance, int planetIndex, int totalPlanets, double maxSystemDistance) {

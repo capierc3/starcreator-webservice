@@ -2,7 +2,9 @@ package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.utils.systems.SystemClassification;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.systems.SystemClassifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,9 @@ public class SystemCreator {
 
     @Autowired
     private BeltCreator beltCreator;
+
+    @Autowired
+    private SystemClassifier systemClassifier;
 
     public StarSystem generateSystem() {
         StarSystem system = new StarSystem();
@@ -69,7 +74,10 @@ public class SystemCreator {
         system.setBelts(belts);
 
         assignPlanetNames(planets);
-        system.setDescription(generateDescription(system));
+
+        SystemClassification classification = systemClassifier.classify(system);
+        system.setClassification(classification);
+        system.setDescription(classification.getScoutReport());
 
         return system;
     }

@@ -1,8 +1,11 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.utils.systems.SystemClassification;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,6 +28,11 @@ public class StarSystem {
     private Long id;
 
     private String name;
+
+    @Transient
+    @JsonProperty("classification")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private SystemClassification classification;
 
     @ManyToOne
     @JoinColumn(name = "sector_id")
@@ -117,6 +125,5 @@ public class StarSystem {
         belts.add(belt);
         belt.setStarSystem(this);
     }
-
 
 }
