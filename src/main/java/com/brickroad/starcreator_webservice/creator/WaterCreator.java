@@ -130,10 +130,30 @@ public class WaterCreator {
         }
 
         if (planetType.contains("dwarf")) {
-            if ("ICE_RICH".equals(composition) || "MIXED_SILICATE_ICE".equals(composition)) {
-                return WaterInventory.MODERATE;
-            }
-            return WaterInventory.SCARCE;
+            double mass = planet.getEarthMass() != null ? planet.getEarthMass() : 0.01;
+            String geoActivity = planet.getGeologicalActivity() != null
+                    ? planet.getGeologicalActivity() : "";
+            boolean isDead = geoActivity.toLowerCase().contains("dead");
+
+            int score = 0;
+
+            if (mass > 0.05) score += 15;
+            else if (mass > 0.02) score += 8;
+            else if (mass > 0.005) score += 3;
+
+            if ("ICE_RICH".equals(composition)) score += 15;
+            else if ("MIXED_SILICATE_ICE".equals(composition)) score += 10;
+
+            if (isDead) score -= 10;
+            else score += 5;
+
+            Double magStrength = planet.getMagneticFieldStrength();
+            if (magStrength != null && magStrength > 0.1) score += 5;
+
+            if (score >= 30) return WaterInventory.MODERATE;
+            if (score >= 18) return WaterInventory.SCARCE;
+            if (score >= 8) return WaterInventory.TRACE;
+            return WaterInventory.NONE;
         }
 
         if ("NONE".equals(atmosphereClass) || atmosphereClass.isEmpty()) {
@@ -397,7 +417,7 @@ public class WaterCreator {
         Double activityScore = planet.getActivityScore();
         Double surfaceTemp = planet.getSurfaceTemp();
 
-        boolean hasGeothermal = activityScore != null && activityScore > 0.5;
+        boolean hasGeothermal = activityScore != null && activityScore > 1.5;
         boolean surfaceFrozen = surfaceTemp != null && surfaceTemp < WATER_TRIPLE_POINT_TEMP_K;
 
         if (hasGeothermal) {
@@ -417,7 +437,7 @@ public class WaterCreator {
         } else if (surfaceFrozen && (inventory == WaterInventory.ABUNDANT || inventory == WaterInventory.OCEAN_WORLD)) {
             planet.setHasSubsurfaceWater(true);
             planet.setSubsurfaceWaterDepthKm(RandomUtils.rollRange(20.0, 100.0));
-        } else if (inventory.ordinal() >= WaterInventory.MODERATE.ordinal()) {
+        } else if (inventory == WaterInventory.ABUNDANT || inventory == WaterInventory.OCEAN_WORLD) {
             planet.setHasSubsurfaceWater(true);
             planet.setSubsurfaceWaterDepthKm(RandomUtils.rollRange(2.0, 30.0));
         } else {
@@ -470,6 +490,7 @@ public class WaterCreator {
         return planetType.contains("gas giant") || planetType.contains("ice giant")
                 || planetType.contains("hot jupiter") || planetType.contains("super-jupiter")
                 || planetType.contains("mini-neptune") || planetType.contains("sub-neptune")
+                || planetType.contains("warm neptune") || planetType.contains("hot neptune")
                 || planetType.contains("puffy");
     }
 
