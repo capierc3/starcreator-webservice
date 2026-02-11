@@ -25,7 +25,7 @@ public class SystemTests extends AbstractCreatorTest {
     @Autowired
     private SystemCreator systemCreator;
 
-    //@Test
+    @Test
     public void findSystem() throws JsonProcessingException {
 
         int starCount = 1;
