@@ -6,14 +6,7 @@ import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
-/**
- * Post-processing classifier that reads a fully-generated StarSystem
- * and produces summary tags, ratings, and a narrative scout report.
- *
- * No new physics. No new entities. Just analysis of what's already there.
- */
 @Service
 public class SystemClassifier {
 
@@ -61,6 +54,8 @@ public class SystemClassifier {
             String activity = star.getActivityLevel();
             if ("VERY_ACTIVE".equals(activity) || "HYPERACTIVE".equals(activity)) {
                 inv.hasHighActivity = true;
+            } else if ("ACTIVE".equals(activity) || "MODERATE".equals(activity)) {
+                inv.hasModerateActivity = true;
             }
             if (Boolean.TRUE.equals(star.getSuperflareCapable())) {
                 inv.hasSuperflareRisk = true;
@@ -228,23 +223,31 @@ public class SystemClassifier {
 
         // Fuel availability (gas giants = hydrogen fuel, ice giants = lesser fuel)
         int fuelBodies = inv.gasGiantCount * 2 + inv.iceGiantCount;
+        // Ice worlds with methane/volatile ices can provide processed fuel (less efficient)
+        if (inv.iceWorldCount > 0 && "RICH".equals(c.getVolatileSupply())) fuelBodies += 1;
         if (fuelBodies >= 6) c.setFuelAvailability("ABUNDANT");
         else if (fuelBodies >= 3) c.setFuelAvailability("AVAILABLE");
         else if (fuelBodies >= 1) c.setFuelAvailability("SCARCE");
         else c.setFuelAvailability("NONE");
 
         // Water accessibility
-        int waterScore = inv.waterRichCount * 3 + inv.liquidWaterBodies * 2
-                + inv.subsurfaceWaterCount + inv.icyMoonCount + inv.subsurfaceOceanMoons * 2
-                + inv.outerBeltCount; // Kuiper/scattered = ice
-        if (waterScore >= 10) c.setWaterAccessibility("OCEAN_WORLDS");
-        else if (waterScore >= 5) c.setWaterAccessibility("ABUNDANT");
-        else if (waterScore >= 2) c.setWaterAccessibility("AVAILABLE");
-        else if (waterScore >= 1) c.setWaterAccessibility("TRACE");
+        int surfaceWaterScore = inv.waterRichCount * 3 + inv.liquidWaterBodies * 2 + inv.oceanWorldCount * 3;
+        int subsurfaceWaterScore = inv.subsurfaceWaterCount + inv.subsurfaceOceanMoons * 2;
+        int iceWaterScore = inv.outerBeltCount;
+        if (inv.iceWorldCount > 0) iceWaterScore += 1;
+        int waterScore = surfaceWaterScore + subsurfaceWaterScore + iceWaterScore;
+
+        if (surfaceWaterScore >= 6) c.setWaterAccessibility("OCEAN_WORLDS");
+        else if (waterScore >= 10 || surfaceWaterScore >= 3) c.setWaterAccessibility("ABUNDANT");
+        else if (waterScore >= 5) c.setWaterAccessibility("AVAILABLE");
+        else if (waterScore >= 2) c.setWaterAccessibility("TRACE");
+        else if (waterScore == 1) c.setWaterAccessibility("ICE_LOCKED");
         else c.setWaterAccessibility("NONE");
 
         // Volatile supply
-        int volatileScore = inv.outerBeltCount * 2 + inv.icyMoonCount + inv.iceWorldCount * 2;
+        int volatileScore = inv.outerBeltCount * 2 + inv.iceWorldCount;
+        if (inv.icyMoonCount >= 5) volatileScore += 2;
+        else if (inv.icyMoonCount >= 2) volatileScore += 1;
         if (volatileScore >= 8) c.setVolatileSupply("RICH");
         else if (volatileScore >= 4) c.setVolatileSupply("MODERATE");
         else if (volatileScore >= 1) c.setVolatileSupply("SCARCE");
@@ -297,6 +300,10 @@ public class SystemClassifier {
             dangers.add("High stellar activity — elevated radiation and particle flux");
             dangerScore += 2;
         }
+        if (inv.hasModerateActivity && !inv.hasHighActivity) {
+            dangers.add("Active star — elevated flare frequency and particle flux");
+            dangerScore += 1;
+        }
         if (inv.hasNeutronStar) {
             dangers.add("Neutron star — extreme radiation environment");
             dangerScore += 4;
@@ -323,6 +330,17 @@ public class SystemClassifier {
         if (inv.lavaWorldCount >= 2) {
             dangers.add("Multiple lava worlds — intense inner-system thermal environment");
             dangerScore += 1;
+        }
+
+        // Environmental hazards — extreme cold with no shelter
+        if (inv.habitableCount == 0 && inv.totalPlanets > 0) {
+            boolean allExtremeCold = inv.primaryStar != null
+                    && inv.primaryStar.getSurfaceTemp() != 0
+                    && inv.primaryStar.getSurfaceTemp() < 1000;
+            if (allExtremeCold && inv.hasBrownDwarf) {
+                dangers.add("Brown dwarf system — near-absolute-zero conditions, no viable energy source");
+                dangerScore += 1;
+            }
         }
 
         c.setDangerSources(dangers);
@@ -373,6 +391,18 @@ public class SystemClassifier {
         // Bonus for water and fuel
         if ("ABUNDANT".equals(c.getWaterAccessibility()) || "OCEAN_WORLDS".equals(c.getWaterAccessibility())) colony += 1;
         if (!"NONE".equals(c.getFuelAvailability())) colony += 1;
+
+        // Penalty: no habitable worlds + no energy source = not colonizable
+        if (inv.habitableCount == 0 && inv.terraformableCount == 0) {
+            // Brown dwarfs / ultra-dim stars — no meaningful solar energy
+            if (inv.hasBrownDwarf && !inv.isMultiStar) colony = Math.max(1, colony - 2);
+            // No atmosphere anywhere = dome-only at best, penalize further if extreme cold
+            if (inv.primaryStar != null && inv.primaryStar.getSolarLuminosity() != 0
+                    && inv.primaryStar.getSolarLuminosity() < 0.001) {
+                colony = Math.max(1, colony - 1);
+            }
+        }
+
         colony = Math.min(10, colony);
         if ("EXTREME".equals(c.getDangerRating())) colony = Math.max(1, colony - 3);
         if ("DEADLY".equals(c.getDangerRating())) colony = Math.max(1, colony - 2);
@@ -420,7 +450,10 @@ public class SystemClassifier {
         int xeno = 1;
         if (inv.biosignatureCount > 0) xeno += 4;
         if (inv.lifePotentialBodies > 0) xeno += 3;
-        if (inv.subsurfaceOceanMoons > 0) xeno += 3;
+        if (inv.subsurfaceOceanMoons >= 3) xeno += 3;
+        else if (inv.subsurfaceOceanMoons == 2) xeno += 2;
+        else if (inv.subsurfaceOceanMoons == 1) xeno += 1;
+        if (inv.subsurfaceHabitableCount > 0) xeno += 1;
         if (inv.habitableCount > 0) xeno += 2;
         if (inv.oceanWorldCount > 0) xeno += 1;
         if (inv.subsurfaceHabitableCount > 0) xeno += 2;
@@ -791,8 +824,24 @@ public class SystemClassifier {
         String evo = primary.getEvolutionaryStage();
         if (evo != null) {
             String evoDesc = switch (evo) {
-                case "EARLY_MAIN_SEQUENCE" -> ", still in its youth";
-                case "MID_MAIN_SEQUENCE" -> ", in the prime of its life";
+                case "EARLY_MAIN_SEQUENCE" -> {
+                    Double ageMY = primary.getAgeMY();
+                    if (ageMY != null && ageMY > 5000) {
+                        yield ", young relative to its immense lifespan";
+                    } else {
+                        yield ", still in its youth";
+                    }
+                }
+                case "MID_MAIN_SEQUENCE" -> {
+                    Double msFraction = primary.getMainSequenceFraction();
+                    if (msFraction != null && msFraction > 0.7) {
+                        yield ", mature and well past its midlife";
+                    } else if (msFraction != null && msFraction > 0.4) {
+                        yield ", in the prime of its life";
+                    } else {
+                        yield ", settled into a long stable burn";
+                    }
+                }
                 case "LATE_MAIN_SEQUENCE" -> ", approaching the end of its main sequence";
                 case "RED_GIANT_BRANCH" -> ", swollen into a red giant";
                 case "PRE_MAIN_SEQUENCE" -> ", still contracting toward the main sequence";
@@ -964,7 +1013,8 @@ public class SystemClassifier {
         } else if (maxInterest >= 5) {
             sb.append("Moderate interest for ").append(topFaction).append(".");
         } else if (maxInterest >= 3) {
-            sb.append("Low-priority. Possible use for ").append(topFaction).append(".");
+            sb.append("Low-priority. ").append(topFaction.substring(0, 1).toUpperCase())
+                    .append(topFaction.substring(1)).append(" teams may find limited value.");
         } else {
             sb.append("Negligible value. Log and move on.");
         }
@@ -1024,6 +1074,7 @@ public class SystemClassifier {
         boolean hasNeutronStar;
         boolean hasWhiteDwarf;
         boolean hasBrownDwarf;
+        boolean hasModerateActivity;
 
         int totalPlanets;
         int gasGiantCount;

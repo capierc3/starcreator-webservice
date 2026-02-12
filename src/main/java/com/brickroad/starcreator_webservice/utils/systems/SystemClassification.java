@@ -7,11 +7,6 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Post-processing analysis of a generated StarSystem.
- * Pure read-only summary — no new physics, just interpretation of existing data.
- * Stored as a transient on StarSystem (not persisted separately until needed).
- */
 @Getter
 @Setter
 public class SystemClassification {
@@ -27,7 +22,7 @@ public class SystemClassification {
     // ================================================================
     private String mineralRichness;       // BARREN, POOR, MODERATE, RICH, EXCEPTIONAL
     private String fuelAvailability;      // NONE, SCARCE, AVAILABLE, ABUNDANT
-    private String waterAccessibility;    // NONE, TRACE, AVAILABLE, ABUNDANT, OCEAN_WORLDS
+    private String waterAccessibility;    // NONE, ICE_LOCKED, TRACE, AVAILABLE, ABUNDANT, OCEAN_WORLDS
     private String volatileSupply;        // NONE, SCARCE, MODERATE, RICH (from ice/Kuiper belts)
     private String industrialPotential;   // NEGLIGIBLE, LOW, MODERATE, HIGH, EXCEPTIONAL
 

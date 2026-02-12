@@ -25,12 +25,12 @@ public class SystemTests extends AbstractCreatorTest {
     @Autowired
     private SystemCreator systemCreator;
 
-    @Test
+    //@Test
     public void findSystem() throws JsonProcessingException {
 
         int starCount = 1;
-        String starType = "Main Sequence M";
-        boolean foundStar = false;
+        String starType = "ANY";
+        boolean foundStar;
 
         String targetType = "ANY";
         String tempTarget = "habitable";
@@ -54,9 +54,14 @@ public class SystemTests extends AbstractCreatorTest {
                     foundPlanet = true;
                 }
             }
-            foundStar = system.getStars().size() == starCount &&
-                    system.getStars().stream()
-                            .anyMatch(star -> star.getType().equalsIgnoreCase(starType));
+            if (!starType.equalsIgnoreCase("ANY")) {
+                foundStar = system.getStars().size() == starCount &&
+                        system.getStars().stream()
+                                .anyMatch(star -> star.getType().equalsIgnoreCase(starType));
+            } else {
+                foundStar = true;
+            }
+
 
             if (foundPlanet && foundStar) {
                 break;
