@@ -254,7 +254,6 @@ public class BeltCreator {
             belt.setHasCollisionalFamilies(false);
         }
 
-        belt.setName(system.getName() + " Main Belt");
         belt.setDescription(generateBeltDescription(belt, beltType));
 
         generateNotableAsteroids(belt, beltType, primaryStar, arch);
@@ -340,7 +339,6 @@ public class BeltCreator {
             belt.setFamilyCount(RandomUtils.rollRange(1, 5));
         }
 
-        belt.setName(system.getName() + " Kuiper Belt");
         belt.setDescription(generateBeltDescription(belt, beltType));
 
         // Link any dwarf planets that fall within the belt
@@ -403,7 +401,6 @@ public class BeltCreator {
         belt.setHasResonanceGaps(false);
         belt.setHasCollisionalFamilies(false);
 
-        belt.setName(system.getName() + " Scattered Disk");
         belt.setDescription(generateBeltDescription(belt, beltType));
 
         // Generate 0-2 notable objects
@@ -566,8 +563,6 @@ public class BeltCreator {
 
         asteroid.setIsNotable(true);
         asteroid.setNotableReason(generateNotableReason(asteroid, rank, belt));
-
-        asteroid.setName(generateAsteroidName(belt, rank));
         asteroid.setDesignationCode(generateDesignationCode(rank));
 
         asteroid.setAgeMY(belt.getAgeMY());
@@ -784,21 +779,6 @@ public class BeltCreator {
         }
 
         return String.join("; ", reasons);
-    }
-
-    private String generateAsteroidName(Belt belt, int rank) {
-        String systemName = belt.getStarSystem().getName();
-
-        String[] romanNumerals = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
-        String numeral = rank <= romanNumerals.length ? romanNumerals[rank - 1] : String.valueOf(rank);
-
-        String beltShort = switch (belt.getBeltType().getCode()) {
-            case "KUIPER" -> "KU";
-            case "SCATTERED_DISK" -> "SD";
-            default -> "MB";
-        };
-
-        return systemName + " " + beltShort + "-" + numeral;
     }
 
     private String generateDesignationCode(int rank) {
