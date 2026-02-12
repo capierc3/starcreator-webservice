@@ -1,7 +1,9 @@
 package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ref.PlanetTypeRef;
+import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.repository.PlanetTypeRefRepository;
@@ -46,6 +48,11 @@ public class PlanetCreator {
     @Autowired
     private HabitabilityCreator habitabilityCreator;
 
+    @Autowired
+    private StarTypeRefRepository starTypeRefRepository;
+
+    private List<StarTypeRef> cachedStarTypes;
+
     private List<PlanetTypeRef> cachedPlanetTypes;
     private static final double VARIANCE = 0.15;
     private static final double MIN_VIABLE_PLANET_TEMP_K = 10.0;
@@ -57,6 +64,7 @@ public class PlanetCreator {
     @PostConstruct
     public void init() {
         cachedPlanetTypes = planetTypeRefRepository.findAllPlanetTypes();
+        cachedStarTypes = starTypeRefRepository.findAllStarTypes();
     }
 
     public Planet generateRandomPlanet() {
@@ -99,14 +107,31 @@ public class PlanetCreator {
             currentDistance = minStableDistanceAU * RandomUtils.rollRange(1.0, 1.2);
         } else {
             hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
-            currentDistance = RandomUtils.rollRange(0.1, 0.5);
-        };
+            double minFormation = 0.1;
+            StarTypeRef starTypeRef = findStarTypeRef(parentStar);
+            if (starTypeRef != null && starTypeRef.getMinPlanetFormationAu() != null) {
+                minFormation = starTypeRef.getMinPlanetFormationAu();
+            }
+
+            double maxFormation = 50.0;
+            if (starTypeRef != null && starTypeRef.getMaxPlanetFormationAu() != null) {
+                maxFormation = starTypeRef.getMaxPlanetFormationAu();
+            }
+
+            double startCeiling = maxFormation * RandomUtils.rollRange(0.008, 0.04);
+            startCeiling = Math.max(startCeiling, minFormation * 2.0);
+            currentDistance = RandomUtils.rollRange(minFormation, startCeiling);
+        }
         for (int i = 0; i < numPlanets; i++) {
             double estimatedTempK = TemperatureCalculator.calculatePlanetTemperature(parentStar, currentDistance, 0.3);
             if (estimatedTempK < MIN_VIABLE_PLANET_TEMP_K) {
                 break;
             }
             PlanetTypeRef type = selectPlanetTypeByTemp(currentDistance, frostLine, hz, parentStar, estimatedTempK);
+
+            if (type == null) {
+                break;
+            }
 
             Planet planet = generatePlanetByType(type, parentStar, i + 1, currentDistance);
             planets.add(planet);
@@ -117,10 +142,15 @@ public class PlanetCreator {
         return planets;
     }
 
-    private static double getMaxSystemDistance(Star parentStar) {
+    private double getMaxSystemDistance(Star parentStar) {
         double maxSystemDistance = 50.0;
+        StarTypeRef starTypeRef = findStarTypeRef(parentStar);
+        if (starTypeRef != null && starTypeRef.getMaxPlanetFormationAu() != null) {
+            maxSystemDistance = starTypeRef.getMaxPlanetFormationAu();
+        }
+
         if (parentStar.getSystem() != null && parentStar.getSystem().getSizeAu() != null) {
-            maxSystemDistance = parentStar.getSystem().getSizeAu();
+            maxSystemDistance = Math.min(maxSystemDistance, parentStar.getSystem().getSizeAu());
 
             BinaryConfiguration config = parentStar.getSystem().getBinaryConfiguration();
             if (config == BinaryConfiguration.S_TYPE_WIDE) {
@@ -526,10 +556,11 @@ public class PlanetCreator {
         if (!tempFilteredTypes.isEmpty()) {
             return selectFromList(tempFilteredTypes);
         }
-        return selectPlanetTypeByRarity();
+        return null;
     }
 
-    private double calculateNextOrbitDistance(double currentDistance, int planetIndex, int totalPlanets, double maxSystemDistance) {
+    private double calculateNextOrbitDistance(double currentDistance, int planetIndex,
+                                              int totalPlanets, double maxSystemDistance) {
 
         double remainingSpace = maxSystemDistance - currentDistance;
         int remainingPlanets = totalPlanets - planetIndex - 1;
@@ -539,7 +570,14 @@ public class PlanetCreator {
         }
 
         double targetSpacing = Math.pow(remainingSpace / currentDistance, 1.0 / (remainingPlanets + 1));
-        targetSpacing = Math.max(1.3, Math.min(2.0, targetSpacing));
+
+        // Wider spacing allowed in outer system (Titius-Bode pattern)
+        // Inner system: 1.3-2.0x, Outer system: 1.5-3.0x
+        double progressFraction = currentDistance / maxSystemDistance;
+        double minSpacing = 1.3 + (progressFraction * 0.2);  // 1.3 → 1.5
+        double maxSpacing = 2.0 + (progressFraction * 1.0);  // 2.0 → 3.0
+
+        targetSpacing = Math.max(minSpacing, Math.min(maxSpacing, targetSpacing));
         double spacing = targetSpacing * RandomUtils.rollRange(0.85, 1.15);
 
         double nextDistance = currentDistance * spacing;
@@ -618,6 +656,13 @@ public class PlanetCreator {
             this.innerEdge = inner;
             this.outerEdge = outer;
         }
+    }
+
+    private StarTypeRef findStarTypeRef(Star star) {
+        return cachedStarTypes.stream()
+                .filter(st -> st.getName().equals(star.getType()))
+                .findFirst()
+                .orElse(null);
     }
 
 }

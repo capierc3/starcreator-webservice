@@ -2,7 +2,9 @@ package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.utils.systems.SystemClassification;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.systems.SystemClassifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -24,13 +26,14 @@ public class SystemCreator {
     @Autowired
     private BeltCreator beltCreator;
 
+    @Autowired
+    private SystemClassifier systemClassifier;
+
     public StarSystem generateSystem() {
         StarSystem system = new StarSystem();
         Sector sector = new Sector();
-        sector.setName(generateRandomSectorName());
+        sector.setName("SCS-V01");
         system.setSector(sector);
-
-        system.setName(generateRandomSystemName());
 
         system.setX(RandomUtils.rollRange(-100, 100));
         system.setY(RandomUtils.rollRange(-100, 100));
@@ -46,7 +49,6 @@ public class SystemCreator {
 
         Set<Star> stars = generateStarsForConfiguration(config, system);
         system.setStars(stars);
-        assignStarNames(system, stars);
 
         if (starCount > 1) {
             calculateBinaryOrbitalPeriod(system, stars);
@@ -68,17 +70,21 @@ public class SystemCreator {
         List<Belt> belts = beltCreator.createBelts(system, primary);
         system.setBelts(belts);
 
+        SystemClassification classification = systemClassifier.classify(system);
+        system.setClassification(classification);
+        system.setDescription(classification.getScoutReport());
+
+        system.setName(sector.getName() + "-" + Integer.toString(RandomUtils.rollRange(0,46_655), Character.MAX_RADIX).toUpperCase());
+        assignStarNames(stars, system.getName());
         assignPlanetNames(planets);
-        system.setDescription(generateDescription(system));
+        assignBeltNames(system.getBelts(), system.getName());
 
         return system;
     }
 
-    private void assignStarNames(StarSystem system, Set<Star> stars) {
-        String systemName = system.getName();
-
+    private void assignStarNames(Set<Star> stars, String systemName) {
         if (stars.size() == 1) {
-            stars.iterator().next().setName(systemName);
+            stars.iterator().next().setName(systemName + " A");
         } else {
             List<Star> starList = new ArrayList<>(stars);
             starList.sort(Comparator.comparing(s -> s.getStarRole().ordinal()));
@@ -95,12 +101,12 @@ public class SystemCreator {
         for (CelestialBody body : planets) {
             if (body instanceof Planet planet) {
                 Star parentStar = planet.getParentStar();
-                Integer orbitalPosition = planet.getOrbitalPosition();
+                String planetName = planetPOSString(planet.getOrbitalPosition());
 
-                if (parentStar != null && parentStar.getName() != null && orbitalPosition != null) {
-                    planet.setName(parentStar.getName() + " " + orbitalPosition);
+                if (parentStar != null && parentStar.getName() != null) {
+                    planet.setName(parentStar.getName() + " " + planetName);
                     for (int i = 0; i < planet.getMoons().size(); i++) {
-                        planet.getMoons().get(i).setName(planet.getName() + "-" + numberToRoman((i + 1)));
+                        planet.getMoons().get(i).setName(planet.getName() + " " + numberToRoman((i + 1)));
                     }
                     for (int i = 0; i < planet.getRings().size(); i++) {
                         planet.getRings().get(i).setName(planet.getName() + " Ring " + (char) ('A' + i));
@@ -109,6 +115,26 @@ public class SystemCreator {
                     planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
                 }
             }
+        }
+    }
+
+    private void assignBeltNames(List<Belt> belts, String systemName) {
+        for (Belt belt : belts) {
+            belt.setName(switch (belt.getBeltType().getCode()) {
+                case "INNER_ROCKY" -> systemName + " IB-01";
+                case "OUTER_ROCKY" -> systemName + " OB-01";
+                case "KUIPER" -> systemName + " KB-01";
+                case "SCATTERED_DISK" -> systemName + " SD-01";
+                default -> "UB-01";
+            });
+            generateAsteroidNames(belt);
+        }
+    }
+
+    private void generateAsteroidNames(Belt belt) {
+        String baseName = belt.getName();
+        for (int i = 0; i < belt.getNotableAsteroids().size(); i++) {
+            belt.getNotableAsteroids().get(i).setName(baseName + " AST-" + String.format("%04d", i + 1));
         }
     }
 
@@ -225,14 +251,6 @@ public class SystemCreator {
         }
     }
 
-    private String generateRandomSystemName() {
-        return jdbcTemplate.queryForObject("SELECT suffix FROM ref.name_suffix ORDER BY RANDOM() LIMIT 1",String.class);
-    }
-
-    private String generateRandomSectorName() {
-        return jdbcTemplate.queryForObject("SELECT prefix FROM ref.name_prefix ORDER BY RANDOM() LIMIT 1",String.class);
-    }
-
     private int generateStarCount() {
         double roll = Math.random();
         if (roll < 0.70) return 1;  // 70% single star
@@ -277,73 +295,6 @@ public class SystemCreator {
 
         system.setHabitableLow(innerEdge);
         system.setHabitableHigh(outerEdge);
-    }
-
-    private String generateDescription(StarSystem system) {
-        BinaryConfiguration config = system.getBinaryConfiguration();
-        StringBuilder desc = new StringBuilder();
-
-        desc.append(config.getDescription()).append(". ");
-
-        if (config != BinaryConfiguration.SINGLE) {
-            desc.append(formatBinaryOrbitalInfo(system));
-        }
-
-        desc.append(formatHabitableZoneInfo(system, config));
-
-        return desc.toString();
-    }
-
-    private String formatBinaryOrbitalInfo(StarSystem system) {
-        BinaryConfiguration config = system.getBinaryConfiguration();
-
-        if (config == BinaryConfiguration.S_TYPE_CLOSE || config == BinaryConfiguration.P_TYPE) {
-            return String.format("Binary separation: %.2f AU (stars orbit common center of mass), orbital period: %.1f days. ",
-                    system.getBinarySeparationAu(),
-                    system.getBinaryOrbitalPeriodDays());
-        } else {
-            return String.format("Binary separation: %.2f AU (secondary orbits primary), orbital period: %.1f days. ",
-                    system.getBinarySeparationAu(),
-                    system.getBinaryOrbitalPeriodDays());
-        }
-    }
-
-    private String formatHabitableZoneInfo(StarSystem system, BinaryConfiguration config) {
-        if (config == BinaryConfiguration.S_TYPE_WIDE) {
-            return formatWideBinaryHabitableZones(system);
-        } else {
-            return formatStandardHabitableZone(system);
-        }
-    }
-
-    private String formatWideBinaryHabitableZones(StarSystem system) {
-        StringBuilder zones = new StringBuilder();
-        zones.append("Both stars can host independent planetary systems. ");
-        zones.append(String.format("Primary habitable zone: %.2f to %.2f AU. ",
-                system.getHabitableLow(),
-                system.getHabitableHigh()));
-
-        // Calculate and show secondary's zone
-        Star secondary = system.getStars().stream()
-                .filter(s -> s.getStarRole() == Star.StarRole.SECONDARY)
-                .findFirst()
-                .orElse(null);
-
-        if (secondary != null) {
-            double secLuminosity = secondary.getSolarLuminosity();
-            double secInner = Math.sqrt(secLuminosity / 1.1);
-            double secOuter = Math.sqrt(secLuminosity / 0.53);
-            zones.append(String.format("Secondary habitable zone: %.2f to %.2f AU.",
-                    secInner, secOuter));
-        }
-
-        return zones.toString();
-    }
-
-    private String formatStandardHabitableZone(StarSystem system) {
-        return String.format("Habitable zone: %.2f to %.2f AU.",
-                system.getHabitableLow(),
-                system.getHabitableHigh());
     }
 
     private List<CelestialBody> generatePlanetsForSystem(StarSystem system, Set<Star> stars, BinaryConfiguration config) {
@@ -417,11 +368,6 @@ public class SystemCreator {
         return planets;
     }
 
-    private double calculateOrbitalPeriod(double semiMajorAxisAU, double starMassSolar) {
-        double periodYears = Math.sqrt(Math.pow(semiMajorAxisAU, 3) / starMassSolar);
-        return periodYears * 365.25; // Convert to days
-    }
-
     public static String numberToRoman(int number) {
         int[] values = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
         String[] numerals = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
@@ -435,6 +381,20 @@ public class SystemCreator {
             }
         }
         return roman.toString();
+    }
+
+    public static String planetPOSString(int n) {
+        if (n < 0) throw new IllegalArgumentException("Negative numbers not supported");
+
+        StringBuilder sb = new StringBuilder();
+        int base = 25;
+        do {
+            int remainder = n % base;
+            sb.insert(0, (char)('a' + remainder));
+            n = n / base - 1;
+        } while (n >= 0);
+
+        return sb.toString();
     }
 
 

@@ -1095,7 +1095,7 @@ public class HabitabilityCreator {
             hClass = HabitabilityClass.HABITABLE_MARGINAL;
         } else if (score >= 40 && (Boolean.TRUE.equals(hab.getSurfaceLiquidWaterPossible()) || "MODERATE".equals(hab.getBiosignaturePotential()) || "HIGH".equals(hab.getBiosignaturePotential()))) {
             hClass = HabitabilityClass.BIOSPHERE_POSSIBLE;
-        } else if (Boolean.TRUE.equals(hab.getSubsurfaceOceanPossible())) {
+        } else if (Boolean.TRUE.equals(hab.getSubsurfaceOceanPossible()) && hasSubsurfaceEnergy(hab, planet)) {
             hClass = HabitabilityClass.SUBSURFACE_HABITABLE;
         } else if (isInHabitableZone(planet) && "STERILIZING".equals(uvLevel)) {
             hClass = HabitabilityClass.STERILIZED;
@@ -1401,6 +1401,7 @@ public class HabitabilityCreator {
         return planetType.contains("gas giant") || planetType.contains("ice giant")
                 || planetType.contains("hot jupiter") || planetType.contains("super-jupiter")
                 || planetType.contains("mini-neptune") || planetType.contains("sub-neptune")
+                || planetType.contains("warm neptune") || planetType.contains("hot neptune")
                 || planetType.contains("puffy");
     }
 
@@ -1422,6 +1423,24 @@ public class HabitabilityCreator {
         if (!Boolean.TRUE.equals(hab.getMagneticProtectionAdequate()))
             return "Insufficient magnetic protection";
         return "Multiple limiting factors";
+    }
+
+    private boolean hasSubsurfaceEnergy(PlanetaryHabitability hab, Planet planet) {
+        // Plate tectonics = strong geological energy cycling
+        if (Boolean.TRUE.equals(planet.getHasPlateTectonics())) {
+            return true;
+        }
+
+        // Require moderate+ geological activity — Low Activity (rare volcanism)
+        // isn't enough to sustain a subsurface ocean over geological timescales
+        String geoActivity = planet.getGeologicalActivity() != null
+                ? planet.getGeologicalActivity() : "";
+        if (geoActivity.contains("Moderately") || geoActivity.contains("Highly")) {
+            return true;
+        }
+
+        // Sufficient geothermal flux (raised to 30 mW/m²)
+        return hab.getGeothermalHeatFluxMwM2() != null && hab.getGeothermalHeatFluxMwM2() > 30.0;
     }
 
     private double clamp01(double value) {

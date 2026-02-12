@@ -49,6 +49,7 @@ public class PlanetData {
     private static final Map<String, Integer> GEOLOGICAL_ACTIVITY = new HashMap<>();
     private static final Map<String, Integer> TECTONIC_LEVELS = new HashMap<>();
     private static final Map<String, Integer> VOLCANISM_TYPES = new HashMap<>();
+    private static final Map<String, PlanetTypeBreakdown> PER_TYPE_DATA = new HashMap<>();
     private static double totalMass = 0;
     private static double totalRadius = 0;
     private static double totalGravity = 0;
@@ -57,6 +58,27 @@ public class PlanetData {
 
     static void analyzeData(Planet planet, ProbabilityCounts counts) {
         PLANET_TYPES.put(planet.getPlanetType(), PLANET_TYPES.getOrDefault(planet.getPlanetType(), 0) + 1);
+
+        // --- Per-type breakdown ---
+                PlanetTypeBreakdown typeData = PER_TYPE_DATA.computeIfAbsent(planet.getPlanetType(), k -> new PlanetTypeBreakdown());
+        typeData.increment();
+        typeData.addCompositionClass(planet.getCompositionClassification() != null ? planet.getCompositionClassification() : "NULL");
+        if (planet.getSurfaceTemp() != null) {
+            typeData.addSurfaceTempBin(binTemperature(planet.getSurfaceTemp()));
+        }
+        typeData.addAtmosphereClass(planet.getAtmosphereClassification() != null ? planet.getAtmosphereClassification() : "NULL");
+        typeData.addHzPosition(planet.getHabitableZonePosition() != null ? planet.getHabitableZonePosition() : "unknown");
+        if (Boolean.TRUE.equals(planet.getTidallyLocked())) typeData.addTidallyLocked();
+        if (Boolean.TRUE.equals(planet.getHasRings())) typeData.addRings();
+        if (planet.getEarthMass() != null) {
+            typeData.addMassBin(binMass(planet.getEarthMass()));
+            typeData.addPhysicalProps(
+                    planet.getEarthMass(),
+                    planet.getEarthRadius() != null ? planet.getEarthRadius() : 0,
+                    planet.getSurfaceGravity() != null ? planet.getSurfaceGravity() : 0,
+                    planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 0);
+        }
+        typeData.addMoonCountBin(binMoonCount(planet.getMoons().size()));
 
         // --- NEW: Composition classification ---
         String compClass = planet.getCompositionClassification() != null ? planet.getCompositionClassification() : "NULL";
@@ -70,6 +92,7 @@ public class PlanetData {
             planetsWithGeology++;
             GEOLOGICAL_ACTIVITY.put(planet.getGeologicalActivity(),
                     GEOLOGICAL_ACTIVITY.getOrDefault(planet.getGeologicalActivity(), 0) + 1);
+            typeData.addGeologicalActivity(planet.getGeologicalActivity());
             if (planet.getTectonicActivityLevel() != null) {
                 TECTONIC_LEVELS.put(planet.getTectonicActivityLevel(),
                         TECTONIC_LEVELS.getOrDefault(planet.getTectonicActivityLevel(), 0) + 1);
@@ -114,6 +137,7 @@ public class PlanetData {
         if (mf != null) {
             String protection = mf.getProtectionLevel() != null ? mf.getProtectionLevel().name() : "NULL";
             PROTECTION_LEVELS.put(protection, PROTECTION_LEVELS.getOrDefault(protection, 0) + 1);
+            typeData.addProtectionLevel(protection);
 
             String auroraFreq = mf.getAuroralFrequency() != null ? mf.getAuroralFrequency().name() : "NONE";
             AURORAL_FREQUENCIES.put(auroraFreq, AURORAL_FREQUENCIES.getOrDefault(auroraFreq, 0) + 1);
@@ -203,6 +227,8 @@ public class PlanetData {
         String inventory = planet.getWaterInventory() != null ?
                 planet.getWaterInventory() : "NULL";
         WATER_INVENTORIES.put(inventory, WATER_INVENTORIES.getOrDefault(inventory, 0) + 1);
+        PlanetTypeBreakdown typeData = PER_TYPE_DATA.get(planet.getPlanetType());
+        if (typeData != null) typeData.addWaterInventory(inventory);
 
         Double liquidPct = planet.getLiquidWaterCoveragePercent();
         Double icePct = planet.getIceCoveragePercent();
@@ -220,6 +246,9 @@ public class PlanetData {
 
         String habClass = hab.getHabitabilityClass() != null ? hab.getHabitabilityClass().name() : "NULL";
         HABITABILITY_CLASSES.put(habClass, HABITABILITY_CLASSES.getOrDefault(habClass, 0) + 1);
+
+        PlanetTypeBreakdown typeData = PER_TYPE_DATA.get(planet.getPlanetType());
+        if (typeData != null) typeData.addHabitabilityClass(habClass);
 
         String colSuit = hab.getColonizationSuitability() != null ? hab.getColonizationSuitability().name() : "NULL";
         COLONIZATION_SUITABILITIES.put(colSuit, COLONIZATION_SUITABILITIES.getOrDefault(colSuit, 0) + 1);
@@ -258,7 +287,8 @@ public class PlanetData {
         }
         writer.println("");
 
-        ReportUtils.printSortedTable(writer, PLANET_TYPES, counts.getPlanetCount(), "Planet Type");
+        ReportUtils.printLinkedTable(writer, PLANET_TYPES, counts.getPlanetCount(), "Planet Type");
+        printPerTypeBreakdown(writer);
 
         // --- NEW: Composition Classification ---
         ReportUtils.printSubSection(writer, "Composition Classification");
@@ -446,6 +476,39 @@ public class PlanetData {
 
         ReportUtils.printSubSection(writer, "Life Complexity Potential");
         ReportUtils.printSortedTable(writer, LIFE_COMPLEXITY_POTENTIALS, habAssessmentCount, "Potential");
+    }
+
+    private static void printPerTypeBreakdown(PrintWriter writer) {
+        ReportUtils.printSection(writer, "Per-Planet-Type Breakdown");
+        writer.println("*Detailed breakdown of key properties for each planet type*");
+        writer.println("");
+
+        // Print in order of count (most common first)
+        PER_TYPE_DATA.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue().getCount(), a.getValue().getCount()))
+                .forEach(entry -> entry.getValue().print(writer, entry.getKey()));
+    }
+
+    private static String binMass(double earthMass) {
+        if (earthMass < 0.01) return "01: <0.01 (asteroid-class)";
+        if (earthMass < 0.1) return "02: 0.01-0.1 (sub-dwarf)";
+        if (earthMass < 0.5) return "03: 0.1-0.5 (sub-Earth)";
+        if (earthMass < 2.0) return "04: 0.5-2.0 (Earth-class)";
+        if (earthMass < 10) return "05: 2-10 (super-Earth)";
+        if (earthMass < 50) return "06: 10-50 (Neptune-class)";
+        if (earthMass < 300) return "07: 50-300 (sub-Jupiter)";
+        if (earthMass < 1000) return "08: 300-1000 (Jupiter-class)";
+        return "09: 1000+ (super-Jupiter)";
+    }
+
+    private static String binMoonCount(int count) {
+        if (count == 0) return "0";
+        if (count <= 2) return "1-2";
+        if (count <= 5) return "3-5";
+        if (count <= 10) return "6-10";
+        if (count <= 25) return "11-25";
+        if (count <= 50) return "26-50";
+        return "51+";
     }
 
     private static boolean isRockyType(String planetType) {
