@@ -73,7 +73,7 @@ public class HtmlReportUtils {
 
     static void printSection(PrintWriter w, String title) {
         w.println("<hr>");
-        w.println("<h2>" + esc(title) + "</h2>");
+        w.println("<h2 id=\"" + toAnchor(title) + "\">" + esc(title) + "</h2>");
     }
 
     static void printSubSection(PrintWriter w, String title) {
@@ -84,14 +84,20 @@ public class HtmlReportUtils {
         w.println("<h4>" + esc(title) + "</h4>");
     }
 
+    /**
+     * Collapsible section with an id on the details element for TOC navigation.
+     * The id is derived from the title so that #anchor links scroll to this section.
+     */
     static void beginCollapsible(PrintWriter w, String title, int headingLevel) {
-        w.println("<details class=\"section\">");
+        String id = toAnchor(title);
+        w.println("<details class=\"section\" id=\"" + id + "\">");
         w.println("<summary><h" + headingLevel + ">" + esc(title) + "</h" + headingLevel + "></summary>");
         w.println("<div class=\"section-body\">");
     }
 
     static void beginCollapsibleOpen(PrintWriter w, String title, int headingLevel) {
-        w.println("<details class=\"section\" open>");
+        String id = toAnchor(title);
+        w.println("<details class=\"section\" id=\"" + id + "\" open>");
         w.println("<summary><h" + headingLevel + ">" + esc(title) + "</h" + headingLevel + "></summary>");
         w.println("<div class=\"section-body\">");
     }
@@ -123,7 +129,7 @@ public class HtmlReportUtils {
 
     // ── Page Template ──
 
-    static void printPageHeader(PrintWriter w) {
+    static void printPageHeader(PrintWriter w, String headerImagePath) {
         w.println("<!DOCTYPE html>");
         w.println("<html lang=\"en\">");
         w.println("<head>");
@@ -135,11 +141,31 @@ public class HtmlReportUtils {
         w.println("</style>");
         w.println("</head>");
         w.println("<body>");
-        w.println("<div class=\"container\">");
+
+        // Header image banner (full width, above the grid layout)
+        if (headerImagePath != null) {
+            w.println("<div class=\"hero-banner\">");
+            w.println("<img src=\"" + esc(headerImagePath) + "\" alt=\"Star Creator API\">");
+            w.println("</div>");
+        }
+
+        // Page grid: sidebar TOC + main content
+        w.println("<div class=\"page-grid\">");
+
+        // Sidebar TOC (will be populated in the test class)
+        w.println("<aside class=\"toc-sidebar\" id=\"toc-sidebar\">");
+        // TOC content injected by HtmlProbabilityReportTest.printSidebarToc()
+    }
+
+    /** Call after TOC <li> items have been written. Opens the main content area. */
+    static void beginMainContent(PrintWriter w) {
+        w.println("</aside>"); // close toc-sidebar
+        w.println("<main class=\"main-content\">");
     }
 
     static void printPageFooter(PrintWriter w) {
-        w.println("</div>"); // container
+        w.println("</main>"); // close main-content
+        w.println("</div>");  // close page-grid
         w.println("<script>");
         w.println(JS);
         w.println("</script>");
@@ -147,7 +173,9 @@ public class HtmlReportUtils {
         w.println("</html>");
     }
 
-    // ── CSS ──
+    // ═══════════════════════════════════════════════════════════════
+    //  CSS
+    // ═══════════════════════════════════════════════════════════════
 
     static final String CSS = """
             :root {
@@ -163,8 +191,10 @@ public class HtmlReportUtils {
               --green: #4cd080;
               --red: #f06060;
               --cyan: #40d8d8;
+              --toc-width: 240px;
             }
             * { margin: 0; padding: 0; box-sizing: border-box; }
+            html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
             body {
               font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
               background: var(--bg);
@@ -172,12 +202,95 @@ public class HtmlReportUtils {
               line-height: 1.6;
               min-height: 100vh;
             }
-            .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
 
-            /* Header */
+            /* ── Hero Banner ── */
+            .hero-banner {
+              width: 100%;
+              background: var(--surface);
+              border-bottom: 1px solid var(--border);
+              text-align: center;
+              overflow: hidden;
+            }
+            .hero-banner img {
+              width: 100%;
+              max-height: 280px;
+              object-fit: cover;
+              display: block;
+            }
+
+            /* ── Page Grid: Sidebar + Content ── */
+            .page-grid {
+              display: grid;
+              grid-template-columns: var(--toc-width) 1fr;
+              max-width: 1400px;
+              margin: 0 auto;
+              gap: 0;
+            }
+
+            /* ── Sidebar TOC ── */
+            .toc-sidebar {
+              position: sticky;
+              top: 0;
+              height: 100vh;
+              overflow-y: auto;
+              padding: 1.2rem 0 2rem 1rem;
+              background: var(--surface);
+              border-right: 1px solid var(--border);
+              scrollbar-width: thin;
+              scrollbar-color: var(--border) transparent;
+              z-index: 50;
+            }
+            .toc-sidebar::-webkit-scrollbar { width: 5px; }
+            .toc-sidebar::-webkit-scrollbar-track { background: transparent; }
+            .toc-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+            .toc-sidebar .toc-title {
+              font-size: 0.75rem;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              color: var(--text-muted);
+              padding: 0 0.6rem 0.8rem;
+              border-bottom: 1px solid var(--border);
+              margin-bottom: 0.5rem;
+            }
+            .toc-sidebar ol {
+              list-style: none;
+              padding: 0;
+              margin: 0;
+            }
+            .toc-sidebar li { margin: 0; }
+            .toc-sidebar a {
+              display: block;
+              padding: 0.35rem 0.6rem 0.35rem 0.8rem;
+              color: var(--text-muted);
+              text-decoration: none;
+              font-size: 0.82rem;
+              border-left: 2px solid transparent;
+              transition: all 0.15s ease;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .toc-sidebar a:hover {
+              color: var(--text);
+              background: rgba(78, 140, 255, 0.06);
+            }
+            .toc-sidebar a.active {
+              color: var(--accent);
+              border-left-color: var(--accent);
+              background: rgba(78, 140, 255, 0.08);
+              font-weight: 600;
+            }
+
+            /* ── Main Content ── */
+            .main-content {
+              padding: 2rem 2.5rem;
+              min-width: 0;
+            }
+
+            /* Header Card */
             .report-header {
               text-align: center;
-              padding: 3rem 2rem;
+              padding: 2.5rem 2rem;
               margin-bottom: 2rem;
               background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
               border: 1px solid var(--border);
@@ -192,7 +305,7 @@ public class HtmlReportUtils {
               background: linear-gradient(90deg, var(--accent), var(--accent2), var(--cyan));
             }
             .report-header h1 {
-              font-size: 2.2rem;
+              font-size: 2rem;
               font-weight: 700;
               background: linear-gradient(135deg, var(--accent), var(--cyan));
               -webkit-background-clip: text;
@@ -208,43 +321,29 @@ public class HtmlReportUtils {
             /* Stats Grid */
             .stats-grid {
               display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-              gap: 1rem;
+              grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+              gap: 0.8rem;
               margin: 1.5rem 0;
             }
             .stat-card {
               background: var(--surface);
               border: 1px solid var(--border);
               border-radius: 10px;
-              padding: 1rem 1.2rem;
+              padding: 0.8rem 1rem;
               text-align: center;
             }
             .stat-card .stat-value {
-              font-size: 1.6rem;
+              font-size: 1.5rem;
               font-weight: 700;
               color: var(--accent);
               display: block;
             }
             .stat-card .stat-label {
-              font-size: 0.78rem;
+              font-size: 0.72rem;
               color: var(--text-muted);
               text-transform: uppercase;
               letter-spacing: 0.5px;
             }
-
-            /* TOC */
-            .toc {
-              background: var(--surface);
-              border: 1px solid var(--border);
-              border-radius: 12px;
-              padding: 1.5rem 2rem;
-              margin-bottom: 2rem;
-            }
-            .toc h2 { font-size: 1.1rem; color: var(--accent); margin-bottom: 0.8rem; }
-            .toc ol { padding-left: 1.5rem; }
-            .toc li { margin: 0.3rem 0; }
-            .toc a { color: var(--text); text-decoration: none; transition: color 0.2s; }
-            .toc a:hover { color: var(--accent); }
 
             /* Sections */
             hr {
@@ -264,6 +363,7 @@ public class HtmlReportUtils {
               border-radius: 12px;
               margin: 1rem 0;
               overflow: hidden;
+              scroll-margin-top: 1rem;
             }
             details.section > summary {
               cursor: pointer;
@@ -373,36 +473,152 @@ public class HtmlReportUtils {
             .xref-table td { text-align: center; }
             .xref-table td:first-child { text-align: left; }
 
-            /* Responsive */
-            @media (max-width: 768px) {
-              .container { padding: 1rem; }
-              .report-header { padding: 2rem 1rem; }
-              .report-header h1 { font-size: 1.6rem; }
-              .stats-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.6rem; }
+            /* ── Responsive ── */
+            @media (max-width: 900px) {
+              .page-grid {
+                grid-template-columns: 1fr;
+              }
+              .toc-sidebar {
+                position: fixed;
+                left: -280px;
+                top: 0;
+                width: 280px;
+                height: 100vh;
+                transition: left 0.3s ease;
+                box-shadow: 4px 0 20px rgba(0,0,0,0.5);
+              }
+              .toc-sidebar.open { left: 0; }
+              .toc-toggle {
+                display: flex !important;
+              }
+              .main-content { padding: 1.5rem 1rem; }
+              .hero-banner img { max-height: 180px; }
+            }
+            @media (min-width: 901px) {
+              .toc-toggle { display: none !important; }
+            }
+            @media (max-width: 600px) {
+              .stats-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; }
               table { font-size: 0.8rem; }
               .bar-col { display: none; }
+              .report-header h1 { font-size: 1.4rem; }
+              .report-header { padding: 1.5rem 1rem; }
             }
             """;
 
-    // ── JS (expand/collapse all) ──
+    // ═══════════════════════════════════════════════════════════════
+    //  JS — IntersectionObserver active section tracking + expand/collapse
+    // ═══════════════════════════════════════════════════════════════
 
     static final String JS = """
             document.addEventListener('DOMContentLoaded', () => {
-              const container = document.querySelector('.container');
-              const btn = document.createElement('button');
-              btn.textContent = 'Expand All';
-              btn.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;padding:0.6rem 1.2rem;' +
+              // ── Expand/Collapse All button ──
+              const expandBtn = document.createElement('button');
+              expandBtn.textContent = 'Expand All';
+              expandBtn.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;padding:0.6rem 1.2rem;' +
                 'background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;' +
                 'font-size:0.85rem;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:background 0.2s;';
-              btn.addEventListener('mouseenter', () => btn.style.background = 'var(--accent2)');
-              btn.addEventListener('mouseleave', () => btn.style.background = 'var(--accent)');
+              expandBtn.addEventListener('mouseenter', () => expandBtn.style.background = 'var(--accent2)');
+              expandBtn.addEventListener('mouseleave', () => expandBtn.style.background = 'var(--accent)');
               let expanded = false;
-              btn.addEventListener('click', () => {
+              expandBtn.addEventListener('click', () => {
                 expanded = !expanded;
                 document.querySelectorAll('details.section').forEach(d => d.open = expanded);
-                btn.textContent = expanded ? 'Collapse All' : 'Expand All';
+                expandBtn.textContent = expanded ? 'Collapse All' : 'Expand All';
               });
-              document.body.appendChild(btn);
+              document.body.appendChild(expandBtn);
+
+              // ── Mobile TOC toggle ──
+              const tocToggle = document.createElement('button');
+              tocToggle.className = 'toc-toggle';
+              tocToggle.innerHTML = '&#9776;';
+              tocToggle.style.cssText = 'position:fixed;top:0.8rem;left:0.8rem;padding:0.4rem 0.7rem;' +
+                'background:var(--surface2);color:var(--accent);border:1px solid var(--border);' +
+                'border-radius:6px;cursor:pointer;font-size:1.2rem;z-index:200;display:none;';
+              const sidebar = document.getElementById('toc-sidebar');
+              tocToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+              document.body.appendChild(tocToggle);
+              // Close sidebar on link click (mobile)
+              sidebar.querySelectorAll('a').forEach(a => {
+                a.addEventListener('click', () => sidebar.classList.remove('open'));
+              });
+
+              // ── TOC click: auto-open the target details section ──
+              sidebar.querySelectorAll('a[href^="#"]').forEach(link => {
+                link.addEventListener('click', (e) => {
+                  const targetId = link.getAttribute('href').substring(1);
+                  const target = document.getElementById(targetId);
+                  if (target && target.tagName === 'DETAILS') {
+                    target.open = true;
+                  }
+                });
+              });
+
+              // ── IntersectionObserver: highlight active TOC link ──
+              const tocLinks = sidebar.querySelectorAll('a[href^="#"]');
+              const sectionIds = Array.from(tocLinks).map(a => a.getAttribute('href').substring(1));
+              const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+
+              if (sections.length === 0) return;
+
+              let activeLink = null;
+              function setActive(id) {
+                if (activeLink) activeLink.classList.remove('active');
+                const link = sidebar.querySelector('a[href="#' + id + '"]');
+                if (link) {
+                  link.classList.add('active');
+                  activeLink = link;
+                  // Scroll TOC sidebar to keep active link visible
+                  const sidebarRect = sidebar.getBoundingClientRect();
+                  const linkRect = link.getBoundingClientRect();
+                  if (linkRect.top < sidebarRect.top || linkRect.bottom > sidebarRect.bottom) {
+                    link.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                  }
+                }
+              }
+
+              const observer = new IntersectionObserver((entries) => {
+                // Find the topmost visible section
+                let best = null;
+                let bestTop = Infinity;
+                entries.forEach(entry => {
+                  if (entry.isIntersecting) {
+                    const top = entry.boundingClientRect.top;
+                    if (top < bestTop) {
+                      bestTop = top;
+                      best = entry.target;
+                    }
+                  }
+                });
+                if (best) setActive(best.id);
+              }, {
+                rootMargin: '-10% 0px -70% 0px',
+                threshold: 0
+              });
+
+              // Also track scroll to handle sections that are already in view
+              // when the observer thresholds don't trigger (e.g. large sections)
+              let ticking = false;
+              window.addEventListener('scroll', () => {
+                if (ticking) return;
+                ticking = true;
+                requestAnimationFrame(() => {
+                  let current = null;
+                  for (const section of sections) {
+                    const rect = section.getBoundingClientRect();
+                    if (rect.top <= window.innerHeight * 0.3) {
+                      current = section;
+                    }
+                  }
+                  if (current) setActive(current.id);
+                  ticking = false;
+                });
+              });
+
+              sections.forEach(s => observer.observe(s));
+
+              // Set initial active
+              if (sections.length > 0) setActive(sections[0].id);
             });
             """;
 }

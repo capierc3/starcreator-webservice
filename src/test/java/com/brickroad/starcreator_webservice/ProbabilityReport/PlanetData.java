@@ -800,7 +800,7 @@ public class PlanetData {
 
     private static void printHtmlAtmosphereData(PrintWriter w, ProbabilityCounts counts) {
         w.println("<hr>");
-        HtmlReportUtils.beginCollapsible(w, "Atmosphere &amp; Magnetic Fields", 2);
+        HtmlReportUtils.beginCollapsible(w, "Atmosphere & Magnetic Fields", 2);
 
         HtmlReportUtils.printSubSection(w, "Atmosphere Classifications (All Planets)");
         HtmlReportUtils.printSortedTable(w, ATMOSPHERE_CLASSIFICATIONS, counts.getPlanetCount(), "Classification");
