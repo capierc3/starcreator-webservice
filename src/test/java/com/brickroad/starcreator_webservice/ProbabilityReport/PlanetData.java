@@ -57,29 +57,36 @@ public class PlanetData {
     private static int physicalPropsCount = 0;
     private static int planetsWithGeology = 0;
 
-    // --- Weather tracking ---
-    private static int planetsWithWeather = 0;
-    private static final Map<String, Integer> WEATHER_SKY_COLORS = new HashMap<>();
-    private static final Map<String, Integer> WEATHER_CLOUD_COVERAGE_CLASS = new HashMap<>();
-    private static final Map<String, Integer> WEATHER_WIND_INTENSITY = new HashMap<>();
-    private static final Map<String, Integer> WEATHER_STORM_FREQUENCY = new HashMap<>();
-    private static final Map<String, Integer> WEATHER_SEVERITY = new HashMap<>();
-    private static final Map<String, Integer> WEATHER_EXPOSURE_RATING = new HashMap<>();
-    private static final Map<String, Integer> WEATHER_CIRCULATION_PATTERN = new HashMap<>();
-    private static final Map<String, Integer> WEATHER_LIGHTNING_TYPE = new HashMap<>();
-    private static final Map<String, Integer> WEATHER_TIDAL_RANGE_BINS = new HashMap<>();
-    private static int planetsWithPrecipitation = 0;
-    private static int planetsWithDustStorms = 0;
-    private static int planetsWithLightning = 0;
-    private static int planetsWithSuperRotation = 0;
-    private static int planetsWithGreatDarkSpot = 0;
-    private static double totalCloudCoverage = 0;
-    private static double totalWindSpeed = 0;
-    private static int windSpeedCount = 0;
-    private static int cloudLayerTotal = 0;
-    private static int precipTypeTotal = 0;
-    private static int extremeEventTotal = 0;
-    private static int eclipseTotal = 0;
+    // --- Weather tracking (split: all / surface / gas) ---
+    /** Holds all weather counters for a category of planets. */
+    static class WeatherBucket {
+        int count = 0;
+        final Map<String, Integer> skyColors = new HashMap<>();
+        final Map<String, Integer> cloudCoverageClass = new HashMap<>();
+        final Map<String, Integer> windIntensity = new HashMap<>();
+        final Map<String, Integer> stormFrequency = new HashMap<>();
+        final Map<String, Integer> severity = new HashMap<>();
+        final Map<String, Integer> exposureRating = new HashMap<>();
+        final Map<String, Integer> circulationPattern = new HashMap<>();
+        final Map<String, Integer> lightningType = new HashMap<>();
+        final Map<String, Integer> tidalRangeBins = new HashMap<>();
+        int withPrecipitation = 0;
+        int withDustStorms = 0;
+        int withLightning = 0;
+        int withSuperRotation = 0;
+        int withGreatDarkSpot = 0;
+        double totalCloudCoverage = 0;
+        double totalWindSpeed = 0;
+        int windSpeedCount = 0;
+        int cloudLayerTotal = 0;
+        int precipTypeTotal = 0;
+        int extremeEventTotal = 0;
+        int eclipseTotal = 0;
+    }
+
+    private static final WeatherBucket WEATHER_ALL = new WeatherBucket();
+    private static final WeatherBucket WEATHER_SURFACE = new WeatherBucket();
+    private static final WeatherBucket WEATHER_GAS = new WeatherBucket();
 
     static void analyzeData(Planet planet, ProbabilityCounts counts) {
         PLANET_TYPES.put(planet.getPlanetType(), PLANET_TYPES.getOrDefault(planet.getPlanetType(), 0) + 1);
@@ -296,74 +303,74 @@ public class PlanetData {
         WATER_PHASES.put(waterPhase, WATER_PHASES.getOrDefault(waterPhase, 0) + 1);
     }
 
+    private static boolean isGasType(String planetType) {
+        if (planetType == null) return false;
+        return planetType.contains("Gas Giant") || planetType.contains("Ice Giant")
+                || planetType.contains("Hot Jupiter") || planetType.contains("Hot Neptune")
+                || planetType.contains("Sub-Neptune") || planetType.contains("Mini-Neptune");
+    }
+
     private static void analyzeWeatherData(Planet planet) {
         PlanetaryWeather w = planet.getWeather();
         if (w == null) return;
 
-        planetsWithWeather++;
+        // Determine which split bucket
+        WeatherBucket split = isGasType(planet.getPlanetType()) ? WEATHER_GAS : WEATHER_SURFACE;
 
-        // Sky color
-        String skyColor = w.getSkyColor() != null ? w.getSkyColor() : "NULL";
-        WEATHER_SKY_COLORS.put(skyColor, WEATHER_SKY_COLORS.getOrDefault(skyColor, 0) + 1);
+        // Populate both the combined (ALL) and the split bucket
+        for (WeatherBucket bucket : new WeatherBucket[]{WEATHER_ALL, split}) {
+            bucket.count++;
 
-        // Cloud coverage class
-        String cloudClass = w.getCloudCoverageClass() != null ? w.getCloudCoverageClass() : "NULL";
-        WEATHER_CLOUD_COVERAGE_CLASS.put(cloudClass, WEATHER_CLOUD_COVERAGE_CLASS.getOrDefault(cloudClass, 0) + 1);
+            String skyColor = w.getSkyColor() != null ? w.getSkyColor() : "NULL";
+            bucket.skyColors.merge(skyColor, 1, Integer::sum);
 
-        if (w.getCloudCoveragePercent() != null) {
-            totalCloudCoverage += w.getCloudCoveragePercent();
+            String cloudClass = w.getCloudCoverageClass() != null ? w.getCloudCoverageClass() : "NULL";
+            bucket.cloudCoverageClass.merge(cloudClass, 1, Integer::sum);
+
+            if (w.getCloudCoveragePercent() != null) bucket.totalCloudCoverage += w.getCloudCoveragePercent();
+
+            String wind = w.getWindIntensity() != null ? w.getWindIntensity() : "NULL";
+            bucket.windIntensity.merge(wind, 1, Integer::sum);
+
+            if (w.getMeanSurfaceWindSpeedMs() != null) {
+                bucket.totalWindSpeed += w.getMeanSurfaceWindSpeedMs();
+                bucket.windSpeedCount++;
+            }
+
+            String circulation = w.getCirculationPattern() != null ? w.getCirculationPattern() : "NULL";
+            bucket.circulationPattern.merge(circulation, 1, Integer::sum);
+
+            if (Boolean.TRUE.equals(w.getHasSuperRotation())) bucket.withSuperRotation++;
+
+            String stormFreq = w.getStormFrequency() != null ? w.getStormFrequency() : "NULL";
+            bucket.stormFrequency.merge(stormFreq, 1, Integer::sum);
+
+            if (Boolean.TRUE.equals(w.getHasDustStorms())) bucket.withDustStorms++;
+            if (Boolean.TRUE.equals(w.getHasLightning())) {
+                bucket.withLightning++;
+                String lt = w.getLightningType() != null ? w.getLightningType() : "UNKNOWN";
+                bucket.lightningType.merge(lt, 1, Integer::sum);
+            }
+
+            if (Boolean.TRUE.equals(w.getHasPrecipitation())) bucket.withPrecipitation++;
+
+            String sev = w.getWeatherSeverity() != null ? w.getWeatherSeverity() : "NULL";
+            bucket.severity.merge(sev, 1, Integer::sum);
+
+            String exp = w.getOutdoorExposureRating() != null ? w.getOutdoorExposureRating() : "NULL";
+            bucket.exposureRating.merge(exp, 1, Integer::sum);
+
+            if (w.getTidalRangeMeters() != null) {
+                bucket.tidalRangeBins.merge(binTidalRange(w.getTidalRangeMeters()), 1, Integer::sum);
+            }
+
+            if (Boolean.TRUE.equals(w.getHasGreatDarkSpot())) bucket.withGreatDarkSpot++;
+
+            if (w.getCloudLayers() != null) bucket.cloudLayerTotal += w.getCloudLayers().size();
+            if (w.getPrecipitationTypes() != null) bucket.precipTypeTotal += w.getPrecipitationTypes().size();
+            if (w.getExtremeWeatherEvents() != null) bucket.extremeEventTotal += w.getExtremeWeatherEvents().size();
+            if (w.getEclipseData() != null) bucket.eclipseTotal += w.getEclipseData().size();
         }
-
-        // Wind
-        String windIntensity = w.getWindIntensity() != null ? w.getWindIntensity() : "NULL";
-        WEATHER_WIND_INTENSITY.put(windIntensity, WEATHER_WIND_INTENSITY.getOrDefault(windIntensity, 0) + 1);
-
-        if (w.getMeanSurfaceWindSpeedMs() != null) {
-            totalWindSpeed += w.getMeanSurfaceWindSpeedMs();
-            windSpeedCount++;
-        }
-
-        // Circulation
-        String circulation = w.getCirculationPattern() != null ? w.getCirculationPattern() : "NULL";
-        WEATHER_CIRCULATION_PATTERN.put(circulation, WEATHER_CIRCULATION_PATTERN.getOrDefault(circulation, 0) + 1);
-
-        if (Boolean.TRUE.equals(w.getHasSuperRotation())) planetsWithSuperRotation++;
-
-        // Storms
-        String stormFreq = w.getStormFrequency() != null ? w.getStormFrequency() : "NULL";
-        WEATHER_STORM_FREQUENCY.put(stormFreq, WEATHER_STORM_FREQUENCY.getOrDefault(stormFreq, 0) + 1);
-
-        if (Boolean.TRUE.equals(w.getHasDustStorms())) planetsWithDustStorms++;
-        if (Boolean.TRUE.equals(w.getHasLightning())) {
-            planetsWithLightning++;
-            String lightningType = w.getLightningType() != null ? w.getLightningType() : "UNKNOWN";
-            WEATHER_LIGHTNING_TYPE.put(lightningType, WEATHER_LIGHTNING_TYPE.getOrDefault(lightningType, 0) + 1);
-        }
-
-        // Precipitation
-        if (Boolean.TRUE.equals(w.getHasPrecipitation())) planetsWithPrecipitation++;
-
-        // Severity & exposure
-        String severity = w.getWeatherSeverity() != null ? w.getWeatherSeverity() : "NULL";
-        WEATHER_SEVERITY.put(severity, WEATHER_SEVERITY.getOrDefault(severity, 0) + 1);
-
-        String exposure = w.getOutdoorExposureRating() != null ? w.getOutdoorExposureRating() : "NULL";
-        WEATHER_EXPOSURE_RATING.put(exposure, WEATHER_EXPOSURE_RATING.getOrDefault(exposure, 0) + 1);
-
-        // Tidal range
-        if (w.getTidalRangeMeters() != null) {
-            String tidalBin = binTidalRange(w.getTidalRangeMeters());
-            WEATHER_TIDAL_RANGE_BINS.put(tidalBin, WEATHER_TIDAL_RANGE_BINS.getOrDefault(tidalBin, 0) + 1);
-        }
-
-        // Gas giant features
-        if (Boolean.TRUE.equals(w.getHasGreatDarkSpot())) planetsWithGreatDarkSpot++;
-
-        // Child collection counts
-        if (w.getCloudLayers() != null) cloudLayerTotal += w.getCloudLayers().size();
-        if (w.getPrecipitationTypes() != null) precipTypeTotal += w.getPrecipitationTypes().size();
-        if (w.getExtremeWeatherEvents() != null) extremeEventTotal += w.getExtremeWeatherEvents().size();
-        if (w.getEclipseData() != null) eclipseTotal += w.getEclipseData().size();
     }
 
     private static String binTidalRange(double meters) {
@@ -596,64 +603,65 @@ public class PlanetData {
     }
 
     private static void printWeatherData(PrintWriter writer) {
+        WeatherBucket b = WEATHER_ALL;
         writer.println("---");
         ReportUtils.beginCollapsible(writer, "Planetary Weather", 2);
-        writer.println("Planets with weather data: " + planetsWithWeather);
-        if (planetsWithWeather == 0) {
+        writer.println("Planets with weather data: " + b.count);
+        if (b.count == 0) {
             ReportUtils.endCollapsible(writer);
             return;
         }
 
-        writer.println("- With precipitation: " + planetsWithPrecipitation
-                + " (" + ReportUtils.pct(planetsWithPrecipitation, planetsWithWeather) + "%)");
-        writer.println("- With dust storms: " + planetsWithDustStorms
-                + " (" + ReportUtils.pct(planetsWithDustStorms, planetsWithWeather) + "%)");
-        writer.println("- With lightning: " + planetsWithLightning
-                + " (" + ReportUtils.pct(planetsWithLightning, planetsWithWeather) + "%)");
-        writer.println("- With super-rotation: " + planetsWithSuperRotation
-                + " (" + ReportUtils.pct(planetsWithSuperRotation, planetsWithWeather) + "%)");
-        writer.println("- With great dark spot: " + planetsWithGreatDarkSpot
-                + " (" + ReportUtils.pct(planetsWithGreatDarkSpot, planetsWithWeather) + "%)");
-        writer.println("- Avg cloud coverage: " + String.format("%.1f", totalCloudCoverage / planetsWithWeather) + "%");
-        if (windSpeedCount > 0) {
-            writer.println("- Avg surface wind speed: " + String.format("%.1f", totalWindSpeed / windSpeedCount) + " m/s");
+        writer.println("- With precipitation: " + b.withPrecipitation
+                + " (" + ReportUtils.pct(b.withPrecipitation, b.count) + "%)");
+        writer.println("- With dust storms: " + b.withDustStorms
+                + " (" + ReportUtils.pct(b.withDustStorms, b.count) + "%)");
+        writer.println("- With lightning: " + b.withLightning
+                + " (" + ReportUtils.pct(b.withLightning, b.count) + "%)");
+        writer.println("- With super-rotation: " + b.withSuperRotation
+                + " (" + ReportUtils.pct(b.withSuperRotation, b.count) + "%)");
+        writer.println("- With great dark spot: " + b.withGreatDarkSpot
+                + " (" + ReportUtils.pct(b.withGreatDarkSpot, b.count) + "%)");
+        writer.println("- Avg cloud coverage: " + String.format("%.1f", b.totalCloudCoverage / b.count) + "%");
+        if (b.windSpeedCount > 0) {
+            writer.println("- Avg surface wind speed: " + String.format("%.1f", b.totalWindSpeed / b.windSpeedCount) + " m/s");
         }
-        writer.println("- Avg cloud layers/planet: " + String.format("%.1f", cloudLayerTotal * 1.0 / planetsWithWeather));
-        writer.println("- Avg precipitation types/planet: " + String.format("%.1f", precipTypeTotal * 1.0 / planetsWithWeather));
-        writer.println("- Total extreme weather events: " + extremeEventTotal
-                + " (avg " + String.format("%.1f", extremeEventTotal * 1.0 / planetsWithWeather) + "/planet)");
-        writer.println("- Total eclipse configurations: " + eclipseTotal);
+        writer.println("- Avg cloud layers/planet: " + String.format("%.1f", b.cloudLayerTotal * 1.0 / b.count));
+        writer.println("- Avg precipitation types/planet: " + String.format("%.1f", b.precipTypeTotal * 1.0 / b.count));
+        writer.println("- Total extreme weather events: " + b.extremeEventTotal
+                + " (avg " + String.format("%.1f", b.extremeEventTotal * 1.0 / b.count) + "/planet)");
+        writer.println("- Total eclipse configurations: " + b.eclipseTotal);
         writer.println("");
 
         ReportUtils.printSubSection(writer, "Sky Color");
-        ReportUtils.printSortedTable(writer, WEATHER_SKY_COLORS, planetsWithWeather, "Sky Color");
+        ReportUtils.printSortedTable(writer, b.skyColors, b.count, "Sky Color");
 
         ReportUtils.printSubSection(writer, "Cloud Coverage Class");
-        ReportUtils.printSortedTable(writer, WEATHER_CLOUD_COVERAGE_CLASS, planetsWithWeather, "Coverage");
+        ReportUtils.printSortedTable(writer, b.cloudCoverageClass, b.count, "Coverage");
 
         ReportUtils.printSubSection(writer, "Wind Intensity");
-        ReportUtils.printSortedTable(writer, WEATHER_WIND_INTENSITY, planetsWithWeather, "Intensity");
+        ReportUtils.printSortedTable(writer, b.windIntensity, b.count, "Intensity");
 
         ReportUtils.printSubSection(writer, "Circulation Pattern");
-        ReportUtils.printSortedTable(writer, WEATHER_CIRCULATION_PATTERN, planetsWithWeather, "Pattern");
+        ReportUtils.printSortedTable(writer, b.circulationPattern, b.count, "Pattern");
 
         ReportUtils.printSubSection(writer, "Storm Frequency");
-        ReportUtils.printSortedTable(writer, WEATHER_STORM_FREQUENCY, planetsWithWeather, "Frequency");
+        ReportUtils.printSortedTable(writer, b.stormFrequency, b.count, "Frequency");
 
-        if (!WEATHER_LIGHTNING_TYPE.isEmpty()) {
+        if (!b.lightningType.isEmpty()) {
             ReportUtils.printSubSection(writer, "Lightning Type");
-            ReportUtils.printSortedTable(writer, WEATHER_LIGHTNING_TYPE, planetsWithLightning, "Type");
+            ReportUtils.printSortedTable(writer, b.lightningType, b.withLightning, "Type");
         }
 
         ReportUtils.printSubSection(writer, "Weather Severity");
-        ReportUtils.printSortedTable(writer, WEATHER_SEVERITY, planetsWithWeather, "Severity");
+        ReportUtils.printSortedTable(writer, b.severity, b.count, "Severity");
 
         ReportUtils.printSubSection(writer, "Outdoor Exposure Rating");
-        ReportUtils.printSortedTable(writer, WEATHER_EXPOSURE_RATING, planetsWithWeather, "Rating");
+        ReportUtils.printSortedTable(writer, b.exposureRating, b.count, "Rating");
 
-        if (!WEATHER_TIDAL_RANGE_BINS.isEmpty()) {
+        if (!b.tidalRangeBins.isEmpty()) {
             ReportUtils.printSubSection(writer, "Tidal Range Distribution");
-            ReportUtils.printSortedTableByKey(writer, WEATHER_TIDAL_RANGE_BINS, planetsWithWeather, "Tidal Range");
+            ReportUtils.printSortedTableByKey(writer, b.tidalRangeBins, b.count, "Tidal Range");
         }
 
         ReportUtils.endCollapsible(writer);
@@ -967,61 +975,95 @@ public class PlanetData {
     private static void printHtmlWeatherData(PrintWriter w) {
         w.println("<hr>");
         HtmlReportUtils.beginCollapsible(w, "Planetary Weather", 2);
-        w.println("<p>Planets with weather data: " + planetsWithWeather + "</p>");
-        if (planetsWithWeather == 0) {
+
+        if (WEATHER_ALL.count == 0) {
+            w.println("<p>No planets with weather data.</p>");
             HtmlReportUtils.endCollapsible(w);
             return;
         }
 
-        w.println("<p>With precipitation: " + planetsWithPrecipitation
-                + " (" + HtmlReportUtils.pct(planetsWithPrecipitation, planetsWithWeather) + "%)</p>");
-        w.println("<p>With dust storms: " + planetsWithDustStorms
-                + " (" + HtmlReportUtils.pct(planetsWithDustStorms, planetsWithWeather) + "%)</p>");
-        w.println("<p>With lightning: " + planetsWithLightning
-                + " (" + HtmlReportUtils.pct(planetsWithLightning, planetsWithWeather) + "%)</p>");
-        w.println("<p>With super-rotation: " + planetsWithSuperRotation
-                + " (" + HtmlReportUtils.pct(planetsWithSuperRotation, planetsWithWeather) + "%)</p>");
-        w.println("<p>With great dark spot: " + planetsWithGreatDarkSpot
-                + " (" + HtmlReportUtils.pct(planetsWithGreatDarkSpot, planetsWithWeather) + "%)</p>");
-        w.println("<p>Avg cloud coverage: " + String.format("%.1f", totalCloudCoverage / planetsWithWeather) + "%</p>");
-        if (windSpeedCount > 0) {
-            w.println("<p>Avg surface wind speed: " + String.format("%.1f", totalWindSpeed / windSpeedCount) + " m/s</p>");
-        }
-        w.println("<p>Avg cloud layers/planet: " + String.format("%.1f", cloudLayerTotal * 1.0 / planetsWithWeather) + "</p>");
-        w.println("<p>Avg precipitation types/planet: " + String.format("%.1f", precipTypeTotal * 1.0 / planetsWithWeather) + "</p>");
-        w.println("<p>Total extreme weather events: " + extremeEventTotal
-                + " (avg " + String.format("%.1f", extremeEventTotal * 1.0 / planetsWithWeather) + "/planet)</p>");
-        w.println("<p>Total eclipse configurations: " + eclipseTotal + "</p>");
+        // Overall summary stat cards
+        WeatherBucket a = WEATHER_ALL;
+        HtmlReportUtils.beginStatGrid(w);
+        HtmlReportUtils.statCard(w, String.valueOf(a.count), "Total");
+        HtmlReportUtils.statCard(w, String.valueOf(WEATHER_SURFACE.count), "Surface");
+        HtmlReportUtils.statCard(w, String.valueOf(WEATHER_GAS.count), "Gas / Ice");
+        HtmlReportUtils.statCard(w, String.format("%.1f%%", a.totalCloudCoverage / a.count), "Avg Cloud Cover");
+        HtmlReportUtils.statCard(w, a.windSpeedCount > 0 ? String.format("%.1f m/s", a.totalWindSpeed / a.windSpeedCount) : "N/A", "Avg Wind Speed");
+        HtmlReportUtils.statCard(w, String.valueOf(a.extremeEventTotal), "Extreme Events");
+        HtmlReportUtils.endStatGrid(w);
 
+        // ── Surface Planet Weather ──
+        if (WEATHER_SURFACE.count > 0) {
+            printHtmlWeatherBucket(w, WEATHER_SURFACE,
+                    "Surface Planet Weather", "surface-planet-weather");
+        }
+
+        // ── Gas / Ice Giant Weather ──
+        if (WEATHER_GAS.count > 0) {
+            printHtmlWeatherBucket(w, WEATHER_GAS,
+                    "Gas / Ice Giant Weather", "gas-ice-giant-weather");
+        }
+
+        HtmlReportUtils.endCollapsible(w);
+    }
+
+    /**
+     * Prints a complete weather sub-section for a single WeatherBucket.
+     */
+    private static void printHtmlWeatherBucket(PrintWriter w, WeatherBucket b,
+                                               String title, String anchorId) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, title, 3);
+
+        // Stat cards for this bucket
+        HtmlReportUtils.beginStatGrid(w);
+        HtmlReportUtils.statCard(w, String.valueOf(b.count), "Planets");
+        HtmlReportUtils.statCard(w, b.withPrecipitation + " (" + HtmlReportUtils.pct(b.withPrecipitation, b.count) + "%)", "Precipitation");
+        HtmlReportUtils.statCard(w, b.withDustStorms + " (" + HtmlReportUtils.pct(b.withDustStorms, b.count) + "%)", "Dust Storms");
+        HtmlReportUtils.statCard(w, b.withLightning + " (" + HtmlReportUtils.pct(b.withLightning, b.count) + "%)", "Lightning");
+        HtmlReportUtils.statCard(w, b.withSuperRotation + " (" + HtmlReportUtils.pct(b.withSuperRotation, b.count) + "%)", "Super-Rotation");
+        HtmlReportUtils.statCard(w, b.withGreatDarkSpot + " (" + HtmlReportUtils.pct(b.withGreatDarkSpot, b.count) + "%)", "Great Dark Spot");
+        HtmlReportUtils.statCard(w, String.format("%.1f%%", b.totalCloudCoverage / b.count), "Avg Cloud Cover");
+        if (b.windSpeedCount > 0) {
+            HtmlReportUtils.statCard(w, String.format("%.1f m/s", b.totalWindSpeed / b.windSpeedCount), "Avg Wind Speed");
+        }
+        HtmlReportUtils.statCard(w, String.format("%.1f", b.cloudLayerTotal * 1.0 / b.count), "Avg Cloud Layers");
+        HtmlReportUtils.statCard(w, String.format("%.1f", b.precipTypeTotal * 1.0 / b.count), "Avg Precip Types");
+        HtmlReportUtils.statCard(w, b.extremeEventTotal + " (avg " + String.format("%.1f", b.extremeEventTotal * 1.0 / b.count) + ")", "Extreme Events");
+        HtmlReportUtils.statCard(w, String.valueOf(b.eclipseTotal), "Eclipse Configs");
+        HtmlReportUtils.endStatGrid(w);
+
+        // Tables
         HtmlReportUtils.printSubSection(w, "Sky Color");
-        HtmlReportUtils.printSortedTable(w, WEATHER_SKY_COLORS, planetsWithWeather, "Sky Color");
+        HtmlReportUtils.printSortedTable(w, b.skyColors, b.count, "Sky Color");
 
         HtmlReportUtils.printSubSection(w, "Cloud Coverage Class");
-        HtmlReportUtils.printSortedTable(w, WEATHER_CLOUD_COVERAGE_CLASS, planetsWithWeather, "Coverage");
+        HtmlReportUtils.printSortedTable(w, b.cloudCoverageClass, b.count, "Coverage");
 
         HtmlReportUtils.printSubSection(w, "Wind Intensity");
-        HtmlReportUtils.printSortedTable(w, WEATHER_WIND_INTENSITY, planetsWithWeather, "Intensity");
+        HtmlReportUtils.printSortedTable(w, b.windIntensity, b.count, "Intensity");
 
         HtmlReportUtils.printSubSection(w, "Circulation Pattern");
-        HtmlReportUtils.printSortedTable(w, WEATHER_CIRCULATION_PATTERN, planetsWithWeather, "Pattern");
+        HtmlReportUtils.printSortedTable(w, b.circulationPattern, b.count, "Pattern");
 
         HtmlReportUtils.printSubSection(w, "Storm Frequency");
-        HtmlReportUtils.printSortedTable(w, WEATHER_STORM_FREQUENCY, planetsWithWeather, "Frequency");
+        HtmlReportUtils.printSortedTable(w, b.stormFrequency, b.count, "Frequency");
 
-        if (!WEATHER_LIGHTNING_TYPE.isEmpty()) {
+        if (!b.lightningType.isEmpty()) {
             HtmlReportUtils.printSubSection(w, "Lightning Type");
-            HtmlReportUtils.printSortedTable(w, WEATHER_LIGHTNING_TYPE, planetsWithLightning, "Type");
+            HtmlReportUtils.printSortedTable(w, b.lightningType, b.withLightning, "Type");
         }
 
         HtmlReportUtils.printSubSection(w, "Weather Severity");
-        HtmlReportUtils.printSortedTable(w, WEATHER_SEVERITY, planetsWithWeather, "Severity");
+        HtmlReportUtils.printSortedTable(w, b.severity, b.count, "Severity");
 
         HtmlReportUtils.printSubSection(w, "Outdoor Exposure Rating");
-        HtmlReportUtils.printSortedTable(w, WEATHER_EXPOSURE_RATING, planetsWithWeather, "Rating");
+        HtmlReportUtils.printSortedTable(w, b.exposureRating, b.count, "Rating");
 
-        if (!WEATHER_TIDAL_RANGE_BINS.isEmpty()) {
+        if (!b.tidalRangeBins.isEmpty()) {
             HtmlReportUtils.printSubSection(w, "Tidal Range Distribution");
-            HtmlReportUtils.printSortedTableByKey(w, WEATHER_TIDAL_RANGE_BINS, planetsWithWeather, "Tidal Range");
+            HtmlReportUtils.printSortedTableByKey(w, b.tidalRangeBins, b.count, "Tidal Range");
         }
 
         HtmlReportUtils.endCollapsible(w);

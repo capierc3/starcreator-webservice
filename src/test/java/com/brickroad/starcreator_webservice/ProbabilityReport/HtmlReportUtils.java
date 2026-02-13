@@ -115,6 +115,22 @@ public class HtmlReportUtils {
         w.println("<div class=\"stat\"><span class=\"stat-label\">" + esc(label) + "</span><span class=\"stat-value\">" + value + "</span></div>");
     }
 
+    /** Opens a stat-card grid row. Call statCard() for each card, then endStatGrid(). */
+    static void beginStatGrid(PrintWriter w) {
+        w.println("<div class=\"stats-grid\">");
+    }
+
+    static void endStatGrid(PrintWriter w) {
+        w.println("</div>");
+    }
+
+    static void statCard(PrintWriter w, String value, String label) {
+        w.println("<div class=\"stat-card\">");
+        w.println("<span class=\"stat-value\">" + value + "</span>");
+        w.println("<span class=\"stat-label\">" + esc(label) + "</span>");
+        w.println("</div>");
+    }
+
     // ── Helpers ──
 
     private static String bar(double pctVal) {
@@ -213,9 +229,11 @@ public class HtmlReportUtils {
             }
             .hero-banner img {
               width: 100%;
-              max-height: 280px;
-              object-fit: cover;
+              max-height: 220px;
+              object-fit: contain;
+              object-position: center;
               display: block;
+              background: #080b14;
             }
 
             /* ── Page Grid: Sidebar + Content ── */

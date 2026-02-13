@@ -149,6 +149,8 @@ public class HtmlProbabilityReportTest extends AbstractCreatorTest {
         tocLink(w, "Water System (Rocky/Surface Planets Only)");
         tocLink(w, "Planetary Habitability");
         tocLink(w, "Planetary Weather");
+        tocLink(w, "Surface Planet Weather");
+        tocLink(w, "Gas / Ice Giant Weather");
         tocLink(w, "Moon Types");
         tocLink(w, "Ring Types");
         tocLink(w, "Belt Types");
