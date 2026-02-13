@@ -4,7 +4,9 @@ import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.ColonizationSuitability;
 import com.brickroad.starcreator_webservice.enums.HabitabilityClass;
 import com.brickroad.starcreator_webservice.enums.TerraformingPotential;
+import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -321,7 +323,7 @@ public class HabitabilityCreator {
         String composition = planet.getAtmosphereComposition() != null ? planet.getAtmosphereComposition() : "";
 
         // Parse oxygen percentage from atmosphere composition
-        double o2Percent = parseGasPercentage(composition, "O2");
+        double o2Percent = CelestialBodyUtils.parseGasPercentage(composition, "O2");
         hab.setOxygenPercentage(o2Percent);
 
         // Breathability check
@@ -334,11 +336,11 @@ public class HabitabilityCreator {
         if ("NONE".equals(atmClass)) issues.add("No atmosphere");
 
         // Check for toxic gases
-        double co2Percent = parseGasPercentage(composition, "CO2");
-        double coPercent = parseGasPercentage(composition, "CO");
-        double so2Percent = parseGasPercentage(composition, "SO2");
-        double h2sPercent = parseGasPercentage(composition, "H2S");
-        double hclPercent = parseGasPercentage(composition, "HCl");
+        double co2Percent = CelestialBodyUtils.parseGasPercentage(composition, "CO2");
+        double coPercent = CelestialBodyUtils.parseGasPercentage(composition, "CO");
+        double so2Percent = CelestialBodyUtils.parseGasPercentage(composition, "SO2");
+        double h2sPercent = CelestialBodyUtils.parseGasPercentage(composition, "H2S");
+        double hclPercent = CelestialBodyUtils.parseGasPercentage(composition, "HCl");
 
         if (co2Percent > 5.0) issues.add("Toxic CO2 levels (" + String.format("%.1f", co2Percent) + "%)");
         if (coPercent > 0.01) issues.add("Toxic CO (" + String.format("%.3f", coPercent) + "%)");
@@ -413,11 +415,11 @@ public class HabitabilityCreator {
         }
 
         // Parse atmosphere composition
-        double o2Pct = parseGasPercentage(composition, "O2");
-        double n2Pct = parseGasPercentage(composition, "N2");
-        double co2Pct = parseGasPercentage(composition, "CO2");
-        double coPct = parseGasPercentage(composition, "CO");
-        double so2Pct = parseGasPercentage(composition, "SO2");
+        double o2Pct = CelestialBodyUtils.parseGasPercentage(composition, "O2");
+        double n2Pct = CelestialBodyUtils.parseGasPercentage(composition, "N2");
+        double co2Pct = CelestialBodyUtils.parseGasPercentage(composition, "CO2");
+        double coPct = CelestialBodyUtils.parseGasPercentage(composition, "CO");
+        double so2Pct = CelestialBodyUtils.parseGasPercentage(composition, "SO2");
 
         // Breathability
         List<String> issues = new ArrayList<>();
@@ -841,7 +843,7 @@ public class HabitabilityCreator {
         // O2 + CH4 coexistence (strong biosignature - thermodynamically unstable without biology)
         double o2Pct = hab.getOxygenPercentage() != null ? hab.getOxygenPercentage() : 0;
         String composition = planet.getAtmosphereComposition() != null ? planet.getAtmosphereComposition() : "";
-        double ch4Pct = parseGasPercentage(composition, "CH4");
+        double ch4Pct = CelestialBodyUtils.parseGasPercentage(composition, "CH4");
         if (o2Pct > 1.0 && ch4Pct > 0.0001) {
             indicators.add("O2-CH4 thermodynamic disequilibrium");
             bioScore += 30;
@@ -1312,20 +1314,6 @@ public class HabitabilityCreator {
     // HELPER METHODS
     // ================================================================
 
-    private double parseGasPercentage(String composition, String gasFormula) {
-        if (composition == null || composition.isEmpty() || "None".equals(composition)) return 0.0;
-        String regex = "(?:^|, )" + Pattern.quote(gasFormula) + "\\s+([\\d.]+)%";
-        Matcher matcher = Pattern.compile(regex).matcher(composition);
-        if (matcher.find()) {
-            try {
-                return Double.parseDouble(matcher.group(1));
-            } catch (NumberFormatException e) {
-                return 0.0;
-            }
-        }
-        return 0.0;
-    }
-
     private double getSpectralUvFactor(Star star) {
         String spectral = star.getSpectralType();
         if (spectral == null) return 1.0;
@@ -1355,24 +1343,8 @@ public class HabitabilityCreator {
     private double estimateGreenhouseWarming(Planet planet) {
         String atmClass = planet.getAtmosphereClassification();
         double pressure = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 0;
-        if (atmClass == null || "NONE".equals(atmClass) || pressure < 0.001) return 0;
-
         String composition = planet.getAtmosphereComposition() != null ? planet.getAtmosphereComposition() : "";
-        double co2Pct = parseGasPercentage(composition, "CO2");
-        double ch4Pct = parseGasPercentage(composition, "CH4");
-        double h2oPct = parseGasPercentage(composition, "H2O");
-
-        // Simple greenhouse model
-        double greenhouse = 0;
-        greenhouse += co2Pct * 0.5 * Math.log1p(pressure); // CO2 contribution
-        greenhouse += ch4Pct * 25.0; // CH4 is 25x more potent than CO2
-        greenhouse += h2oPct * 1.5; // Water vapor feedback
-        greenhouse += pressure * 5.0; // Pressure broadening
-
-        // Dense CO2 atmospheres (Venus-like)
-        if ("DENSE_CO2".equals(atmClass)) greenhouse = Math.max(greenhouse, 400.0);
-
-        return Math.min(600.0, greenhouse); // Cap at Venus-like levels
+        return TemperatureCalculator.estimateGreenhouseWarming(atmClass, pressure, composition);
     }
 
     private double calculateAtmosphericRetention(Planet planet) {

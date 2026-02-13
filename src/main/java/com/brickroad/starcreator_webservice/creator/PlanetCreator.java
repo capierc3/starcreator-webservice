@@ -213,6 +213,7 @@ public class PlanetCreator {
         }
 
         populateAtmosphereProperties(planet, type);
+        applyGreenhouseWarming(planet);
 
         if (parentStar != null) {
             HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
@@ -654,6 +655,20 @@ public class PlanetCreator {
         planet.setInteriorComposition(composition.toInteriorString());
         planet.setEnvelopeComposition(composition.toEnvelopeString());
         planet.setCompositionClassification(composition.getClassification().name());
+    }
+
+    private void applyGreenhouseWarming(Planet planet) {
+        if (planet.getSurfaceTemp() == null || planet.getAtmosphereClassification() == null
+                || "NONE".equals(planet.getAtmosphereClassification())) {
+            return;
+        }
+        double pressure = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 0;
+        String composition = planet.getAtmosphereComposition() != null ? planet.getAtmosphereComposition() : "";
+        double greenhouse = TemperatureCalculator.estimateGreenhouseWarming(
+                planet.getAtmosphereClassification(), pressure, composition);
+        if (greenhouse > 0) {
+            planet.setSurfaceTemp(planet.getSurfaceTemp() + greenhouse);
+        }
     }
 
     private static class HabitableZone {

@@ -166,14 +166,12 @@ public class WeatherNarrativeGenerator {
         PlanetaryHabitability hab = planet.getHabitability();
         boolean breathable = hab != null && Boolean.TRUE.equals(hab.getIsBreathable());
 
-        // Lethal conditions: immediate death
+        // --- LETHAL_SECONDS: instant death ---
         if (pressureAtm > 100 || pressureAtm < 0.006 || surfaceTemp > 500 || surfaceTemp < 100) {
             weather.setOutdoorExposureRating("LETHAL_SECONDS");
             weather.setSurvivalTimeDescription("Instantaneous death from " + getLethalCause(surfaceTemp, pressureAtm));
             return;
         }
-
-        // Check for toxic/corrosive atmospheres
         if ("VENUS_LIKE".equals(atmClass) || "CORROSIVE".equals(atmClass) || "EXOTIC".equals(atmClass)
                 || "AMMONIA".equals(atmClass)) {
             weather.setOutdoorExposureRating("LETHAL_SECONDS");
@@ -181,36 +179,53 @@ public class WeatherNarrativeGenerator {
             return;
         }
 
+        // --- LETHAL_MINUTES: death within minutes ---
         if ("VOLCANIC".equals(atmClass) || "REDUCING".equals(atmClass)) {
             weather.setOutdoorExposureRating("LETHAL_MINUTES");
             weather.setSurvivalTimeDescription("Toxic atmosphere causes death within minutes without protection");
             return;
         }
-
-        // Extreme but survivable for brief periods
         if (surfaceTemp > 350 || surfaceTemp < 150 || pressureAtm > 50 || pressureAtm < 0.01) {
             weather.setOutdoorExposureRating("LETHAL_MINUTES");
             weather.setSurvivalTimeDescription("Extreme conditions cause death within minutes");
             return;
         }
 
-        // Survivable with equipment
-        if (surfaceTemp > 320 || surfaceTemp < 200 || pressureAtm > 5 || pressureAtm < 0.3 || !breathable) {
+        // --- PRESSURE_SUIT: need full suit but survivable ---
+        // Non-breathable atmosphere, or pressure too low/high for just an O2 mask
+        if (pressureAtm < 0.1 || pressureAtm > 10) {
+            weather.setOutdoorExposureRating("PRESSURE_SUIT");
+            weather.setSurvivalTimeDescription("Full pressure suit required due to " +
+                    (pressureAtm < 0.1 ? "near-vacuum conditions" : "extreme atmospheric pressure"));
+            return;
+        }
+        if (surfaceTemp > 320 || surfaceTemp < 200) {
+            weather.setOutdoorExposureRating("PRESSURE_SUIT");
+            weather.setSurvivalTimeDescription("Full environmental suit required for thermal protection");
+            return;
+        }
+
+        // --- ASSISTED: need supplemental O2 or light gear ---
+        // Breathable threshold not met, but pressure/temp are manageable
+        if (!breathable || pressureAtm < 0.3 || pressureAtm > 5) {
             weather.setOutdoorExposureRating("ASSISTED");
-            weather.setSurvivalTimeDescription("Survivable with supplemental life support and thermal protection");
+            weather.setSurvivalTimeDescription("Supplemental oxygen and light protective gear required");
             return;
         }
 
-        // Shirt-sleeve: breathable, comfortable temperature, reasonable pressure
-        if (breathable && surfaceTemp > 240 && surfaceTemp < 310 && pressureAtm > 0.5 && pressureAtm < 3.0) {
-            weather.setOutdoorExposureRating("SHIRT_SLEEVE");
-            weather.setSurvivalTimeDescription("Comfortable outdoors with appropriate clothing");
+        // --- COLD_WEATHER_GEAR: breathable but chilly or warm ---
+        // Breathable atmosphere, reasonable pressure, but outside comfort zone
+        if (surfaceTemp < 260 || surfaceTemp > 310) {
+            weather.setOutdoorExposureRating("COLD_WEATHER_GEAR");
+            weather.setSurvivalTimeDescription(surfaceTemp < 260 ?
+                    "Heavy cold-weather clothing required for extended outdoor activity" :
+                    "Heat-protective clothing required for extended outdoor activity");
             return;
         }
 
-        // Default to assisted
-        weather.setOutdoorExposureRating("ASSISTED");
-        weather.setSurvivalTimeDescription("Survivable with appropriate protective equipment");
+        // --- SHIRT_SLEEVE: comfortable ---
+        weather.setOutdoorExposureRating("SHIRT_SLEEVE");
+        weather.setSurvivalTimeDescription("Comfortable outdoors with appropriate clothing");
     }
 
     private String getLethalCause(double temp, double pressure) {
@@ -231,20 +246,33 @@ public class WeatherNarrativeGenerator {
             return;
         }
 
-        boolean hasLethal = hazards.stream().anyMatch(h -> "LETHAL".equals(h.getSeverity()));
-        boolean hasExtreme = hazards.stream().anyMatch(h -> "EXTREME".equals(h.getSeverity()));
-        boolean hasHigh = hazards.stream().anyMatch(h -> "HIGH".equals(h.getSeverity()));
-        long hazardCount = hazards.size();
+        // Score-based approach: each hazard contributes points based on its severity
+        int score = 0;
+        for (WeatherHazard h : hazards) {
+            score += switch (h.getSeverity()) {
+                case "LETHAL" -> 4;
+                case "EXTREME" -> 3;
+                case "HIGH" -> 2;
+                case "MODERATE" -> 1;
+                default -> 0;
+            };
+        }
 
-        if (hasLethal && hazardCount > 3) {
+        // Map score to severity
+        // 1: MILD (single HIGH hazard, or a couple minor ones)
+        // 2-3: MODERATE (one EXTREME, or a few HIGH)
+        // 4-6: SEVERE (one LETHAL, or EXTREME + HIGH combo)
+        // 7-11: EXTREME (multiple LETHAL/EXTREME hazards)
+        // 12+: APOCALYPTIC (stacking LETHAL hazards — gas giants, Venus-like)
+        if (score >= 12) {
             weather.setWeatherSeverity("APOCALYPTIC");
-        } else if (hasLethal) {
+        } else if (score >= 7) {
             weather.setWeatherSeverity("EXTREME");
-        } else if (hasExtreme && hazardCount > 2) {
+        } else if (score >= 4) {
             weather.setWeatherSeverity("SEVERE");
-        } else if (hasExtreme || (hasHigh && hazardCount > 2)) {
+        } else if (score >= 2) {
             weather.setWeatherSeverity("MODERATE");
-        } else if (hasHigh) {
+        } else if (score == 1) {
             weather.setWeatherSeverity("MILD");
         } else {
             weather.setWeatherSeverity("BENIGN");
