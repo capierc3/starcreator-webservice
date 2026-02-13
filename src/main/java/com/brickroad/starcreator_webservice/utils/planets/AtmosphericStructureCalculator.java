@@ -65,9 +65,10 @@ public class AtmosphericStructureCalculator {
             weather.setScaleHeightKm(round2(scaleHeightKm));
 
             calculateLayers(weather, atmClass, scaleHeightKm, surfaceTemp, pressureAtm);
-            calculateSkyColor(weather, atmClass, composition, pressureAtm, parentStar);
-            calculateTwilightDuration(weather, scaleHeightKm, pressureAtm, null);
         }
+        calculateSkyColor(weather, atmClass, composition, pressureAtm, parentStar);
+        double scaleHeightForTwilight = weather.getScaleHeightKm() != null ? weather.getScaleHeightKm() : 0.0;
+        calculateTwilightDuration(weather, scaleHeightForTwilight, pressureAtm, null);
     }
 
     // ================================================================

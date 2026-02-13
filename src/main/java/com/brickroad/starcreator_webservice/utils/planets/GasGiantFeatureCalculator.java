@@ -109,15 +109,18 @@ public class GasGiantFeatureCalculator {
     // ================================================================
 
     private void checkGreatDarkSpot(PlanetaryWeather weather, String atmClass, Planet planet) {
-        // Great dark spots are characteristic of ice giants (Neptune, Uranus)
-        // They are transient features — Neptune's Great Dark Spot disappeared and reformed
         if ("ICE_GIANT".equals(atmClass)) {
-            // ~50% chance of currently having a dark spot
-            boolean hasSpot = Boolean.TRUE.equals(planet.getHasGreatStorm()) || RandomUtils.flipCoin() == 1;
+            // Dark spots correlate with atmospheric energy — driven by internal heat.
+            // Neptune (ratio ~2.6) has persistent dark spots; Uranus (~1.06) does not.
+            // Higher internal heat → more vigorous convection → vortex formation.
+            double ratio = weather.getInternalToStellarRatio() != null
+                    ? weather.getInternalToStellarRatio() : 1.5;
+
+            // Scale probability: ratio 1.0 → ~10%, ratio 2.0 → ~50%, ratio 3.0 → ~80%
+            int chance = (int) Math.min(90, Math.max(5, (ratio - 1.0) * 40 + 10));
+            boolean hasSpot = RandomUtils.rollD100() <= chance;
             weather.setHasGreatDarkSpot(hasSpot);
         } else {
-            // Jovian planets can have dark spots too but less common
-            // Their great storms (Red Spot) are already tracked by StormCalculator
             weather.setHasGreatDarkSpot(false);
         }
     }
