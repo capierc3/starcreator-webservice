@@ -183,11 +183,21 @@ public class CloudPrecipitationCalculator {
                 break;
 
             case "MARS_LIKE":
-                // Mars: sparse clouds, dust haze
-                coverage = RandomUtils.rollRange(3.0, 25.0);
-                // Dust can increase apparent coverage
-                if (surfaceTemp > 200 && pressureAtm > 0.003) {
-                    coverage += RandomUtils.rollRange(5.0, 15.0);
+                // Mars: sparse clouds, mostly clear skies. Mars averages ~2% cloud cover.
+                // Thinner atmospheres → clearer skies
+                if (pressureAtm < 0.01) {
+                    // Very thin (Mars-like, 0.006 atm): mostly clear
+                    coverage = RandomUtils.rollRange(1.0, 12.0);
+                } else if (pressureAtm < 0.1) {
+                    // Thin but not ultra-thin
+                    coverage = RandomUtils.rollRange(3.0, 20.0);
+                } else {
+                    // Thicker Mars-like (approaching Earth thin)
+                    coverage = RandomUtils.rollRange(8.0, 30.0);
+                }
+                // Dust haze can add apparent coverage, but only in warmer/dustier conditions
+                if (surfaceTemp > 250 && pressureAtm > 0.005 && RandomUtils.rollD100() <= 30) {
+                    coverage += RandomUtils.rollRange(3.0, 10.0);
                 }
                 break;
 

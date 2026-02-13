@@ -175,8 +175,12 @@ public class WindCirculationCalculator {
         weather.setJetStreamSpeedMs(round2(jetSpeed));
 
         // Surface winds: convergent at substellar, divergent at antistellar
-        double meanSurface = jetSpeed * 0.5;
-        double maxGust = jetSpeed * 1.8;
+        // Surface friction and atmospheric damping reduce jet-level winds significantly
+        // Thinner atmospheres transmit less momentum to the surface
+        double surfaceFraction = (pressureAtm > 1.0) ? RandomUtils.rollRange(0.25, 0.50)
+                : RandomUtils.rollRange(0.15, 0.40);
+        double meanSurface = jetSpeed * surfaceFraction;
+        double maxGust = jetSpeed * (surfaceFraction + RandomUtils.rollRange(0.8, 1.5));
         weather.setMeanSurfaceWindSpeedMs(round2(meanSurface));
         weather.setMaxGustSpeedMs(round2(maxGust));
         weather.setWindIntensity(classifyWindIntensity(meanSurface));

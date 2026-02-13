@@ -132,12 +132,12 @@ public class TidalWeatherCalculator {
                     .anyMatch(m -> m.getEarthMass() != null && m.getEarthMass() > 0.005);
 
             if (hasMassiveMoon) {
-                if (tidalEffect.length() > 0) tidalEffect.append(". ");
+                if (!tidalEffect.isEmpty()) tidalEffect.append(". ");
                 tidalEffect.append("Massive moon(s) generate detectable gravitational atmospheric tides");
             }
         }
 
-        if (tidalEffect.length() == 0) {
+        if (tidalEffect.isEmpty()) {
             tidalEffect.append("Negligible atmospheric tidal effects");
         }
 
@@ -193,12 +193,6 @@ public class TidalWeatherCalculator {
     // MOON-PERSPECTIVE TIDAL EFFECTS
     // ================================================================
 
-    /**
-     * Calculates tidal effects experienced on a moon's surface:
-     * - Parent planet's gravitational tides (dominant)
-     * - Sibling moon gravitational perturbations
-     * - Atmospheric tides from stellar heating
-     */
     public void calculateForMoon(PlanetaryWeather weather, Moon moon, Planet parentPlanet,
                                   Star parentStar, List<Moon> siblingMoons) {
         String atmClass = moon.getAtmosphere() != null ? moon.getAtmosphere().getClassification() : null;
@@ -222,59 +216,69 @@ public class TidalWeatherCalculator {
     }
 
     private void calculateParentPlanetTides(PlanetaryWeather weather, Moon moon,
-                                             Planet parentPlanet, double moonRadiusKm) {
-        // Parent planet's tidal force on the moon surface
-        // F_tidal ∝ M_planet × R_moon / d³
-        // Compare to Earth-Moon system (but inverted: the planet is the tide-raiser)
+                                            Planet parentPlanet, double moonRadiusKm) {
         double planetMassKg = (parentPlanet.getEarthMass() != null ? parentPlanet.getEarthMass() : 1.0) * EARTH_MASS_KG;
+        double moonMassKg = (moon.getEarthMass() != null ? moon.getEarthMass() : 0.001) * EARTH_MASS_KG;
         double moonOrbitKm = moon.getSemiMajorAxisKm() != null ? moon.getSemiMajorAxisKm() : 400000.0;
 
-        if (moonOrbitKm <= 0) return;
+        if (moonOrbitKm <= 0 || moonMassKg <= 0) return;
 
-        // Force ratio: how strong are these tides compared to Earth's ocean tides?
-        // Earth's tides are raised by the Moon (mass MOON_MASS_KG) on Earth (radius EARTH_RADIUS_KM)
-        // at distance MOON_DISTANCE_KM.
-        // Here the planet (mass planetMassKg) raises tides on the moon (radius moonRadiusKm)
-        // at distance moonOrbitKm.
-        double forceRatio = (planetMassKg / MOON_MASS_KG)
-                * (moonRadiusKm / EARTH_RADIUS_KM)
-                * Math.pow(MOON_DISTANCE_KM / moonOrbitKm, 3.0);
+        // Equilibrium tidal bulge height: h = 1.25 × (M_raiser/M_body) × (R/d)³ × R
+        // This gives the theoretical max for a perfectly fluid body.
+        // Real oceans are reduced by:
+        //   - Love number h2 (~0.6 for ocean response on rocky body)
+        //   - Partial ocean coverage (water can't flow freely around the body)
+        //   - Basin geometry constraints
 
-        double tidalRange = EARTH_TIDAL_RANGE_M * forceRatio;
+        double equilibriumHeightKm = 1.25 * (planetMassKg / moonMassKg)
+                * Math.pow(moonRadiusKm / moonOrbitKm, 3.0)
+                * moonRadiusKm;
+
+        double equilibriumHeightM = equilibriumHeightKm * 1000.0;
+
+        // Apply ocean response factor:
+        // h2 Love number for ocean on rocky body ≈ 0.6
+        // Partial coverage reduction: small seas don't get full equilibrium tide
+        double liquidWaterPercent = moon.getLiquidWaterCoveragePercent() != null
+                ? moon.getLiquidWaterCoveragePercent() : 1.0;
+        double coverageFactor = Math.min(1.0, liquidWaterPercent / 50.0); // Full response at 50%+ coverage
+        double loveFactor = 0.6;
+
+        // Basin geometry: small bodies have more constrained basins
+        // Earth's actual tides are ~0.44m equilibrium but coastal amplification gives 1-10m
+        // Small moons with patchy seas: much less amplification
+        double geometryFactor = Math.min(1.0, moonRadiusKm / EARTH_RADIUS_KM);
+
+        double tidalRange = equilibriumHeightM * loveFactor * coverageFactor * geometryFactor;
+
         tidalRange *= RandomUtils.rollRange(0.7, 1.4);
         tidalRange = Math.max(0.01, Math.min(500.0, tidalRange));
 
         weather.setTidalRangeMeters(round2(tidalRange));
 
-        // Tidal period: for a tidally locked moon, tides are mostly static (permanent bulge).
-        // For non-locked moons, tidal period relates to orbital period.
+        // Tidal period
         if (Boolean.TRUE.equals(moon.getTidallyLocked())) {
-            // Tidally locked: permanent tidal bulge, but libration causes small oscillations
-            // Libration period ~ orbital period
             double orbitalPeriodDays = moon.getOrbitalPeriodDays() != null ? moon.getOrbitalPeriodDays() : 27.3;
             weather.setDominantTidalPeriodHours(round2(orbitalPeriodDays * 24.0));
         } else {
             double orbitalPeriodDays = moon.getOrbitalPeriodDays() != null ? moon.getOrbitalPeriodDays() : 27.3;
-            double rotationPeriodHours = moon.getRotationPeriodHours() != null ? moon.getRotationPeriodHours() : orbitalPeriodDays * 24.0;
-            // Synodic tidal period: time between successive tidal bulge alignments
-            double orbitalPeriodHours = orbitalPeriodDays * 24.0;
-            if (Math.abs(rotationPeriodHours - orbitalPeriodHours) > 0.01) {
-                double synodicHours = 1.0 / Math.abs(1.0 / rotationPeriodHours - 1.0 / orbitalPeriodHours);
-                weather.setDominantTidalPeriodHours(round2(synodicHours / 2.0)); // Two tides per synodic period
-            } else {
-                weather.setDominantTidalPeriodHours(round2(orbitalPeriodHours));
-            }
+            weather.setDominantTidalPeriodHours(round2(orbitalPeriodDays * 24.0 / 2.0));
         }
     }
 
     private void addSiblingMoonTides(PlanetaryWeather weather, Moon targetMoon,
-                                      List<Moon> siblingMoons, double targetMoonRadiusKm) {
-        // Sibling moons exert much weaker tidal forces than the parent planet,
-        // but in resonant systems they can create notable secondary tides.
+                                     List<Moon> siblingMoons, double targetMoonRadiusKm) {
         double existingRange = weather.getTidalRangeMeters() != null ? weather.getTidalRangeMeters() : 0.0;
-        double siblingTotalForce = 0.0;
-
+        double targetMoonMassKg = (targetMoon.getEarthMass() != null ? targetMoon.getEarthMass() : 0.001) * EARTH_MASS_KG;
         double targetOrbitKm = targetMoon.getSemiMajorAxisKm() != null ? targetMoon.getSemiMajorAxisKm() : 400000.0;
+
+        double liquidWaterPercent = targetMoon.getLiquidWaterCoveragePercent() != null
+                ? targetMoon.getLiquidWaterCoveragePercent() : 1.0;
+        double coverageFactor = Math.min(1.0, liquidWaterPercent / 50.0);
+        double loveFactor = 0.6;
+        double geometryFactor = Math.min(1.0, targetMoonRadiusKm / EARTH_RADIUS_KM);
+
+        double siblingTidalTotal = 0.0;
 
         for (Moon sibling : siblingMoons) {
             if (sibling == targetMoon) continue;
@@ -282,20 +286,20 @@ public class TidalWeatherCalculator {
             double siblingMassKg = (sibling.getEarthMass() != null ? sibling.getEarthMass() : 0.001) * EARTH_MASS_KG;
             double siblingOrbitKm = sibling.getSemiMajorAxisKm() != null ? sibling.getSemiMajorAxisKm() : 400000.0;
 
-            // Approximate minimum distance between the two moons' orbits
             double interMoonDistKm = Math.abs(siblingOrbitKm - targetOrbitKm);
-            interMoonDistKm = Math.max(interMoonDistKm, 1000.0); // Floor to prevent division issues
+            interMoonDistKm = Math.max(interMoonDistKm, 1000.0);
 
-            double forceRatio = (siblingMassKg / MOON_MASS_KG)
-                    * (targetMoonRadiusKm / EARTH_RADIUS_KM)
-                    * Math.pow(MOON_DISTANCE_KM / interMoonDistKm, 3.0);
+            double tidalHeightKm = 1.25 * (siblingMassKg / targetMoonMassKg)
+                    * Math.pow(targetMoonRadiusKm / interMoonDistKm, 3.0)
+                    * targetMoonRadiusKm;
 
-            siblingTotalForce += forceRatio;
+            siblingTidalTotal += tidalHeightKm * 1000.0; // to meters
         }
 
-        if (siblingTotalForce > 0.001) {
-            double siblingTidalContribution = EARTH_TIDAL_RANGE_M * siblingTotalForce;
-            double newRange = existingRange + siblingTidalContribution * RandomUtils.rollRange(0.5, 1.0);
+        siblingTidalTotal *= loveFactor * coverageFactor * geometryFactor;
+
+        if (siblingTidalTotal > 0.001) {
+            double newRange = existingRange + siblingTidalTotal * RandomUtils.rollRange(0.5, 1.0);
             weather.setTidalRangeMeters(round2(Math.min(500.0, newRange)));
         }
     }
@@ -327,12 +331,12 @@ public class TidalWeatherCalculator {
             double stellarFlux = luminosity / (semiMajorAU * semiMajorAU);
 
             if (stellarFlux > 2.0 && pressureAtm > 1.0) {
-                if (tidalEffect.length() > 0) tidalEffect.append(". ");
+                if (!tidalEffect.isEmpty()) tidalEffect.append(". ");
                 tidalEffect.append("Strong stellar heating also drives thermal atmospheric tides");
             }
         }
 
-        if (tidalEffect.length() == 0) {
+        if (tidalEffect.isEmpty()) {
             tidalEffect.append("Negligible atmospheric tidal effects");
         }
 

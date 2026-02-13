@@ -32,7 +32,7 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
     private static final PerformanceTimer TIMER = new PerformanceTimer();
     private static final int[] RANGES = new int[] {10, 100, 1_000, 10_000, 100_000};
     //                                              0   1     2       3       4
-    private static final int SYSTEM_AMOUNT = RANGES[2];
+    private static final int SYSTEM_AMOUNT = RANGES[3];
 
     private static final String HEADER_IMAGE_SOURCE = ".scratch/headerImg.png";
     private static final String HEADER_IMAGE_FILENAME = "headerImg.png";

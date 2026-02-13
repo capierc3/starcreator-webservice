@@ -388,13 +388,15 @@ public class MoonCreator {
         double budgetFactor = totalMassBudget / (planet.getEarthMass() * 0.001); // Ratio to 0.1% planet mass
 
         int targetMoons;
+        int range = effectiveMax - minMoons;
         if (budgetFactor < 0.1) {
-            targetMoons = RandomUtils.rollRange(minMoons, minMoons + (effectiveMax - minMoons) / 3);
+            int upperBound = minMoons + Math.max(1, range / 3);
+            targetMoons = RandomUtils.rollRange(minMoons, upperBound);
         } else if (budgetFactor < 0.5) {
-            targetMoons = RandomUtils.rollRange(minMoons + (effectiveMax - minMoons) / 3,
-                    minMoons + 2 * (effectiveMax - minMoons) / 3);
+            targetMoons = RandomUtils.rollRange(minMoons + Math.max(1, range / 3),
+                    minMoons + Math.max(2, 2 * range / 3));
         } else {
-            targetMoons = RandomUtils.rollRange(minMoons + (effectiveMax - minMoons) / 2, effectiveMax);
+            targetMoons = RandomUtils.rollRange(minMoons + Math.max(1, range / 2), effectiveMax);
         }
 
         double metallicity = primaryStar.getMetallicity();
