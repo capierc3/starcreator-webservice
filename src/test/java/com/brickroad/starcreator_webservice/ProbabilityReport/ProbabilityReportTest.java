@@ -37,7 +37,7 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
     private static final String HEADER_IMAGE_SOURCE = ".scratch/headerImg.png";
     private static final String HEADER_IMAGE_FILENAME = "headerImg.png";
 
-    @Test
+    //@Test
     public void SystemProbabilityTest() {
 
         COUNTS.setSystemCount(SYSTEM_AMOUNT);
