@@ -229,11 +229,10 @@ public class HtmlReportUtils {
             }
             .hero-banner img {
               width: 100%;
-              max-height: 220px;
-              object-fit: contain;
+              max-height: 280px;
+              object-fit: cover;
               object-position: center;
               display: block;
-              background: #080b14;
             }
 
             /* ── Page Grid: Sidebar + Content ── */

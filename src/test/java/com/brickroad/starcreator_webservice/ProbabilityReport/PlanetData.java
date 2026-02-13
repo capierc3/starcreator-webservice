@@ -603,9 +603,35 @@ public class PlanetData {
     }
 
     private static void printWeatherData(PrintWriter writer) {
-        WeatherBucket b = WEATHER_ALL;
+        WeatherBucket a = WEATHER_ALL;
         writer.println("---");
         ReportUtils.beginCollapsible(writer, "Planetary Weather", 2);
+        writer.println("Planets with weather data: " + a.count);
+        writer.println("- Surface planets: " + WEATHER_SURFACE.count);
+        writer.println("- Gas / Ice Giant planets: " + WEATHER_GAS.count);
+        if (a.count == 0) {
+            ReportUtils.endCollapsible(writer);
+            return;
+        }
+        writer.println("");
+
+        ReportUtils.endCollapsible(writer);
+
+        // Surface Planet Weather
+        if (WEATHER_SURFACE.count > 0) {
+            writer.println("---");
+            printWeatherBucket(writer, WEATHER_SURFACE, "Surface Planet Weather");
+        }
+
+        // Gas / Ice Giant Weather
+        if (WEATHER_GAS.count > 0) {
+            writer.println("---");
+            printWeatherBucket(writer, WEATHER_GAS, "Gas / Ice Giant Weather");
+        }
+    }
+
+    private static void printWeatherBucket(PrintWriter writer, WeatherBucket b, String title) {
+        ReportUtils.beginCollapsible(writer, title, 2);
         writer.println("Planets with weather data: " + b.count);
         if (b.count == 0) {
             ReportUtils.endCollapsible(writer);
