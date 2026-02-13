@@ -209,4 +209,9 @@ public class Moon extends CelestialBody {
     @JsonProperty("habitability")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private PlanetaryHabitability habitability;
+
+    @Transient
+    @JsonProperty("weather")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private PlanetaryWeather weather;
 }

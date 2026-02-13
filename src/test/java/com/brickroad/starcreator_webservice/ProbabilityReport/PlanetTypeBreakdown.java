@@ -111,10 +111,8 @@ public class PlanetTypeBreakdown {
     }
 
     void print(PrintWriter writer, String planetType) {
-        writer.println("---");
         ReportUtils.printAnchor(writer, planetType);
-        writer.println("### " + planetType + " (" + count + ")");;
-        writer.println("");
+        ReportUtils.beginCollapsible(writer, planetType + " (" + count + ")", 3);
 
         // Summary line
         if (physicalCount > 0) {
@@ -176,5 +174,7 @@ public class PlanetTypeBreakdown {
         if (!habitabilityClasses.isEmpty()) {
             ReportUtils.printSortedTable(writer, habitabilityClasses, count, "Habitability Class");
         }
+
+        ReportUtils.endCollapsible(writer);
     }
 }

@@ -29,9 +29,9 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
     private static final PerformanceTimer TIMER = new PerformanceTimer();
 
     private static final int[] RANGES = new int[] {10, 100, 1_000, 10_000, 100_000};
-    private static final int SYSTEM_AMOUNT = RANGES[2];
+    private static final int SYSTEM_AMOUNT = RANGES[4];
 
-    //@Test
+    @Test
     public void SystemProbabilityTest() {
 
         COUNTS.setSystemCount(SYSTEM_AMOUNT);
@@ -111,9 +111,10 @@ public class ProbabilityReportTest extends AbstractCreatorTest {
         writer.println("5. [Geology](#geology-rockysurface-planets)");
         writer.println("6. [Water System](#water-system-rockysurface-planets-only)");
         writer.println("7. [Planetary Habitability](#planetary-habitability)");
-        writer.println("8. [Moon Types](#moon-types)");
-        writer.println("9. [Ring Types](#ring-types)");
-        writer.println("10. [Belt Types](#belt-types)");
+        writer.println("8. [Planetary Weather](#planetary-weather)");
+        writer.println("9. [Moon Types](#moon-types)");
+        writer.println("10. [Ring Types](#ring-types)");
+        writer.println("11. [Belt Types](#belt-types)");
         writer.println("");
     }
 }

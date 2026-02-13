@@ -57,7 +57,9 @@ public class StarData {
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        ReportUtils.printSection(writer, "Star Amounts");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Star Amounts", 2);
+
         writer.println("| Amount | Count | % |");
         writer.println("| --- | --- | --- |");
         STAR_AMOUNTS.entrySet()
@@ -88,23 +90,20 @@ public class StarData {
 
             // Condense uniform types to a single line
             if (isUniformType(starTypeData)) {
-                writer.println("---");
                 ReportUtils.printAnchor(writer, entry.getKey());
-                writer.println("### " + entry.getKey() + " (" + starTypeCount + ")");
-                writer.println("");
+                ReportUtils.beginCollapsible(writer, entry.getKey() + " (" + starTypeCount + ")", 3);
                 Map<String, Integer> activityData = starTypeData.getOrDefault("activity", new HashMap<>());
                 Map<String, Integer> evoData = starTypeData.getOrDefault("evolutionary stage", new HashMap<>());
                 String activity = activityData.keySet().stream().findFirst().orElse("N/A");
                 String evo = evoData.keySet().stream().findFirst().orElse("N/A");
                 writer.println("*Uniform profile — Activity: " + activity + ", Stage: " + evo + "*");
                 writer.println("");
+                ReportUtils.endCollapsible(writer);
                 continue;
             }
 
-            writer.println("---");
             ReportUtils.printAnchor(writer, entry.getKey());
-            writer.println("### " + entry.getKey() + " Star Type Data");
-            writer.println("");
+            ReportUtils.beginCollapsible(writer, entry.getKey() + " Star Type Data", 3);
 
             printStarSubTable(writer, starTypeData, "activity", "Activity Level", starTypeCount);
             printStarSubTable(writer, starTypeData, "flare class", "Flare Class", starTypeCount);
@@ -112,7 +111,11 @@ public class StarData {
             printStarSubTable(writer, starTypeData, "xray Luminosity", "X-Ray Luminosity", starTypeCount);
             printStarSubTable(writer, starTypeData, "evolutionary stage", "Evolutionary Stage", starTypeCount);
             printStarSubTable(writer, starTypeData, "planets per system", "Planets Per System", starTypeCount);
+
+            ReportUtils.endCollapsible(writer);
         }
+
+        ReportUtils.endCollapsible(writer);
     }
 
     private static boolean isUniformType(Map<String, Map<String, Integer>> typeData) {

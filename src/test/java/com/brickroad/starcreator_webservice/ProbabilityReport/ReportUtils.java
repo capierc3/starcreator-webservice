@@ -69,4 +69,23 @@ public class ReportUtils {
         writer.println("#### " + title);
         writer.println("");
     }
+
+    static void beginCollapsible(PrintWriter writer, String title, int headingLevel) {
+        String hTag = "h" + headingLevel;
+        writer.println("<details>");
+        writer.println("<summary><" + hTag + ">" + title + "</" + hTag + "></summary>");
+        writer.println("");
+    }
+
+    static void beginCollapsibleOpen(PrintWriter writer, String title, int headingLevel) {
+        String hTag = "h" + headingLevel;
+        writer.println("<details open>");
+        writer.println("<summary><" + hTag + ">" + title + "</" + hTag + "></summary>");
+        writer.println("");
+    }
+
+    static void endCollapsible(PrintWriter writer) {
+        writer.println("</details>");
+        writer.println("");
+    }
 }

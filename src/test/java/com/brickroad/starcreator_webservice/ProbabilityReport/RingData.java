@@ -15,7 +15,9 @@ public class RingData {
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        ReportUtils.printSection(writer, "Ring Types");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Ring Types", 2);
         ReportUtils.printSortedTable(writer, RING_TYPES, counts.getRingCount(), "Ring Type");
+        ReportUtils.endCollapsible(writer);
     }
 }

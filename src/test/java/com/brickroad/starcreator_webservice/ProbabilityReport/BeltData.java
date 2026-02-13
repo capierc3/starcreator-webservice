@@ -22,7 +22,8 @@ public class BeltData {
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        ReportUtils.printSection(writer, "Belt Types");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Belt Types", 2);
         ReportUtils.printSortedTable(writer, BELT_TYPES, counts.getBeltCount(), "Belt Type");
 
         ReportUtils.printSubSection(writer, "Asteroid Types");
@@ -30,6 +31,7 @@ public class BeltData {
 
         writer.println("Dwarf Planets in Belts: " + counts.getTempCount());
         writer.println("");
+        ReportUtils.endCollapsible(writer);
     }
 
 }

@@ -1,11 +1,10 @@
 package com.brickroad.starcreator_webservice.ProbabilityReport;
 
-import com.brickroad.starcreator_webservice.entity.ud.Moon;
-import com.brickroad.starcreator_webservice.entity.ud.PlanetaryHabitability;
-import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField;
+import com.brickroad.starcreator_webservice.entity.ud.*;
 
 import java.io.PrintWriter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MoonData {
@@ -38,6 +37,21 @@ public class MoonData {
     // --- Moon Composition/Size cross-reference ---
     private static final Map<String, Integer> MOON_COMPOSITION_TYPES = new HashMap<>();
     private static final Map<String, Integer> MOON_TIDAL_HEATING_LEVELS = new HashMap<>();
+
+    // --- Moon Weather ---
+    private static int moonsWithWeather = 0;
+    private static final Map<String, Integer> MOON_WEATHER_SEVERITY = new HashMap<>();
+    private static final Map<String, Integer> MOON_WEATHER_EXPOSURE = new HashMap<>();
+    private static final Map<String, Integer> MOON_WEATHER_SKY_COLOR = new HashMap<>();
+    private static final Map<String, Integer> MOON_WEATHER_CLOUD_CLASS = new HashMap<>();
+    private static final Map<String, Integer> MOON_WEATHER_WIND_INTENSITY = new HashMap<>();
+    private static final Map<String, Integer> MOON_WEATHER_TIDAL_RANGE_BINS = new HashMap<>();
+    private static int moonsWithPrecipitation = 0;
+    private static int moonsWithLightning = 0;
+    private static int moonsWithPlanetaryEclipses = 0;
+    private static int moonSiblingAppearanceTotal = 0;
+    private static int moonsWithParentPlanetVisible = 0;
+    private static int moonExtremeEventTotal = 0;
 
     static void analyzeData(Moon moon) {
         MOON_TYPES.put(moon.getMoonType(), MOON_TYPES.getOrDefault(moon.getMoonType(), 0) + 1);
@@ -111,10 +125,82 @@ public class MoonData {
             if (hab.getEsiTotal() != null) moonEsiSum += hab.getEsiTotal();
             if (hab.getHabitabilityScore() != null) moonHabScoreSum += hab.getHabitabilityScore();
         }
+
+        // --- Weather ---
+        analyzeMoonWeatherData(moon);
+    }
+
+    private static void analyzeMoonWeatherData(Moon moon) {
+        PlanetaryWeather w = moon.getWeather();
+        if (w == null) return;
+
+        moonsWithWeather++;
+
+        // Sky color
+        String skyColor = w.getSkyColor() != null ? w.getSkyColor() : "NULL";
+        MOON_WEATHER_SKY_COLOR.put(skyColor, MOON_WEATHER_SKY_COLOR.getOrDefault(skyColor, 0) + 1);
+
+        // Cloud coverage
+        String cloudClass = w.getCloudCoverageClass() != null ? w.getCloudCoverageClass() : "NULL";
+        MOON_WEATHER_CLOUD_CLASS.put(cloudClass, MOON_WEATHER_CLOUD_CLASS.getOrDefault(cloudClass, 0) + 1);
+
+        // Wind
+        String windIntensity = w.getWindIntensity() != null ? w.getWindIntensity() : "NULL";
+        MOON_WEATHER_WIND_INTENSITY.put(windIntensity, MOON_WEATHER_WIND_INTENSITY.getOrDefault(windIntensity, 0) + 1);
+
+        // Severity & exposure
+        String severity = w.getWeatherSeverity() != null ? w.getWeatherSeverity() : "NULL";
+        MOON_WEATHER_SEVERITY.put(severity, MOON_WEATHER_SEVERITY.getOrDefault(severity, 0) + 1);
+
+        String exposure = w.getOutdoorExposureRating() != null ? w.getOutdoorExposureRating() : "NULL";
+        MOON_WEATHER_EXPOSURE.put(exposure, MOON_WEATHER_EXPOSURE.getOrDefault(exposure, 0) + 1);
+
+        // Precipitation & storms
+        if (Boolean.TRUE.equals(w.getHasPrecipitation())) moonsWithPrecipitation++;
+        if (Boolean.TRUE.equals(w.getHasLightning())) moonsWithLightning++;
+
+        // Tidal range (from parent planet + siblings)
+        if (w.getTidalRangeMeters() != null) {
+            String tidalBin = binTidalRange(w.getTidalRangeMeters());
+            MOON_WEATHER_TIDAL_RANGE_BINS.put(tidalBin, MOON_WEATHER_TIDAL_RANGE_BINS.getOrDefault(tidalBin, 0) + 1);
+        }
+
+        // Extreme events
+        if (w.getExtremeWeatherEvents() != null) {
+            moonExtremeEventTotal += w.getExtremeWeatherEvents().size();
+        }
+
+        // Phase 7: Parent planet and sibling moon sky data
+        // Convention: index 0 is the parent planet (moonId=null), remaining entries are siblings.
+        // Note: moonId is null for all entries pre-DB, so we use list position instead.
+        List<MoonSkyAppearance> skyApps = w.getMoonSkyAppearances();
+        if (skyApps != null && !skyApps.isEmpty()) {
+            moonsWithParentPlanetVisible++;
+            int siblingCount = Math.max(0, skyApps.size() - 1);
+            moonSiblingAppearanceTotal += siblingCount;
+        }
+
+        // Planetary eclipses
+        List<EclipseData> eclipses = w.getEclipseData();
+        if (eclipses != null && !eclipses.isEmpty()) {
+            boolean hasPlanetaryEclipse = eclipses.stream()
+                    .anyMatch(e -> "PLANET_SOLAR".equals(e.getEclipseSource()));
+            if (hasPlanetaryEclipse) moonsWithPlanetaryEclipses++;
+        }
+    }
+
+    private static String binTidalRange(double meters) {
+        if (meters < 0.1) return "a: <0.1m (negligible)";
+        if (meters < 1.0) return "b: 0.1-1m (Earth-like)";
+        if (meters < 5.0) return "c: 1-5m (moderate)";
+        if (meters < 20.0) return "d: 5-20m (strong)";
+        if (meters < 100.0) return "e: 20-100m (extreme)";
+        return "f: 100m+ (catastrophic)";
     }
 
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        ReportUtils.printSection(writer, "Moon Types");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Moon Types", 2);
         ReportUtils.printSortedTable(writer, MOON_TYPES, counts.getMoonCount(), "Moon Type");
 
         ReportUtils.printSubSection(writer, "Moon Composition Types");
@@ -128,9 +214,7 @@ public class MoonData {
         writer.println("");
 
         // --- Detailed Analysis (assessed moons) ---
-        writer.println("---");
-        writer.println("### Moon Detailed Analysis (mass >= 0.0005 Earth)");
-        writer.println("");
+        ReportUtils.beginCollapsible(writer, "Moon Detailed Analysis (mass >= 0.0005 Earth)", 3);
         writer.println("Moons assessed: " + moonsAssessed + " of " + counts.getMoonCount()
                 + " total (" + ReportUtils.pct(moonsAssessed, counts.getMoonCount()) + "%)");
         writer.println("");
@@ -167,6 +251,45 @@ public class MoonData {
         ReportUtils.printSortedTable(writer, MOON_LIFE_COMPLEXITY, moonHabCount, "Life Complexity");
         ReportUtils.printSortedTable(writer, MOON_RADIATION_BELT_DOSE, moonHabCount, "Radiation Belt Surface Dose");
         ReportUtils.printSortedTable(writer, MOON_TIDAL_CONTRIBUTION, moonHabCount, "Tidal Heating Contribution");
+
+        // --- Weather ---
+        printMoonWeatherData(writer, counts);
+
+        ReportUtils.endCollapsible(writer); // close detailed analysis
+
+        ReportUtils.endCollapsible(writer); // close Moon Types
+    }
+
+    private static void printMoonWeatherData(PrintWriter writer, ProbabilityCounts counts) {
+        ReportUtils.printSubSubSection(writer, "Moon Weather");
+        writer.println("Moons with weather data: " + moonsWithWeather + " of " + counts.getMoonCount()
+                + " total (" + ReportUtils.pct(moonsWithWeather, counts.getMoonCount()) + "%)");
+        if (moonsWithWeather == 0) return;
+
+        writer.println("- With precipitation: " + moonsWithPrecipitation
+                + " (" + ReportUtils.pct(moonsWithPrecipitation, moonsWithWeather) + "%)");
+        writer.println("- With lightning: " + moonsWithLightning
+                + " (" + ReportUtils.pct(moonsWithLightning, moonsWithWeather) + "%)");
+        writer.println("- With parent planet visible in sky: " + moonsWithParentPlanetVisible
+                + " (" + ReportUtils.pct(moonsWithParentPlanetVisible, moonsWithWeather) + "%)");
+        writer.println("- With planetary eclipses: " + moonsWithPlanetaryEclipses
+                + " (" + ReportUtils.pct(moonsWithPlanetaryEclipses, moonsWithWeather) + "%)");
+        writer.println("- Avg sibling moons visible per moon: "
+                + String.format("%.1f", moonSiblingAppearanceTotal * 1.0 / moonsWithWeather));
+        writer.println("- Total extreme weather events: " + moonExtremeEventTotal
+                + " (avg " + String.format("%.1f", moonExtremeEventTotal * 1.0 / moonsWithWeather) + "/moon)");
+        writer.println("");
+
+        ReportUtils.printSortedTable(writer, MOON_WEATHER_SKY_COLOR, moonsWithWeather, "Sky Color");
+        ReportUtils.printSortedTable(writer, MOON_WEATHER_CLOUD_CLASS, moonsWithWeather, "Cloud Coverage");
+        ReportUtils.printSortedTable(writer, MOON_WEATHER_WIND_INTENSITY, moonsWithWeather, "Wind Intensity");
+        ReportUtils.printSortedTable(writer, MOON_WEATHER_SEVERITY, moonsWithWeather, "Weather Severity");
+        ReportUtils.printSortedTable(writer, MOON_WEATHER_EXPOSURE, moonsWithWeather, "Exposure Rating");
+
+        if (!MOON_WEATHER_TIDAL_RANGE_BINS.isEmpty()) {
+            ReportUtils.printSubSubSection(writer, "Moon Tidal Range (from Parent Planet + Siblings)");
+            ReportUtils.printSortedTableByKey(writer, MOON_WEATHER_TIDAL_RANGE_BINS, moonsWithWeather, "Tidal Range");
+        }
     }
 
 }

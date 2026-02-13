@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.entity.ud.*;
 
 import java.io.PrintWriter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class PlanetData {
@@ -55,6 +56,30 @@ public class PlanetData {
     private static double totalGravity = 0;
     private static int physicalPropsCount = 0;
     private static int planetsWithGeology = 0;
+
+    // --- Weather tracking ---
+    private static int planetsWithWeather = 0;
+    private static final Map<String, Integer> WEATHER_SKY_COLORS = new HashMap<>();
+    private static final Map<String, Integer> WEATHER_CLOUD_COVERAGE_CLASS = new HashMap<>();
+    private static final Map<String, Integer> WEATHER_WIND_INTENSITY = new HashMap<>();
+    private static final Map<String, Integer> WEATHER_STORM_FREQUENCY = new HashMap<>();
+    private static final Map<String, Integer> WEATHER_SEVERITY = new HashMap<>();
+    private static final Map<String, Integer> WEATHER_EXPOSURE_RATING = new HashMap<>();
+    private static final Map<String, Integer> WEATHER_CIRCULATION_PATTERN = new HashMap<>();
+    private static final Map<String, Integer> WEATHER_LIGHTNING_TYPE = new HashMap<>();
+    private static final Map<String, Integer> WEATHER_TIDAL_RANGE_BINS = new HashMap<>();
+    private static int planetsWithPrecipitation = 0;
+    private static int planetsWithDustStorms = 0;
+    private static int planetsWithLightning = 0;
+    private static int planetsWithSuperRotation = 0;
+    private static int planetsWithGreatDarkSpot = 0;
+    private static double totalCloudCoverage = 0;
+    private static double totalWindSpeed = 0;
+    private static int windSpeedCount = 0;
+    private static int cloudLayerTotal = 0;
+    private static int precipTypeTotal = 0;
+    private static int extremeEventTotal = 0;
+    private static int eclipseTotal = 0;
 
     static void analyzeData(Planet planet, ProbabilityCounts counts) {
         PLANET_TYPES.put(planet.getPlanetType(), PLANET_TYPES.getOrDefault(planet.getPlanetType(), 0) + 1);
@@ -209,6 +234,7 @@ public class PlanetData {
 
         analyzeWaterData(planet);
         analyzeDataHabitabilityData(planet);
+        analyzeWeatherData(planet);
     }
 
     private static void analyzeWaterData(Planet planet) {
@@ -270,8 +296,88 @@ public class PlanetData {
         WATER_PHASES.put(waterPhase, WATER_PHASES.getOrDefault(waterPhase, 0) + 1);
     }
 
+    private static void analyzeWeatherData(Planet planet) {
+        PlanetaryWeather w = planet.getWeather();
+        if (w == null) return;
+
+        planetsWithWeather++;
+
+        // Sky color
+        String skyColor = w.getSkyColor() != null ? w.getSkyColor() : "NULL";
+        WEATHER_SKY_COLORS.put(skyColor, WEATHER_SKY_COLORS.getOrDefault(skyColor, 0) + 1);
+
+        // Cloud coverage class
+        String cloudClass = w.getCloudCoverageClass() != null ? w.getCloudCoverageClass() : "NULL";
+        WEATHER_CLOUD_COVERAGE_CLASS.put(cloudClass, WEATHER_CLOUD_COVERAGE_CLASS.getOrDefault(cloudClass, 0) + 1);
+
+        if (w.getCloudCoveragePercent() != null) {
+            totalCloudCoverage += w.getCloudCoveragePercent();
+        }
+
+        // Wind
+        String windIntensity = w.getWindIntensity() != null ? w.getWindIntensity() : "NULL";
+        WEATHER_WIND_INTENSITY.put(windIntensity, WEATHER_WIND_INTENSITY.getOrDefault(windIntensity, 0) + 1);
+
+        if (w.getMeanSurfaceWindSpeedMs() != null) {
+            totalWindSpeed += w.getMeanSurfaceWindSpeedMs();
+            windSpeedCount++;
+        }
+
+        // Circulation
+        String circulation = w.getCirculationPattern() != null ? w.getCirculationPattern() : "NULL";
+        WEATHER_CIRCULATION_PATTERN.put(circulation, WEATHER_CIRCULATION_PATTERN.getOrDefault(circulation, 0) + 1);
+
+        if (Boolean.TRUE.equals(w.getHasSuperRotation())) planetsWithSuperRotation++;
+
+        // Storms
+        String stormFreq = w.getStormFrequency() != null ? w.getStormFrequency() : "NULL";
+        WEATHER_STORM_FREQUENCY.put(stormFreq, WEATHER_STORM_FREQUENCY.getOrDefault(stormFreq, 0) + 1);
+
+        if (Boolean.TRUE.equals(w.getHasDustStorms())) planetsWithDustStorms++;
+        if (Boolean.TRUE.equals(w.getHasLightning())) {
+            planetsWithLightning++;
+            String lightningType = w.getLightningType() != null ? w.getLightningType() : "UNKNOWN";
+            WEATHER_LIGHTNING_TYPE.put(lightningType, WEATHER_LIGHTNING_TYPE.getOrDefault(lightningType, 0) + 1);
+        }
+
+        // Precipitation
+        if (Boolean.TRUE.equals(w.getHasPrecipitation())) planetsWithPrecipitation++;
+
+        // Severity & exposure
+        String severity = w.getWeatherSeverity() != null ? w.getWeatherSeverity() : "NULL";
+        WEATHER_SEVERITY.put(severity, WEATHER_SEVERITY.getOrDefault(severity, 0) + 1);
+
+        String exposure = w.getOutdoorExposureRating() != null ? w.getOutdoorExposureRating() : "NULL";
+        WEATHER_EXPOSURE_RATING.put(exposure, WEATHER_EXPOSURE_RATING.getOrDefault(exposure, 0) + 1);
+
+        // Tidal range
+        if (w.getTidalRangeMeters() != null) {
+            String tidalBin = binTidalRange(w.getTidalRangeMeters());
+            WEATHER_TIDAL_RANGE_BINS.put(tidalBin, WEATHER_TIDAL_RANGE_BINS.getOrDefault(tidalBin, 0) + 1);
+        }
+
+        // Gas giant features
+        if (Boolean.TRUE.equals(w.getHasGreatDarkSpot())) planetsWithGreatDarkSpot++;
+
+        // Child collection counts
+        if (w.getCloudLayers() != null) cloudLayerTotal += w.getCloudLayers().size();
+        if (w.getPrecipitationTypes() != null) precipTypeTotal += w.getPrecipitationTypes().size();
+        if (w.getExtremeWeatherEvents() != null) extremeEventTotal += w.getExtremeWeatherEvents().size();
+        if (w.getEclipseData() != null) eclipseTotal += w.getEclipseData().size();
+    }
+
+    private static String binTidalRange(double meters) {
+        if (meters < 0.1) return "a: <0.1m (negligible)";
+        if (meters < 1.0) return "b: 0.1-1m (Earth-like)";
+        if (meters < 5.0) return "c: 1-5m (moderate)";
+        if (meters < 20.0) return "d: 5-20m (strong)";
+        if (meters < 100.0) return "e: 20-100m (extreme)";
+        return "f: 100m+ (catastrophic)";
+    }
+
     static void printData(PrintWriter writer, ProbabilityCounts counts) {
-        ReportUtils.printSection(writer, "Planet Types");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Planet Types", 2);
 
         // Summary stats
         writer.println("**Summary:** " + counts.getPlanetCount() + " planets across "
@@ -288,27 +394,28 @@ public class PlanetData {
         writer.println("");
 
         ReportUtils.printLinkedTable(writer, PLANET_TYPES, counts.getPlanetCount(), "Planet Type");
-        printPerTypeBreakdown(writer);
 
-        // --- NEW: Composition Classification ---
+        // --- Composition Classification ---
         ReportUtils.printSubSection(writer, "Composition Classification");
         ReportUtils.printSortedTable(writer, COMPOSITION_CLASSES, counts.getPlanetCount(), "Classification");
 
-        // --- NEW: Surface Temperature ---
+        // --- Surface Temperature ---
         ReportUtils.printSubSection(writer, "Surface Temperature Distribution");
         ReportUtils.printSortedTableByKey(writer, SURFACE_TEMP_BINS, counts.getPlanetCount(), "Temperature Range");
 
-        writer.println("---");
+        ReportUtils.endCollapsible(writer);
+
+        printPerTypeBreakdown(writer);
         printAtmosphereData(writer, counts);
-
-        // --- NEW: Geology section ---
         printGeologyData(writer);
-
-        writer.println("---");
         printWaterAndHab(writer);
+        printWeatherData(writer);
     }
 
     private static void printAtmosphereData(PrintWriter writer, ProbabilityCounts counts) {
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Atmosphere & Magnetic Fields", 2);
+
         ReportUtils.printSubSection(writer, "Atmosphere Classifications (All Planets)");
         ReportUtils.printSortedTable(writer, ATMOSPHERE_CLASSIFICATIONS, counts.getPlanetCount(), "Classification");
 
@@ -405,12 +512,15 @@ public class PlanetData {
                             " | " + c[3] + " | " + c[4] + " | " + c[5] + " |");
                 });
         writer.println("");
+
+        ReportUtils.endCollapsible(writer);
     }
 
     private static void printGeologyData(PrintWriter writer) {
         if (GEOLOGICAL_ACTIVITY.isEmpty() && TECTONIC_LEVELS.isEmpty()) return;
 
-        ReportUtils.printSection(writer, "Geology (Rocky/Surface Planets)");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Geology (Rocky/Surface Planets)", 2);
         writer.println("Planets with geological data: " + planetsWithGeology);
         writer.println("");
 
@@ -428,14 +538,16 @@ public class PlanetData {
             ReportUtils.printSubSection(writer, "Volcanism Type");
             ReportUtils.printSortedTable(writer, VOLCANISM_TYPES, planetsWithGeology, "Type");
         }
+
+        ReportUtils.endCollapsible(writer);
     }
 
     private static void printWaterAndHab(PrintWriter writer) {
         // ============================================================
         // WATER SYSTEM
         // ============================================================
-        writer.println("## Water System (Rocky/Surface Planets Only)");
-        writer.println("");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Water System (Rocky/Surface Planets Only)", 2);
         writer.println("Total rocky/surface planets analyzed: " + totalRockyPlanets);
         writer.println("- With liquid surface water: " + planetsWithLiquidWater
                 + " (" + ReportUtils.pct(planetsWithLiquidWater, totalRockyPlanets) + "%)");
@@ -451,10 +563,13 @@ public class PlanetData {
         ReportUtils.printSubSection(writer, "Water Phase at Surface");
         ReportUtils.printSortedTable(writer, WATER_PHASES, habAssessmentCount, "Phase");
 
+        ReportUtils.endCollapsible(writer);
+
         // ============================================================
         // HABITABILITY
         // ============================================================
-        ReportUtils.printSection(writer, "Planetary Habitability");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Planetary Habitability", 2);
         writer.println("Planets assessed: " + habAssessmentCount);
         writer.println("- Average ESI: " + String.format("%.3f", esiSum / Math.max(1, habAssessmentCount)));
         writer.println("- Average Habitability Score: " + String.format("%.1f", habScoreSum / Math.max(1, habAssessmentCount)));
@@ -476,10 +591,77 @@ public class PlanetData {
 
         ReportUtils.printSubSection(writer, "Life Complexity Potential");
         ReportUtils.printSortedTable(writer, LIFE_COMPLEXITY_POTENTIALS, habAssessmentCount, "Potential");
+
+        ReportUtils.endCollapsible(writer);
+    }
+
+    private static void printWeatherData(PrintWriter writer) {
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Planetary Weather", 2);
+        writer.println("Planets with weather data: " + planetsWithWeather);
+        if (planetsWithWeather == 0) {
+            ReportUtils.endCollapsible(writer);
+            return;
+        }
+
+        writer.println("- With precipitation: " + planetsWithPrecipitation
+                + " (" + ReportUtils.pct(planetsWithPrecipitation, planetsWithWeather) + "%)");
+        writer.println("- With dust storms: " + planetsWithDustStorms
+                + " (" + ReportUtils.pct(planetsWithDustStorms, planetsWithWeather) + "%)");
+        writer.println("- With lightning: " + planetsWithLightning
+                + " (" + ReportUtils.pct(planetsWithLightning, planetsWithWeather) + "%)");
+        writer.println("- With super-rotation: " + planetsWithSuperRotation
+                + " (" + ReportUtils.pct(planetsWithSuperRotation, planetsWithWeather) + "%)");
+        writer.println("- With great dark spot: " + planetsWithGreatDarkSpot
+                + " (" + ReportUtils.pct(planetsWithGreatDarkSpot, planetsWithWeather) + "%)");
+        writer.println("- Avg cloud coverage: " + String.format("%.1f", totalCloudCoverage / planetsWithWeather) + "%");
+        if (windSpeedCount > 0) {
+            writer.println("- Avg surface wind speed: " + String.format("%.1f", totalWindSpeed / windSpeedCount) + " m/s");
+        }
+        writer.println("- Avg cloud layers/planet: " + String.format("%.1f", cloudLayerTotal * 1.0 / planetsWithWeather));
+        writer.println("- Avg precipitation types/planet: " + String.format("%.1f", precipTypeTotal * 1.0 / planetsWithWeather));
+        writer.println("- Total extreme weather events: " + extremeEventTotal
+                + " (avg " + String.format("%.1f", extremeEventTotal * 1.0 / planetsWithWeather) + "/planet)");
+        writer.println("- Total eclipse configurations: " + eclipseTotal);
+        writer.println("");
+
+        ReportUtils.printSubSection(writer, "Sky Color");
+        ReportUtils.printSortedTable(writer, WEATHER_SKY_COLORS, planetsWithWeather, "Sky Color");
+
+        ReportUtils.printSubSection(writer, "Cloud Coverage Class");
+        ReportUtils.printSortedTable(writer, WEATHER_CLOUD_COVERAGE_CLASS, planetsWithWeather, "Coverage");
+
+        ReportUtils.printSubSection(writer, "Wind Intensity");
+        ReportUtils.printSortedTable(writer, WEATHER_WIND_INTENSITY, planetsWithWeather, "Intensity");
+
+        ReportUtils.printSubSection(writer, "Circulation Pattern");
+        ReportUtils.printSortedTable(writer, WEATHER_CIRCULATION_PATTERN, planetsWithWeather, "Pattern");
+
+        ReportUtils.printSubSection(writer, "Storm Frequency");
+        ReportUtils.printSortedTable(writer, WEATHER_STORM_FREQUENCY, planetsWithWeather, "Frequency");
+
+        if (!WEATHER_LIGHTNING_TYPE.isEmpty()) {
+            ReportUtils.printSubSection(writer, "Lightning Type");
+            ReportUtils.printSortedTable(writer, WEATHER_LIGHTNING_TYPE, planetsWithLightning, "Type");
+        }
+
+        ReportUtils.printSubSection(writer, "Weather Severity");
+        ReportUtils.printSortedTable(writer, WEATHER_SEVERITY, planetsWithWeather, "Severity");
+
+        ReportUtils.printSubSection(writer, "Outdoor Exposure Rating");
+        ReportUtils.printSortedTable(writer, WEATHER_EXPOSURE_RATING, planetsWithWeather, "Rating");
+
+        if (!WEATHER_TIDAL_RANGE_BINS.isEmpty()) {
+            ReportUtils.printSubSection(writer, "Tidal Range Distribution");
+            ReportUtils.printSortedTableByKey(writer, WEATHER_TIDAL_RANGE_BINS, planetsWithWeather, "Tidal Range");
+        }
+
+        ReportUtils.endCollapsible(writer);
     }
 
     private static void printPerTypeBreakdown(PrintWriter writer) {
-        ReportUtils.printSection(writer, "Per-Planet-Type Breakdown");
+        writer.println("---");
+        ReportUtils.beginCollapsible(writer, "Per-Planet-Type Breakdown", 2);
         writer.println("*Detailed breakdown of key properties for each planet type*");
         writer.println("");
 
@@ -487,6 +669,8 @@ public class PlanetData {
         PER_TYPE_DATA.entrySet().stream()
                 .sorted((a, b) -> Integer.compare(b.getValue().getCount(), a.getValue().getCount()))
                 .forEach(entry -> entry.getValue().print(writer, entry.getKey()));
+
+        ReportUtils.endCollapsible(writer);
     }
 
     private static String binMass(double earthMass) {

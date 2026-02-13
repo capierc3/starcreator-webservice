@@ -42,6 +42,9 @@ public class MoonCreator {
     @Autowired
     private HabitabilityCreator habitabilityCreator;
 
+    @Autowired
+    private WeatherCreator weatherCreator;
+
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
 
@@ -80,6 +83,10 @@ public class MoonCreator {
                     moonData.moonType, moonData.massEarthMasses);
             moons.add(moon);
         }
+
+        // Generate weather for all moons AFTER all moons are created,
+        // so sibling moons are available for tidal and sky appearance calculations.
+        generateMoonWeather(moons, planet, primaryStar);
 
         return moons;
     }
@@ -156,7 +163,24 @@ public class MoonCreator {
             }
         }
 
+        // Weather generation is deferred to after all moons are created,
+        // so sibling moons are available for tidal and sky calculations.
+
         return moon;
+    }
+
+    private void generateMoonWeather(List<Moon> moons, Planet planet, Star primaryStar) {
+        if (moons == null || moons.isEmpty()) return;
+
+        StarSystem system = primaryStar != null ? primaryStar.getSystem() : null;
+
+        for (Moon moon : moons) {
+            if (Boolean.TRUE.equals(moon.getHasAtmosphere())) {
+                PlanetaryWeather moonWeather = weatherCreator.generateMoonWeather(
+                        moon, planet, primaryStar, system, moons);
+                moon.setWeather(moonWeather);
+            }
+        }
     }
 
     private double estimateMoonTemperature(Planet planet, Star primaryStar) {
