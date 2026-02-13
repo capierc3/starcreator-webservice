@@ -292,4 +292,94 @@ public class MoonData {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    //  HTML OUTPUT
+    // ═══════════════════════════════════════════════════════════════
+
+    static void printHtml(PrintWriter w, ProbabilityCounts counts) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Moon Types", 2);
+        HtmlReportUtils.printSortedTable(w, MOON_TYPES, counts.getMoonCount(), "Moon Type");
+
+        HtmlReportUtils.printSubSection(w, "Moon Composition Types");
+        HtmlReportUtils.printSortedTable(w, MOON_COMPOSITION_TYPES, counts.getMoonCount(), "Composition");
+
+        HtmlReportUtils.printSubSection(w, "Tidal Heating Levels");
+        HtmlReportUtils.printSortedTable(w, MOON_TIDAL_HEATING_LEVELS, counts.getMoonCount(), "Level");
+
+        w.println("<p>Subsurface Oceans (from MoonCreator): " + moonsWithSubsurfaceOcean
+                + " (" + HtmlReportUtils.pct(moonsWithSubsurfaceOcean, counts.getMoonCount()) + "%)</p>");
+
+        // Detailed Analysis
+        HtmlReportUtils.beginCollapsible(w, "Moon Detailed Analysis (mass >= 0.0005 Earth)", 3);
+        w.println("<p>Moons assessed: " + moonsAssessed + " of " + counts.getMoonCount()
+                + " total (" + HtmlReportUtils.pct(moonsAssessed, counts.getMoonCount()) + "%)</p>");
+
+        // Magnetic Fields
+        HtmlReportUtils.printSubSubSection(w, "Moon Magnetic Fields");
+        w.println("<p>Moons with magnetic field data: " + moonsWithMagField
+                + " (" + HtmlReportUtils.pct(moonsWithMagField, moonsAssessed) + "% of assessed)</p>");
+        HtmlReportUtils.printSortedTable(w, MOON_DYNAMO_TYPES, moonsWithMagField, "Dynamo Type");
+        HtmlReportUtils.printSortedTable(w, MOON_PROTECTION_LEVELS, moonsWithMagField, "Protection Level");
+
+        // Water
+        HtmlReportUtils.printSubSubSection(w, "Moon Water System");
+        w.println("<p>With liquid surface water: " + moonsWithLiquidWater
+                + " (" + HtmlReportUtils.pct(moonsWithLiquidWater, counts.getMoonCount()) + "%)</p>");
+        w.println("<p>With ice coverage: " + moonsWithIce
+                + " (" + HtmlReportUtils.pct(moonsWithIce, counts.getMoonCount()) + "%)</p>");
+        w.println("<p>With subsurface water: " + moonsWithSubsurfaceWater
+                + " (" + HtmlReportUtils.pct(moonsWithSubsurfaceWater, counts.getMoonCount()) + "%)</p>");
+        HtmlReportUtils.printSortedTable(w, MOON_WATER_INVENTORIES, counts.getMoonCount(), "Water Inventory");
+
+        // Habitability
+        HtmlReportUtils.printSubSubSection(w, "Moon Habitability");
+        w.println("<p>Moons with habitability assessment: " + moonHabCount + "</p>");
+        w.println("<p>Average ESI: " + String.format("%.4f", moonEsiSum / Math.max(1, moonHabCount)) + "</p>");
+        w.println("<p>Average Habitability Score: " + String.format("%.1f", moonHabScoreSum / Math.max(1, moonHabCount)) + "</p>");
+
+        HtmlReportUtils.printSortedTable(w, MOON_HABITABILITY_CLASSES, moonHabCount, "Habitability Class");
+        HtmlReportUtils.printSortedTable(w, MOON_COLONIZATION_SUITABILITIES, moonHabCount, "Colonization Suitability");
+        HtmlReportUtils.printSortedTable(w, MOON_BIOSIGNATURE_POTENTIALS, moonHabCount, "Biosignature Potential");
+        HtmlReportUtils.printSortedTable(w, MOON_LIFE_COMPLEXITY, moonHabCount, "Life Complexity");
+        HtmlReportUtils.printSortedTable(w, MOON_RADIATION_BELT_DOSE, moonHabCount, "Radiation Belt Surface Dose");
+        HtmlReportUtils.printSortedTable(w, MOON_TIDAL_CONTRIBUTION, moonHabCount, "Tidal Heating Contribution");
+
+        // Weather
+        printHtmlMoonWeatherData(w, counts);
+
+        HtmlReportUtils.endCollapsible(w); // close detailed analysis
+        HtmlReportUtils.endCollapsible(w); // close Moon Types
+    }
+
+    private static void printHtmlMoonWeatherData(PrintWriter w, ProbabilityCounts counts) {
+        HtmlReportUtils.printSubSubSection(w, "Moon Weather");
+        w.println("<p>Moons with weather data: " + moonsWithWeather + " of " + counts.getMoonCount()
+                + " total (" + HtmlReportUtils.pct(moonsWithWeather, counts.getMoonCount()) + "%)</p>");
+        if (moonsWithWeather == 0) return;
+
+        w.println("<p>With precipitation: " + moonsWithPrecipitation
+                + " (" + HtmlReportUtils.pct(moonsWithPrecipitation, moonsWithWeather) + "%)</p>");
+        w.println("<p>With lightning: " + moonsWithLightning
+                + " (" + HtmlReportUtils.pct(moonsWithLightning, moonsWithWeather) + "%)</p>");
+        w.println("<p>With parent planet visible in sky: " + moonsWithParentPlanetVisible
+                + " (" + HtmlReportUtils.pct(moonsWithParentPlanetVisible, moonsWithWeather) + "%)</p>");
+        w.println("<p>With planetary eclipses: " + moonsWithPlanetaryEclipses
+                + " (" + HtmlReportUtils.pct(moonsWithPlanetaryEclipses, moonsWithWeather) + "%)</p>");
+        w.println("<p>Avg sibling moons visible per moon: "
+                + String.format("%.1f", moonSiblingAppearanceTotal * 1.0 / moonsWithWeather) + "</p>");
+        w.println("<p>Total extreme weather events: " + moonExtremeEventTotal
+                + " (avg " + String.format("%.1f", moonExtremeEventTotal * 1.0 / moonsWithWeather) + "/moon)</p>");
+
+        HtmlReportUtils.printSortedTable(w, MOON_WEATHER_SKY_COLOR, moonsWithWeather, "Sky Color");
+        HtmlReportUtils.printSortedTable(w, MOON_WEATHER_CLOUD_CLASS, moonsWithWeather, "Cloud Coverage");
+        HtmlReportUtils.printSortedTable(w, MOON_WEATHER_WIND_INTENSITY, moonsWithWeather, "Wind Intensity");
+        HtmlReportUtils.printSortedTable(w, MOON_WEATHER_SEVERITY, moonsWithWeather, "Weather Severity");
+        HtmlReportUtils.printSortedTable(w, MOON_WEATHER_EXPOSURE, moonsWithWeather, "Exposure Rating");
+
+        if (!MOON_WEATHER_TIDAL_RANGE_BINS.isEmpty()) {
+            HtmlReportUtils.printSubSubSection(w, "Moon Tidal Range (from Parent Planet + Siblings)");
+            HtmlReportUtils.printSortedTableByKey(w, MOON_WEATHER_TIDAL_RANGE_BINS, moonsWithWeather, "Tidal Range");
+        }
+    }
 }

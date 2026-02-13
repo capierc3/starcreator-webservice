@@ -150,4 +150,74 @@ public class StarData {
         if (count <= 8) return "7-8";
         return "9+";
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  HTML OUTPUT
+    // ═══════════════════════════════════════════════════════════════
+
+    static void printHtml(PrintWriter w, ProbabilityCounts counts) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Star Amounts", 2);
+
+        // Star amounts table
+        w.println("<table>");
+        w.println("<thead><tr><th>Amount</th><th>Count</th><th>%</th><th class=\"bar-col\">Distribution</th></tr></thead>");
+        w.println("<tbody>");
+        STAR_AMOUNTS.entrySet().stream()
+                .sorted(Map.Entry.<Integer, Integer>comparingByValue().reversed())
+                .forEach(entry -> {
+                    double pctVal = entry.getValue() * 100.0 / Math.max(1, counts.getSystemCount());
+                    w.println("<tr><td>" + entry.getKey() + " Star System</td><td>" + entry.getValue()
+                            + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
+                            + "<div class=\"bar\"><div class=\"bar-fill\" style=\"width:" + String.format("%.1f", pctVal) + "%\"></div></div>"
+                            + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+
+        HtmlReportUtils.printLinkedTable(w, STAR_TYPES, counts.getStarCount(), "Star Type");
+
+        // Star Roles
+        HtmlReportUtils.printSubSection(w, "Star Roles");
+        HtmlReportUtils.printSortedTable(w, STAR_ROLES, counts.getStarCount(), "Role");
+
+        // Per-type breakdown
+        for (Map.Entry<String, Map<String, Map<String, Integer>>> entry : STAR_TYPES_DATA.entrySet()) {
+            Map<String, Map<String, Integer>> starTypeData = entry.getValue();
+            int starTypeCount = STAR_TYPES.getOrDefault(entry.getKey(), 0);
+
+            if (isUniformType(starTypeData)) {
+                HtmlReportUtils.printAnchor(w, entry.getKey());
+                HtmlReportUtils.beginCollapsible(w, entry.getKey() + " (" + starTypeCount + ")", 3);
+                Map<String, Integer> activityData = starTypeData.getOrDefault("activity", new HashMap<>());
+                Map<String, Integer> evoData = starTypeData.getOrDefault("evolutionary stage", new HashMap<>());
+                String activity = activityData.keySet().stream().findFirst().orElse("N/A");
+                String evo = evoData.keySet().stream().findFirst().orElse("N/A");
+                w.println("<p class=\"note\">Uniform profile — Activity: " + HtmlReportUtils.esc(activity)
+                        + ", Stage: " + HtmlReportUtils.esc(evo) + "</p>");
+                HtmlReportUtils.endCollapsible(w);
+                continue;
+            }
+
+            HtmlReportUtils.printAnchor(w, entry.getKey());
+            HtmlReportUtils.beginCollapsible(w, entry.getKey() + " Star Type Data", 3);
+
+            printHtmlStarSubTable(w, starTypeData, "activity", "Activity Level", starTypeCount);
+            printHtmlStarSubTable(w, starTypeData, "flare class", "Flare Class", starTypeCount);
+            printHtmlStarSubTable(w, starTypeData, "spot %", "Spot Coverage", starTypeCount);
+            printHtmlStarSubTable(w, starTypeData, "xray Luminosity", "X-Ray Luminosity", starTypeCount);
+            printHtmlStarSubTable(w, starTypeData, "evolutionary stage", "Evolutionary Stage", starTypeCount);
+            printHtmlStarSubTable(w, starTypeData, "planets per system", "Planets Per System", starTypeCount);
+
+            HtmlReportUtils.endCollapsible(w);
+        }
+
+        HtmlReportUtils.endCollapsible(w);
+    }
+
+    private static void printHtmlStarSubTable(PrintWriter w, Map<String, Map<String, Integer>> typeData,
+                                              String key, String label, int total) {
+        Map<String, Integer> data = typeData.getOrDefault(key, new HashMap<>());
+        if (data.isEmpty()) return;
+        HtmlReportUtils.printSortedTable(w, data, total, label);
+    }
 }

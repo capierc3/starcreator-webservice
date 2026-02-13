@@ -177,4 +177,45 @@ public class PlanetTypeBreakdown {
 
         ReportUtils.endCollapsible(writer);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  HTML OUTPUT
+    // ═══════════════════════════════════════════════════════════════
+
+    void printHtml(PrintWriter w, String planetType) {
+        HtmlReportUtils.printAnchor(w, planetType);
+        HtmlReportUtils.beginCollapsible(w, planetType + " (" + count + ")", 3);
+
+        if (physicalCount > 0) {
+            w.println("<p>Avg mass: " + String.format("%.2f", massSum / physicalCount) + " M&#8853;"
+                    + " | Avg radius: " + String.format("%.2f", radiusSum / physicalCount) + " R&#8853;"
+                    + " | Avg gravity: " + String.format("%.2f", gravitySum / physicalCount) + " g"
+                    + " | Avg temp: " + String.format("%.0f", tempSum / physicalCount) + " K</p>");
+        }
+        w.println("<p>Tidally locked: " + tidallyLocked + " (" + HtmlReportUtils.pct(tidallyLocked, count) + "%)"
+                + " | With rings: " + withRings + " (" + HtmlReportUtils.pct(withRings, count) + "%)</p>");
+
+        if (!compositionClasses.isEmpty())
+            HtmlReportUtils.printSortedTable(w, compositionClasses, count, "Composition");
+        if (!surfaceTempBins.isEmpty())
+            HtmlReportUtils.printSortedTableByKey(w, surfaceTempBins, count, "Temperature");
+        if (!atmosphereClasses.isEmpty())
+            HtmlReportUtils.printSortedTable(w, atmosphereClasses, count, "Atmosphere");
+        if (!hzPositions.isEmpty())
+            HtmlReportUtils.printSortedTable(w, hzPositions, count, "HZ Position");
+        if (!protectionLevels.isEmpty())
+            HtmlReportUtils.printSortedTable(w, protectionLevels, count, "Protection");
+        if (!massBins.isEmpty())
+            HtmlReportUtils.printSortedTableByKey(w, massBins, count, "Mass Range");
+        if (!moonCountBins.isEmpty())
+            HtmlReportUtils.printSortedTableByKey(w, moonCountBins, count, "Moon Count");
+        if (!geologicalActivity.isEmpty())
+            HtmlReportUtils.printSortedTable(w, geologicalActivity, count, "Geological Activity");
+        if (!waterInventories.isEmpty())
+            HtmlReportUtils.printSortedTable(w, waterInventories, count, "Water Inventory");
+        if (!habitabilityClasses.isEmpty())
+            HtmlReportUtils.printSortedTable(w, habitabilityClasses, count, "Habitability Class");
+
+        HtmlReportUtils.endCollapsible(w);
+    }
 }

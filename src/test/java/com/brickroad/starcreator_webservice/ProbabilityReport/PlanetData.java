@@ -759,4 +759,283 @@ public class PlanetData {
                 || planetType.contains("Lava");
         // Excludes: Iron Planet, Carbon Planet, Hot Rocky Planet, Dwarf Planet
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  HTML OUTPUT
+    // ═══════════════════════════════════════════════════════════════
+
+    static void printHtml(PrintWriter w, ProbabilityCounts counts) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Planet Types", 2);
+
+        // Summary stats
+        w.println("<p><strong>Summary:</strong> " + counts.getPlanetCount() + " planets across "
+                + counts.getSystemCount() + " systems (avg "
+                + String.format("%.1f", counts.getPlanetCount() * 1.0 / Math.max(1, counts.getSystemCount()))
+                + " per system)</p>");
+        w.println("<p>With rings: " + planetsWithRings + " ("
+                + HtmlReportUtils.pct(planetsWithRings, counts.getPlanetCount()) + "%)</p>");
+        if (physicalPropsCount > 0) {
+            w.println("<p>Avg mass: " + String.format("%.2f", totalMass / physicalPropsCount) + " M&#8853;"
+                    + " | Avg radius: " + String.format("%.2f", totalRadius / physicalPropsCount) + " R&#8853;"
+                    + " | Avg gravity: " + String.format("%.2f", totalGravity / physicalPropsCount) + " g</p>");
+        }
+
+        HtmlReportUtils.printLinkedTable(w, PLANET_TYPES, counts.getPlanetCount(), "Planet Type");
+
+        HtmlReportUtils.printSubSection(w, "Composition Classification");
+        HtmlReportUtils.printSortedTable(w, COMPOSITION_CLASSES, counts.getPlanetCount(), "Classification");
+
+        HtmlReportUtils.printSubSection(w, "Surface Temperature Distribution");
+        HtmlReportUtils.printSortedTableByKey(w, SURFACE_TEMP_BINS, counts.getPlanetCount(), "Temperature Range");
+
+        HtmlReportUtils.endCollapsible(w);
+
+        printHtmlPerTypeBreakdown(w);
+        printHtmlAtmosphereData(w, counts);
+        printHtmlGeologyData(w);
+        printHtmlWaterAndHab(w);
+        printHtmlWeatherData(w);
+    }
+
+    private static void printHtmlAtmosphereData(PrintWriter w, ProbabilityCounts counts) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Atmosphere &amp; Magnetic Fields", 2);
+
+        HtmlReportUtils.printSubSection(w, "Atmosphere Classifications (All Planets)");
+        HtmlReportUtils.printSortedTable(w, ATMOSPHERE_CLASSIFICATIONS, counts.getPlanetCount(), "Classification");
+
+        HtmlReportUtils.printSubSection(w, "Tidal Locking");
+        HtmlReportUtils.printSortedTable(w, TIDAL_LOCK_COUNTS, counts.getPlanetCount(), "Status");
+
+        HtmlReportUtils.printSubSection(w, "Habitable Zone Positions");
+        HtmlReportUtils.printSortedTable(w, HZ_POSITIONS, counts.getPlanetCount(), "Position");
+
+        HtmlReportUtils.printSubSection(w, "Magnetic Protection Levels");
+        HtmlReportUtils.printSortedTable(w, PROTECTION_LEVELS, counts.getPlanetCount(), "Level");
+
+        HtmlReportUtils.printSubSection(w, "Magnetopause Distance Distribution");
+        HtmlReportUtils.printSortedTableByKey(w, MAGNETOPAUSE_BINS, counts.getPlanetCount(), "Range (planet radii)");
+
+        // Average Magnetopause by Distance
+        w.println("<h3>Average Magnetopause by Distance from Star</h3>");
+        w.println("<p class=\"note\">Should show compression (smaller magnetopause) closer to star</p>");
+        w.println("<table>");
+        w.println("<thead><tr><th>Distance Bin</th><th>Avg Magnetopause (radii)</th><th>Sample Count</th></tr></thead>");
+        w.println("<tbody>");
+        DISTANCE_VS_MAGNETOPAUSE.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    double avg = e.getValue()[0] / e.getValue()[1];
+                    w.println("<tr><td>" + HtmlReportUtils.esc(e.getKey()) + "</td><td>"
+                            + String.format("%.1f", avg) + "</td><td>" + (int) e.getValue()[1] + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+
+        HtmlReportUtils.printSubSection(w, "Atmospheric Loss Rate Distribution");
+        HtmlReportUtils.printSortedTableByKey(w, ATM_LOSS_RATE_BINS, counts.getPlanetCount(), "Range");
+
+        HtmlReportUtils.printSubSection(w, "Auroral Frequency");
+        HtmlReportUtils.printSortedTable(w, AURORAL_FREQUENCIES, counts.getPlanetCount(), "Frequency");
+
+        HtmlReportUtils.printSubSection(w, "Auroral Intensity");
+        HtmlReportUtils.printSortedTable(w, AURORAL_INTENSITIES, counts.getPlanetCount(), "Intensity");
+
+        // Radiation Belt Intensity
+        w.println("<h3>Radiation Belt Intensity (Inner / Outer)</h3>");
+        w.println("<table>");
+        w.println("<thead><tr><th>Inner Belt</th><th>Count</th><th>%</th></tr></thead><tbody>");
+        BELT_INTENSITY_INNER.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> w.println("<tr><td>" + HtmlReportUtils.esc(e.getKey()) + "</td><td>" + e.getValue()
+                        + "</td><td>" + HtmlReportUtils.pct(e.getValue(), counts.getPlanetCount()) + "%</td></tr>"));
+        w.println("</tbody></table>");
+
+        w.println("<table>");
+        w.println("<thead><tr><th>Outer Belt</th><th>Count</th><th>%</th></tr></thead><tbody>");
+        BELT_INTENSITY_OUTER.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> w.println("<tr><td>" + HtmlReportUtils.esc(e.getKey()) + "</td><td>" + e.getValue()
+                        + "</td><td>" + HtmlReportUtils.pct(e.getValue(), counts.getPlanetCount()) + "%</td></tr>"));
+        w.println("</tbody></table>");
+
+        // Cross-reference: Star Activity vs Atmosphere Stripping
+        w.println("<h3>Star Activity vs Rocky Planet Atmosphere Stripping</h3>");
+        w.println("<p class=\"note\">Shows % of rocky planets that lost their atmosphere, grouped by parent star activity</p>");
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Star Activity</th><th>Total Rocky</th><th>Stripped (NONE)</th><th>Strip Rate</th></tr></thead>");
+        w.println("<tbody>");
+        ACTIVITY_VS_ATMOSPHERE.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    int total = e.getValue()[0];
+                    int stripped = e.getValue()[1];
+                    double rate = total > 0 ? (stripped * 100.0 / total) : 0;
+                    w.println("<tr><td>" + HtmlReportUtils.esc(e.getKey()) + "</td><td>" + total
+                            + "</td><td>" + stripped + "</td><td>" + String.format("%.1f", rate) + "%</td></tr>");
+                });
+        w.println("</tbody></table>");
+
+        // Cross-reference: Star Activity vs Protection Level
+        w.println("<h3>Star Activity vs Protection Level (Rocky Planets)</h3>");
+        w.println("<p class=\"note\">Expectation: HYPERACTIVE/VERY_ACTIVE stars should shift protection toward NONE/MINIMAL</p>");
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Star Activity</th><th>Total</th><th>NONE</th><th>MINIMAL</th><th>MODERATE</th><th>STRONG</th><th>EXCEPTIONAL</th></tr></thead>");
+        w.println("<tbody>");
+        ACTIVITY_VS_PROTECTION.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    int[] c = e.getValue();
+                    w.println("<tr><td>" + HtmlReportUtils.esc(e.getKey()) + "</td><td>" + c[0] + "</td><td>" + c[1]
+                            + "</td><td>" + c[2] + "</td><td>" + c[3] + "</td><td>" + c[4] + "</td><td>" + c[5] + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+
+        HtmlReportUtils.endCollapsible(w);
+    }
+
+    private static void printHtmlGeologyData(PrintWriter w) {
+        if (GEOLOGICAL_ACTIVITY.isEmpty() && TECTONIC_LEVELS.isEmpty()) return;
+
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Geology (Rocky/Surface Planets)", 2);
+        w.println("<p>Planets with geological data: " + planetsWithGeology + "</p>");
+
+        if (!GEOLOGICAL_ACTIVITY.isEmpty()) {
+            HtmlReportUtils.printSubSection(w, "Geological Activity");
+            HtmlReportUtils.printSortedTable(w, GEOLOGICAL_ACTIVITY, planetsWithGeology, "Activity");
+        }
+        if (!TECTONIC_LEVELS.isEmpty()) {
+            HtmlReportUtils.printSubSection(w, "Tectonic Activity Level");
+            HtmlReportUtils.printSortedTable(w, TECTONIC_LEVELS, planetsWithGeology, "Level");
+        }
+        if (!VOLCANISM_TYPES.isEmpty()) {
+            HtmlReportUtils.printSubSection(w, "Volcanism Type");
+            HtmlReportUtils.printSortedTable(w, VOLCANISM_TYPES, planetsWithGeology, "Type");
+        }
+
+        HtmlReportUtils.endCollapsible(w);
+    }
+
+    private static void printHtmlWaterAndHab(PrintWriter w) {
+        // Water System
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Water System (Rocky/Surface Planets Only)", 2);
+        w.println("<p>Total rocky/surface planets analyzed: " + totalRockyPlanets + "</p>");
+        w.println("<p>With liquid surface water: " + planetsWithLiquidWater
+                + " (" + HtmlReportUtils.pct(planetsWithLiquidWater, totalRockyPlanets) + "%)</p>");
+        w.println("<p>With ice coverage: " + planetsWithIce
+                + " (" + HtmlReportUtils.pct(planetsWithIce, totalRockyPlanets) + "%)</p>");
+        w.println("<p>With subsurface water: " + planetsWithSubsurfaceWater
+                + " (" + HtmlReportUtils.pct(planetsWithSubsurfaceWater, totalRockyPlanets) + "%)</p>");
+
+        HtmlReportUtils.printSubSection(w, "Water Inventory Distribution");
+        HtmlReportUtils.printSortedTable(w, WATER_INVENTORIES, totalRockyPlanets, "Inventory");
+
+        HtmlReportUtils.printSubSection(w, "Water Phase at Surface");
+        HtmlReportUtils.printSortedTable(w, WATER_PHASES, habAssessmentCount, "Phase");
+
+        HtmlReportUtils.endCollapsible(w);
+
+        // Habitability
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Planetary Habitability", 2);
+        w.println("<p>Planets assessed: " + habAssessmentCount + "</p>");
+        w.println("<p>Average ESI: " + String.format("%.3f", esiSum / Math.max(1, habAssessmentCount)) + "</p>");
+        w.println("<p>Average Habitability Score: " + String.format("%.1f", habScoreSum / Math.max(1, habAssessmentCount)) + "</p>");
+        w.println("<p>Breathable atmospheres: " + breathablePlanets
+                + " (" + String.format("%.2f", breathablePlanets * 100.0 / Math.max(1, habAssessmentCount)) + "%)</p>");
+
+        HtmlReportUtils.printSubSection(w, "Habitability Class Distribution");
+        HtmlReportUtils.printSortedTable(w, HABITABILITY_CLASSES, habAssessmentCount, "Class");
+
+        HtmlReportUtils.printSubSection(w, "Colonization Suitability");
+        HtmlReportUtils.printSortedTable(w, COLONIZATION_SUITABILITIES, habAssessmentCount, "Suitability");
+
+        HtmlReportUtils.printSubSection(w, "Terraforming Potential");
+        HtmlReportUtils.printSortedTable(w, TERRAFORMING_POTENTIALS, habAssessmentCount, "Potential");
+
+        HtmlReportUtils.printSubSection(w, "Biosignature Potential");
+        HtmlReportUtils.printSortedTable(w, BIOSIGNATURE_POTENTIALS, habAssessmentCount, "Potential");
+
+        HtmlReportUtils.printSubSection(w, "Life Complexity Potential");
+        HtmlReportUtils.printSortedTable(w, LIFE_COMPLEXITY_POTENTIALS, habAssessmentCount, "Potential");
+
+        HtmlReportUtils.endCollapsible(w);
+    }
+
+    private static void printHtmlWeatherData(PrintWriter w) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Planetary Weather", 2);
+        w.println("<p>Planets with weather data: " + planetsWithWeather + "</p>");
+        if (planetsWithWeather == 0) {
+            HtmlReportUtils.endCollapsible(w);
+            return;
+        }
+
+        w.println("<p>With precipitation: " + planetsWithPrecipitation
+                + " (" + HtmlReportUtils.pct(planetsWithPrecipitation, planetsWithWeather) + "%)</p>");
+        w.println("<p>With dust storms: " + planetsWithDustStorms
+                + " (" + HtmlReportUtils.pct(planetsWithDustStorms, planetsWithWeather) + "%)</p>");
+        w.println("<p>With lightning: " + planetsWithLightning
+                + " (" + HtmlReportUtils.pct(planetsWithLightning, planetsWithWeather) + "%)</p>");
+        w.println("<p>With super-rotation: " + planetsWithSuperRotation
+                + " (" + HtmlReportUtils.pct(planetsWithSuperRotation, planetsWithWeather) + "%)</p>");
+        w.println("<p>With great dark spot: " + planetsWithGreatDarkSpot
+                + " (" + HtmlReportUtils.pct(planetsWithGreatDarkSpot, planetsWithWeather) + "%)</p>");
+        w.println("<p>Avg cloud coverage: " + String.format("%.1f", totalCloudCoverage / planetsWithWeather) + "%</p>");
+        if (windSpeedCount > 0) {
+            w.println("<p>Avg surface wind speed: " + String.format("%.1f", totalWindSpeed / windSpeedCount) + " m/s</p>");
+        }
+        w.println("<p>Avg cloud layers/planet: " + String.format("%.1f", cloudLayerTotal * 1.0 / planetsWithWeather) + "</p>");
+        w.println("<p>Avg precipitation types/planet: " + String.format("%.1f", precipTypeTotal * 1.0 / planetsWithWeather) + "</p>");
+        w.println("<p>Total extreme weather events: " + extremeEventTotal
+                + " (avg " + String.format("%.1f", extremeEventTotal * 1.0 / planetsWithWeather) + "/planet)</p>");
+        w.println("<p>Total eclipse configurations: " + eclipseTotal + "</p>");
+
+        HtmlReportUtils.printSubSection(w, "Sky Color");
+        HtmlReportUtils.printSortedTable(w, WEATHER_SKY_COLORS, planetsWithWeather, "Sky Color");
+
+        HtmlReportUtils.printSubSection(w, "Cloud Coverage Class");
+        HtmlReportUtils.printSortedTable(w, WEATHER_CLOUD_COVERAGE_CLASS, planetsWithWeather, "Coverage");
+
+        HtmlReportUtils.printSubSection(w, "Wind Intensity");
+        HtmlReportUtils.printSortedTable(w, WEATHER_WIND_INTENSITY, planetsWithWeather, "Intensity");
+
+        HtmlReportUtils.printSubSection(w, "Circulation Pattern");
+        HtmlReportUtils.printSortedTable(w, WEATHER_CIRCULATION_PATTERN, planetsWithWeather, "Pattern");
+
+        HtmlReportUtils.printSubSection(w, "Storm Frequency");
+        HtmlReportUtils.printSortedTable(w, WEATHER_STORM_FREQUENCY, planetsWithWeather, "Frequency");
+
+        if (!WEATHER_LIGHTNING_TYPE.isEmpty()) {
+            HtmlReportUtils.printSubSection(w, "Lightning Type");
+            HtmlReportUtils.printSortedTable(w, WEATHER_LIGHTNING_TYPE, planetsWithLightning, "Type");
+        }
+
+        HtmlReportUtils.printSubSection(w, "Weather Severity");
+        HtmlReportUtils.printSortedTable(w, WEATHER_SEVERITY, planetsWithWeather, "Severity");
+
+        HtmlReportUtils.printSubSection(w, "Outdoor Exposure Rating");
+        HtmlReportUtils.printSortedTable(w, WEATHER_EXPOSURE_RATING, planetsWithWeather, "Rating");
+
+        if (!WEATHER_TIDAL_RANGE_BINS.isEmpty()) {
+            HtmlReportUtils.printSubSection(w, "Tidal Range Distribution");
+            HtmlReportUtils.printSortedTableByKey(w, WEATHER_TIDAL_RANGE_BINS, planetsWithWeather, "Tidal Range");
+        }
+
+        HtmlReportUtils.endCollapsible(w);
+    }
+
+    private static void printHtmlPerTypeBreakdown(PrintWriter w) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Per-Planet-Type Breakdown", 2);
+        w.println("<p class=\"note\">Detailed breakdown of key properties for each planet type</p>");
+
+        PER_TYPE_DATA.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue().getCount(), a.getValue().getCount()))
+                .forEach(entry -> entry.getValue().printHtml(w, entry.getKey()));
+
+        HtmlReportUtils.endCollapsible(w);
+    }
 }

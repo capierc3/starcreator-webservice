@@ -34,4 +34,19 @@ public class BeltData {
         ReportUtils.endCollapsible(writer);
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    //  HTML OUTPUT
+    // ═══════════════════════════════════════════════════════════════
+
+    static void printHtml(PrintWriter w, ProbabilityCounts counts) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Belt Types", 2);
+        HtmlReportUtils.printSortedTable(w, BELT_TYPES, counts.getBeltCount(), "Belt Type");
+
+        HtmlReportUtils.printSubSection(w, "Asteroid Types");
+        HtmlReportUtils.printSortedTable(w, ASTEROID_TYPES, counts.getAsteroidCount(), "Asteroid Type");
+
+        w.println("<p>Dwarf Planets in Belts: " + counts.getTempCount() + "</p>");
+        HtmlReportUtils.endCollapsible(w);
+    }
 }

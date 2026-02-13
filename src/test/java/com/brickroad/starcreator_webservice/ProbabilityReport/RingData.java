@@ -20,4 +20,15 @@ public class RingData {
         ReportUtils.printSortedTable(writer, RING_TYPES, counts.getRingCount(), "Ring Type");
         ReportUtils.endCollapsible(writer);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  HTML OUTPUT
+    // ═══════════════════════════════════════════════════════════════
+
+    static void printHtml(PrintWriter w, ProbabilityCounts counts) {
+        w.println("<hr>");
+        HtmlReportUtils.beginCollapsible(w, "Ring Types", 2);
+        HtmlReportUtils.printSortedTable(w, RING_TYPES, counts.getRingCount(), "Ring Type");
+        HtmlReportUtils.endCollapsible(w);
+    }
 }
