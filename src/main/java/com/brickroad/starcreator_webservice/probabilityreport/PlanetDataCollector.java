@@ -93,6 +93,9 @@ public class PlanetDataCollector {
                     planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 0);
         }
         typeData.addMoonCountBin(binMoonCount(planet.getMoons().size()));
+        if (planet.getSemiMajorAxisAU() != null) {
+            typeData.addSemiMajorAxisBin(binDistance(planet.getSemiMajorAxisAU()));
+        }
 
         // Composition classification
         String compClass = planet.getCompositionClassification() != null ? planet.getCompositionClassification() : "NULL";

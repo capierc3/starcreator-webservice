@@ -250,6 +250,8 @@ public class HtmlReportBuilder {
             printSortedTable(w, ptb.getProtectionLevels(), ptb.getCount(), "Protection");
         if (!ptb.getMassBins().isEmpty())
             printSortedTableByKey(w, ptb.getMassBins(), ptb.getCount(), "Mass Range");
+        if (!ptb.getSemiMajorAxisBins().isEmpty())
+            printSortedTableByKey(w, ptb.getSemiMajorAxisBins(), ptb.getCount(), "Semi-Major Axis (AU)");
         if (!ptb.getMoonCountBins().isEmpty())
             printSortedTableByKey(w, ptb.getMoonCountBins(), ptb.getCount(), "Moon Count");
         if (!ptb.getGeologicalActivity().isEmpty())
