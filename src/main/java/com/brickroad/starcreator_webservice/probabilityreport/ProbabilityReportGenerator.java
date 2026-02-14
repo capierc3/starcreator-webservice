@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.probabilityreport;
 
 import com.brickroad.starcreator_webservice.creator.SystemCreator;
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 
 import java.io.File;
 
@@ -37,6 +38,13 @@ public class ProbabilityReportGenerator {
 
             counts.incrementStarCount(system.getStars().size());
             starData.getStarAmounts().merge(system.getStars().size(), 1, Integer::sum);
+
+            // Track binary/trinary configuration (once per system)
+            BinaryConfiguration binConfig = system.getBinaryConfiguration();
+            if (binConfig != null) {
+                starData.getBinaryConfigurations().merge(binConfig.name(), 1, Integer::sum);
+            }
+
             for (Star star : system.getStars()) {
                 starData.analyzeData(star);
             }

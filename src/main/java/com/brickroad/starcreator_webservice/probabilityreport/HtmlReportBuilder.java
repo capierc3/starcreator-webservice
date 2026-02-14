@@ -92,7 +92,8 @@ public class HtmlReportBuilder {
         w.println("<ol>");
         tocLink(w, "Star Amounts");
         tocLink(w, "Planet Types");
-        tocLink(w, "Per-Planet-Type Breakdown");
+        tocLink(w, "Per-Planet-Type Breakdown (Single-Star)");
+        tocLink(w, "Per-Planet-Type Breakdown (P-Type Binary)");
         tocLink(w, "Atmosphere & Magnetic Fields");
         tocLink(w, "Geology (Rocky/Surface Planets)");
         tocLink(w, "Water System (Rocky/Surface Planets Only)");
@@ -127,6 +128,12 @@ public class HtmlReportBuilder {
                             + bar(pctVal) + "</td></tr>");
                 });
         w.println("</tbody></table>");
+
+        // System Configuration breakdown (binary/trinary)
+        if (!starData.getBinaryConfigurations().isEmpty()) {
+            printSubSection(w, "System Configuration");
+            printSortedTable(w, starData.getBinaryConfigurations(), counts.getSystemCount(), "Configuration");
+        }
 
         printLinkedTable(w, starData.getStarTypes(), counts.getStarCount(), "Star Type");
 
@@ -214,13 +221,29 @@ public class HtmlReportBuilder {
     }
 
     private void printPlanetPerTypeBreakdown(PrintWriter w) {
+        // Single-star systems (non-P-type)
         w.println("<hr>");
-        beginCollapsible(w, "Per-Planet-Type Breakdown", 2);
-        w.println("<p class=\"note\">Detailed breakdown of key properties for each planet type</p>");
+        beginCollapsible(w, "Per-Planet-Type Breakdown (Single-Star)", 2);
+        w.println("<p class=\"note\">Planets in Single, S-Type, and Hierarchical systems</p>");
 
         planetData.getPerTypeData().entrySet().stream()
                 .sorted((a, b) -> Integer.compare(b.getValue().getCount(), a.getValue().getCount()))
                 .forEach(entry -> printPlanetTypeHtml(w, entry.getKey(), entry.getValue()));
+
+        endCollapsible(w);
+
+        // P-type binary systems
+        w.println("<hr>");
+        beginCollapsible(w, "Per-Planet-Type Breakdown (P-Type Binary)", 2);
+        w.println("<p class=\"note\">Planets in circumbinary (P-Type) systems where planets orbit both stars</p>");
+
+        if (planetData.getPerTypeDataPType().isEmpty()) {
+            w.println("<p>No P-Type binary systems found in this sample.</p>");
+        } else {
+            planetData.getPerTypeDataPType().entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue().getCount(), a.getValue().getCount()))
+                    .forEach(entry -> printPlanetTypeHtml(w, entry.getKey(), entry.getValue()));
+        }
 
         endCollapsible(w);
     }

@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.probabilityreport;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import lombok.Getter;
 
 import java.util.HashMap;
@@ -50,6 +51,7 @@ public class PlanetDataCollector {
     private final Map<String, Integer> tectonicLevels = new HashMap<>();
     private final Map<String, Integer> volcanismTypes = new HashMap<>();
     private final Map<String, PlanetTypeBreakdown> perTypeData = new HashMap<>();
+    private final Map<String, PlanetTypeBreakdown> perTypeDataPType = new HashMap<>();
     private double totalMass = 0;
     private double totalRadius = 0;
     private double totalGravity = 0;
@@ -73,8 +75,9 @@ public class PlanetDataCollector {
     public void analyzeData(Planet planet, ProbabilityCounts counts) {
         planetTypes.merge(planet.getPlanetType(), 1, Integer::sum);
 
-        // Per-type breakdown
-        PlanetTypeBreakdown typeData = perTypeData.computeIfAbsent(planet.getPlanetType(), k -> new PlanetTypeBreakdown());
+        // Per-type breakdown — route to P-type or single-star map
+        Map<String, PlanetTypeBreakdown> targetPerTypeMap = getPerTypeMapFor(planet);
+        PlanetTypeBreakdown typeData = targetPerTypeMap.computeIfAbsent(planet.getPlanetType(), k -> new PlanetTypeBreakdown());
         typeData.increment();
         typeData.addCompositionClass(planet.getCompositionClassification() != null ? planet.getCompositionClassification() : "NULL");
         if (planet.getSurfaceTemp() != null) {
@@ -240,7 +243,7 @@ public class PlanetDataCollector {
         String inventory = planet.getWaterInventory() != null ?
                 planet.getWaterInventory() : "NULL";
         waterInventories.merge(inventory, 1, Integer::sum);
-        PlanetTypeBreakdown typeData = perTypeData.get(planet.getPlanetType());
+        PlanetTypeBreakdown typeData = getPerTypeMapFor(planet).get(planet.getPlanetType());
         if (typeData != null) typeData.addWaterInventory(inventory);
 
         Double liquidPct = planet.getLiquidWaterCoveragePercent();
@@ -260,7 +263,7 @@ public class PlanetDataCollector {
         String habClass = hab.getHabitabilityClass() != null ? hab.getHabitabilityClass().name() : "NULL";
         habitabilityClasses.merge(habClass, 1, Integer::sum);
 
-        PlanetTypeBreakdown typeData = perTypeData.get(planet.getPlanetType());
+        PlanetTypeBreakdown typeData = getPerTypeMapFor(planet).get(planet.getPlanetType());
         if (typeData != null) typeData.addHabitabilityClass(habClass);
 
         String colSuit = hab.getColonizationSuitability() != null ? hab.getColonizationSuitability().name() : "NULL";
@@ -281,6 +284,18 @@ public class PlanetDataCollector {
 
         String waterPhase = hab.getWaterPhaseAtSurface() != null ? hab.getWaterPhaseAtSurface() : "NULL";
         waterPhases.merge(waterPhase, 1, Integer::sum);
+    }
+
+    private boolean isPTypeSystem(Planet planet) {
+        Star parentStar = planet.getParentStar();
+        if (parentStar == null) return false;
+        StarSystem system = parentStar.getSystem();
+        if (system == null) return false;
+        return system.getBinaryConfiguration() == BinaryConfiguration.P_TYPE;
+    }
+
+    private Map<String, PlanetTypeBreakdown> getPerTypeMapFor(Planet planet) {
+        return isPTypeSystem(planet) ? perTypeDataPType : perTypeData;
     }
 
     private boolean isGasType(String planetType) {
