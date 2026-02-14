@@ -662,6 +662,12 @@ public class PlanetCreator {
                 || "NONE".equals(planet.getAtmosphereClassification())) {
             return;
         }
+
+        String atmClass = planet.getAtmosphereClassification();
+        if ("JOVIAN".equals(atmClass) || "ICE_GIANT".equals(atmClass)) {
+            return;
+        }
+
         double pressure = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 0;
         String composition = planet.getAtmosphereComposition() != null ? planet.getAtmosphereComposition() : "";
         double greenhouse = TemperatureCalculator.estimateGreenhouseWarming(

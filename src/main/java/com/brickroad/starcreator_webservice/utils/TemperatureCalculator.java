@@ -56,6 +56,8 @@ public class TemperatureCalculator {
                                                    String atmosphereComposition) {
         if (atmClass == null || "NONE".equals(atmClass) || pressureAtm < 0.001) return 0;
 
+        if ("JOVIAN".equals(atmClass) || "ICE_GIANT".equals(atmClass)) return 0;
+
         double co2Pct = CelestialBodyUtils.parseGasPercentage(atmosphereComposition, "CO2");
         double ch4Pct = CelestialBodyUtils.parseGasPercentage(atmosphereComposition, "CH4");
         double h2oPct = CelestialBodyUtils.parseGasPercentage(atmosphereComposition, "H2O");
