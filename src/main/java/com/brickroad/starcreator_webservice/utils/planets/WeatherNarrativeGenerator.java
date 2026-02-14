@@ -24,7 +24,7 @@ public class WeatherNarrativeGenerator {
         weather.setWeatherHazards(hazards);
 
         // Outdoor exposure rating
-        calculateOutdoorExposure(weather, planet);
+        calculateOutdoorExposure(weather, planet, parentStar);
 
         // Weather severity
         calculateWeatherSeverity(weather, hazards);
@@ -44,6 +44,8 @@ public class WeatherNarrativeGenerator {
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
         double meanWindMs = weather.getMeanSurfaceWindSpeedMs() != null ? weather.getMeanSurfaceWindSpeedMs() : 7.0;
         double maxGustMs = weather.getMaxGustSpeedMs() != null ? weather.getMaxGustSpeedMs() : 20.0;
+        PlanetaryHabitability hab = planet.getHabitability();
+
 
         // Thermal hazards
         if (surfaceTemp > 350) {
@@ -140,6 +142,31 @@ public class WeatherNarrativeGenerator {
             }
         }
 
+        // Radiation hazards
+        PlanetaryMagneticField mag = planet.getMagneticField();
+        boolean hasOzone = hab != null && Boolean.TRUE.equals(hab.getHasOzoneLayer());
+        PlanetaryMagneticField.ProtectionLevel protection = mag != null ? mag.getProtectionLevel() : null;
+
+        if (protection == null || protection == PlanetaryMagneticField.ProtectionLevel.NONE) {
+            if (!hasOzone) {
+                addHazard(hazards, "Unshielded Stellar Radiation", "RADIATION",
+                        "EXTREME", "CONTINUOUS",
+                        "No magnetosphere or ozone layer — surface exposed to full stellar UV and particle radiation");
+            } else {
+                addHazard(hazards, "Unshielded Charged Particle Radiation", "RADIATION",
+                        "HIGH", "CONTINUOUS",
+                        "No magnetosphere — ozone blocks UV but charged particles reach the surface");
+            }
+        } else if (protection == PlanetaryMagneticField.ProtectionLevel.MINIMAL && !hasOzone) {
+            addHazard(hazards, "Elevated Stellar Radiation", "RADIATION",
+                    "HIGH", "CONTINUOUS",
+                    "Weak magnetic shielding and no ozone — surface radiation levels exceed safe exposure limits");
+        } else if (protection == PlanetaryMagneticField.ProtectionLevel.MINIMAL) {
+            addHazard(hazards, "Elevated UV Radiation", "RADIATION",
+                    "MODERATE", "CONTINUOUS",
+                    "Limited magnetic shielding allows elevated UV and charged particle flux at surface");
+        }
+
         return hazards;
     }
 
@@ -158,13 +185,54 @@ public class WeatherNarrativeGenerator {
     // OUTDOOR EXPOSURE RATING
     // ================================================================
 
-    private void calculateOutdoorExposure(PlanetaryWeather weather, Planet planet) {
+    private void calculateOutdoorExposure(PlanetaryWeather weather, Planet planet, Star parentStar) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
 
         PlanetaryHabitability hab = planet.getHabitability();
         boolean breathable = hab != null && Boolean.TRUE.equals(hab.getIsBreathable());
+
+        // --- Radiation severity assessment ---
+        // Score 0-5: 0=safe, 1=minor concern, 2=significant, 3=dangerous, 4=severe, 5=lethal
+        // Factors: magnetic protection, ozone layer, star activity, flare frequency
+        int radiationScore = 0;
+        PlanetaryMagneticField mag = planet.getMagneticField();
+        PlanetaryMagneticField.ProtectionLevel protectionLevel = mag != null
+                ? mag.getProtectionLevel() : null;
+        boolean hasOzone = hab != null && Boolean.TRUE.equals(hab.getHasOzoneLayer());
+        boolean shielded = mag != null && Boolean.TRUE.equals(mag.getShieldsFromStellarWind());
+
+        String starActivity = parentStar != null && parentStar.getActivityLevel() != null
+                ? parentStar.getActivityLevel() : "MODERATE";
+        double flareFreq = parentStar != null && parentStar.getFlareFrequencyPerDay() != null
+                ? parentStar.getFlareFrequencyPerDay() : 0.0;
+
+        // Star activity contribution
+        switch (starActivity) {
+            case "EXTREMELY_ACTIVE": radiationScore += 3; break;
+            case "VERY_ACTIVE":      radiationScore += 2; break;
+            case "ACTIVE":           radiationScore += 1; break;
+            case "MODERATE", "QUIET":         radiationScore += 0; break;
+        }
+        // Flare frequency adds additional risk
+        if (flareFreq > 10.0) radiationScore += 2;
+        else if (flareFreq > 5.0) radiationScore += 1;
+
+        // Magnetic protection reduces score
+        if (protectionLevel == PlanetaryMagneticField.ProtectionLevel.EXCEPTIONAL) radiationScore -= 3;
+        else if (protectionLevel == PlanetaryMagneticField.ProtectionLevel.STRONG) radiationScore -= 2;
+        else if (protectionLevel == PlanetaryMagneticField.ProtectionLevel.MODERATE) radiationScore -= 1;
+        else if (protectionLevel == null || protectionLevel == PlanetaryMagneticField.ProtectionLevel.NONE) radiationScore += 1;
+        // MINIMAL: no modifier
+
+        // Ozone provides UV shielding
+        if (hasOzone) radiationScore -= 1;
+        // Stellar wind shielding
+        if (shielded) radiationScore -= 1;
+
+        // Clamp to 0-5
+        radiationScore = Math.max(0, Math.min(5, radiationScore));
 
         // --- LETHAL_SECONDS: instant death ---
         if (pressureAtm > 100 || pressureAtm < 0.006 || surfaceTemp > 500 || surfaceTemp < 100) {
@@ -176,6 +244,11 @@ public class WeatherNarrativeGenerator {
                 || "AMMONIA".equals(atmClass)) {
             weather.setOutdoorExposureRating("LETHAL_SECONDS");
             weather.setSurvivalTimeDescription("Immediately lethal atmospheric chemistry");
+            return;
+        }
+        if (radiationScore == 5) {
+            weather.setOutdoorExposureRating("LETHAL_SECONDS");
+            weather.setSurvivalTimeDescription("Lethal radiation exposure — no magnetosphere, extreme stellar activity");
             return;
         }
 
@@ -190,40 +263,74 @@ public class WeatherNarrativeGenerator {
             weather.setSurvivalTimeDescription("Extreme conditions cause death within minutes");
             return;
         }
-
-        // --- PRESSURE_SUIT: need full suit but survivable ---
-        // Non-breathable atmosphere, or pressure too low/high for just an O2 mask
-        if (pressureAtm < 0.1 || pressureAtm > 10) {
-            weather.setOutdoorExposureRating("PRESSURE_SUIT");
-            weather.setSurvivalTimeDescription("Full pressure suit required due to " +
-                    (pressureAtm < 0.1 ? "near-vacuum conditions" : "extreme atmospheric pressure"));
-            return;
-        }
-        if (surfaceTemp > 320 || surfaceTemp < 200) {
-            weather.setOutdoorExposureRating("PRESSURE_SUIT");
-            weather.setSurvivalTimeDescription("Full environmental suit required for thermal protection");
+        // Severe radiation — unshielded around very active star
+        if (radiationScore == 4) {
+            weather.setOutdoorExposureRating("LETHAL_MINUTES");
+            weather.setSurvivalTimeDescription("Severe radiation exposure — minimal shielding from active star");
             return;
         }
 
-        // --- ASSISTED: need supplemental O2 or light gear ---
-        // Breathable threshold not met, but pressure/temp are manageable
-        if (!breathable || pressureAtm < 0.3 || pressureAtm > 5) {
+        // --- PRESSURE_SUIT: sealed suit required ---
+        // Covers: low/high pressure, extreme temps, or non-breathable with pressure issues
+        // This is "you need a full sealed barrier between you and the environment"
+        if (pressureAtm < 0.3 || pressureAtm > 10) {
+            String cause;
+            if (pressureAtm < 0.1) cause = "near-vacuum conditions";
+            else if (pressureAtm < 0.3) cause = "dangerously low atmospheric pressure";
+            else cause = "extreme atmospheric pressure";
+            weather.setOutdoorExposureRating("PRESSURE_SUIT");
+            weather.setSurvivalTimeDescription("Full pressure suit required — " + cause);
+            return;
+        }
+        if (surfaceTemp > 320 || surfaceTemp < 240) {
+            weather.setOutdoorExposureRating("PRESSURE_SUIT");
+            weather.setSurvivalTimeDescription("Full environmental suit required — " +
+                    (surfaceTemp < 200 ? "extreme cold" : "extreme heat"));
+            return;
+        }
+        if (!breathable && (pressureAtm < 0.5 || pressureAtm > 5)) {
+            weather.setOutdoorExposureRating("PRESSURE_SUIT");
+            weather.setSurvivalTimeDescription("Full pressure suit required — unbreathable atmosphere with marginal pressure");
+            return;
+        }
+        // Dangerous radiation — requires sealed suit for radiation protection
+        if (radiationScore == 3) {
+            weather.setOutdoorExposureRating("PRESSURE_SUIT");
+            weather.setSurvivalTimeDescription("Radiation suit required — insufficient magnetic and atmospheric shielding");
+            return;
+        }
+
+        // --- ASSISTED: survivable with personal equipment ---
+        // Covers: non-breathable atmosphere (but pressure/temp otherwise OK),
+        // or breathable but outside comfort zone temps
+        // "You need an oxygen supply, or heating/cooling gear, or both"
+        if (!breathable) {
             weather.setOutdoorExposureRating("ASSISTED");
-            weather.setSurvivalTimeDescription("Supplemental oxygen and light protective gear required");
+            weather.setSurvivalTimeDescription("Supplemental oxygen required — atmosphere is not breathable");
             return;
         }
-
-        // --- COLD_WEATHER_GEAR: breathable but chilly or warm ---
-        // Breathable atmosphere, reasonable pressure, but outside comfort zone
         if (surfaceTemp < 260 || surfaceTemp > 310) {
-            weather.setOutdoorExposureRating("COLD_WEATHER_GEAR");
+            weather.setOutdoorExposureRating("ASSISTED");
             weather.setSurvivalTimeDescription(surfaceTemp < 260 ?
-                    "Heavy cold-weather clothing required for extended outdoor activity" :
-                    "Heat-protective clothing required for extended outdoor activity");
+                    "Thermal protection required — cold conditions" :
+                    "Thermal protection required — hot conditions");
+            return;
+        }
+        if (pressureAtm < 0.5 || pressureAtm > 3.0) {
+            weather.setOutdoorExposureRating("ASSISTED");
+            weather.setSurvivalTimeDescription(pressureAtm < 0.5 ?
+                    "Pressure support required — atmosphere too thin for comfort" :
+                    "Pressure adaptation required — atmosphere denser than comfortable");
+            return;
+        }
+        // Elevated radiation — survivable with protection, limits outdoor time
+        if (radiationScore == 2) {
+            weather.setOutdoorExposureRating("ASSISTED");
+            weather.setSurvivalTimeDescription("Radiation protection required — elevated stellar radiation limits outdoor exposure");
             return;
         }
 
-        // --- SHIRT_SLEEVE: comfortable ---
+        // --- SHIRT_SLEEVE: walk outside comfortably ---
         weather.setOutdoorExposureRating("SHIRT_SLEEVE");
         weather.setSurvivalTimeDescription("Comfortable outdoors with appropriate clothing");
     }
