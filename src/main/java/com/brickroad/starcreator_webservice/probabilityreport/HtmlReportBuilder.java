@@ -160,6 +160,8 @@ public class HtmlReportBuilder {
             printStarSubTable(w, starTypeData, "xray Luminosity", "X-Ray Luminosity", starTypeCount);
             printStarSubTable(w, starTypeData, "evolutionary stage", "Evolutionary Stage", starTypeCount);
             printStarSubTable(w, starTypeData, "planets per system", "Planets Per System", starTypeCount);
+            printStarSubTable(w, starTypeData, "hz inner AU", "Habitable Zone Inner Edge (AU)", starTypeCount);
+            printStarSubTable(w, starTypeData, "hz outer AU", "Habitable Zone Outer Edge (AU)", starTypeCount);
 
             endCollapsible(w);
         }

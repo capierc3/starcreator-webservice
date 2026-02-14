@@ -101,6 +101,8 @@ public class JsonReportBuilder {
             if (data.containsKey("xray Luminosity")) typeEntry.put("xrayLuminosity", data.get("xray Luminosity"));
             if (data.containsKey("evolutionary stage")) typeEntry.put("evolutionaryStage", data.get("evolutionary stage"));
             if (data.containsKey("planets per system")) typeEntry.put("planetsPerSystem", data.get("planets per system"));
+            if (data.containsKey("hz inner AU")) typeEntry.put("hzInnerAU", data.get("hz inner AU"));
+            if (data.containsKey("hz outer AU")) typeEntry.put("hzOuterAU", data.get("hz outer AU"));
             perType.put(entry.getKey(), typeEntry);
         }
         stars.put("perType", perType);
