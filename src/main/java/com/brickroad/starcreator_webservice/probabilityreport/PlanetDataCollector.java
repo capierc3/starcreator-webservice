@@ -52,6 +52,7 @@ public class PlanetDataCollector {
     private final Map<String, Integer> volcanismTypes = new HashMap<>();
     private final Map<String, PlanetTypeBreakdown> perTypeData = new HashMap<>();
     private final Map<String, PlanetTypeBreakdown> perTypeDataPType = new HashMap<>();
+    private final Map<String, PlanetTypeBreakdown> perTypeDataTrinary = new HashMap<>();
     private double totalMass = 0;
     private double totalRadius = 0;
     private double totalGravity = 0;
@@ -286,16 +287,22 @@ public class PlanetDataCollector {
         waterPhases.merge(waterPhase, 1, Integer::sum);
     }
 
-    private boolean isPTypeSystem(Planet planet) {
+    private BinaryConfiguration getBinaryConfig(Planet planet) {
         Star parentStar = planet.getParentStar();
-        if (parentStar == null) return false;
+        if (parentStar == null) return null;
         StarSystem system = parentStar.getSystem();
-        if (system == null) return false;
-        return system.getBinaryConfiguration() == BinaryConfiguration.P_TYPE;
+        if (system == null) return null;
+        return system.getBinaryConfiguration();
     }
 
     private Map<String, PlanetTypeBreakdown> getPerTypeMapFor(Planet planet) {
-        return isPTypeSystem(planet) ? perTypeDataPType : perTypeData;
+        BinaryConfiguration config = getBinaryConfig(planet);
+        if (config == null) return perTypeData;
+        return switch (config) {
+            case P_TYPE -> perTypeDataPType;
+            case HIERARCHICAL_BINARY_THIRD, HIERARCHICAL_TRIPLE -> perTypeDataTrinary;
+            default -> perTypeData;
+        };
     }
 
     private boolean isGasType(String planetType) {

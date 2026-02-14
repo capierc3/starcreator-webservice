@@ -94,6 +94,7 @@ public class HtmlReportBuilder {
         tocLink(w, "Planet Types");
         tocLink(w, "Per-Planet-Type Breakdown (Single-Star)");
         tocLink(w, "Per-Planet-Type Breakdown (P-Type Binary)");
+        tocLink(w, "Per-Planet-Type Breakdown (Trinary)");
         tocLink(w, "Atmosphere & Magnetic Fields");
         tocLink(w, "Geology (Rocky/Surface Planets)");
         tocLink(w, "Water System (Rocky/Surface Planets Only)");
@@ -241,6 +242,21 @@ public class HtmlReportBuilder {
             w.println("<p>No P-Type binary systems found in this sample.</p>");
         } else {
             planetData.getPerTypeDataPType().entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue().getCount(), a.getValue().getCount()))
+                    .forEach(entry -> printPlanetTypeHtml(w, entry.getKey(), entry.getValue()));
+        }
+
+        endCollapsible(w);
+
+        // Trinary systems
+        w.println("<hr>");
+        beginCollapsible(w, "Per-Planet-Type Breakdown (Trinary)", 2);
+        w.println("<p class=\"note\">Planets in trinary systems (Hierarchical Binary+Third and Hierarchical Triple)</p>");
+
+        if (planetData.getPerTypeDataTrinary().isEmpty()) {
+            w.println("<p>No trinary systems found in this sample.</p>");
+        } else {
+            planetData.getPerTypeDataTrinary().entrySet().stream()
                     .sorted((a, b) -> Integer.compare(b.getValue().getCount(), a.getValue().getCount()))
                     .forEach(entry -> printPlanetTypeHtml(w, entry.getKey(), entry.getValue()));
         }

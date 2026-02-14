@@ -214,6 +214,13 @@ public class JsonReportBuilder {
         }
         planets.put("perTypePType", perTypePType);
 
+        // Per-type breakdown (trinary systems)
+        Map<String, Object> perTypeTrinary = new LinkedHashMap<>();
+        for (Map.Entry<String, PlanetTypeBreakdown> entry : planetData.getPerTypeDataTrinary().entrySet()) {
+            perTypeTrinary.put(entry.getKey(), entry.getValue().toJson());
+        }
+        planets.put("perTypeTrinary", perTypeTrinary);
+
         return planets;
     }
 
