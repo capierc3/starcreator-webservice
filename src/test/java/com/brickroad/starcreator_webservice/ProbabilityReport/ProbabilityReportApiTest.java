@@ -7,13 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
-/**
- * Local debug test for the API-based ProbabilityReportGenerator.
- * Calls the same code path as POST /api/v1/system-probability-test
- * but runs directly — no HTTP, no auth needed.
- *
- * Uncomment @Test to run. Output goes to target/probability_reports/
- */
 @SpringBootTest
 @ActiveProfiles("test")
 public class ProbabilityReportApiTest {
@@ -25,7 +18,7 @@ public class ProbabilityReportApiTest {
     //                                              0   1     2       3       4
     private static final int SYSTEM_AMOUNT = RANGES[1];
 
-    //@Test
+    @Test
     public void runProbabilityReportGenerator() {
         ProbabilityReportGenerator generator = new ProbabilityReportGenerator(systemCreator, SYSTEM_AMOUNT);
         generator.generate();
