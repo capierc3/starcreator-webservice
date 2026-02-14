@@ -159,7 +159,7 @@ public class AtmosphereCreator {
                         component.getMinPercentage(),
                         component.getMaxPercentage()
                 );
-                percentage = adjustGasPercentageByDistance(gas, percentage, distanceAU);
+                percentage = adjustGasPercentageByDistance(gas, percentage, distanceAU, parentStar);
                 percentage = adjustGasPercentageByRadiation(gas, percentage, parentStar, distanceAU);
                 builder.addGas(gas, percentage);
             }
@@ -171,8 +171,22 @@ public class AtmosphereCreator {
         return generateFromTemplate(template, distanceAU, null);
     }
 
-    private double adjustGasPercentageByDistance(AtmosphereGas gas, double percentage, double distanceAU) {
-        if (distanceAU < 0.5) {
+    private double adjustGasPercentageByDistance(AtmosphereGas gas, double percentage,
+                                                 double distanceAU, Star parentStar) {
+        // Normalize distance by stellar luminosity so M-dwarf HZ planets
+        // aren't penalized the same as planets genuinely close to a hotter star.
+        // d_eff = d / sqrt(L) maps to equivalent Solar distance.
+        // M-dwarf (L=0.01) at 0.15 AU → effective 1.5 AU (in the HZ, not "close")
+        // G-star (L=1.0) at 0.3 AU → effective 0.3 AU (genuinely close, like Mercury)
+        double effectiveDistance = distanceAU;
+        if (parentStar != null) {
+            double luminosity = parentStar.getSolarLuminosity();
+            if (luminosity > 0) {
+                effectiveDistance = distanceAU / Math.sqrt(luminosity);
+            }
+        }
+
+        if (effectiveDistance < 0.5) {
             return switch (gas) {
                 case WATER_VAPOR -> percentage * 0.3;
                 case METHANE, AMMONIA -> percentage * 0.1;
@@ -181,7 +195,7 @@ public class AtmosphereCreator {
             };
         }
 
-        if (distanceAU > 5.0) {
+        if (effectiveDistance > 5.0) {
             return switch (gas) {
                 case WATER_VAPOR, METHANE, AMMONIA -> percentage * 1.3;
                 case CARBON_MONOXIDE -> percentage * 1.5;

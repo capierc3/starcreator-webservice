@@ -192,6 +192,11 @@ public class Planet extends CelestialBody {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private PlanetaryHabitability habitability;
 
+    @Transient
+    @JsonProperty("weather")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private PlanetaryWeather weather;
+
     @OneToMany(mappedBy = "planet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
     private List<Moon> moons = new ArrayList<>();
@@ -556,4 +561,7 @@ public class Planet extends CelestialBody {
 
     public PlanetaryHabitability getHabitability() { return habitability; }
     public void setHabitability(PlanetaryHabitability habitability) { this.habitability = habitability; }
+
+    public PlanetaryWeather getWeather() { return weather; }
+    public void setWeather(PlanetaryWeather weather) { this.weather = weather; }
 }

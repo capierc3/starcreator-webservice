@@ -1,0 +1,1106 @@
+package com.brickroad.starcreator_webservice.probabilityreport;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+
+public class HtmlReportBuilder {
+
+    private final ProbabilityCounts counts;
+    private final PerformanceTimer timer;
+    private final StarDataCollector starData;
+    private final PlanetDataCollector planetData;
+    private final MoonDataCollector moonData;
+    private final RingDataCollector ringData;
+    private final BeltDataCollector beltData;
+
+    private static final String HEADER_IMAGE_SOURCE = ".scratch/headerImg.png";
+    private static final String HEADER_IMAGE_FILENAME = "headerImg.png";
+
+    public HtmlReportBuilder(ProbabilityCounts counts, PerformanceTimer timer,
+                             StarDataCollector starData, PlanetDataCollector planetData,
+                             MoonDataCollector moonData, RingDataCollector ringData,
+                             BeltDataCollector beltData) {
+        this.counts = counts;
+        this.timer = timer;
+        this.starData = starData;
+        this.planetData = planetData;
+        this.moonData = moonData;
+        this.ringData = ringData;
+        this.beltData = beltData;
+    }
+
+    public void saveReport(File targetFolder) {
+        File file = new File(targetFolder, "system_report_" + counts.getSystemCount() + "_systems.html");
+        String headerImagePath = copyHeaderImage(targetFolder);
+
+        try (PrintWriter w = new PrintWriter(new FileWriter(file))) {
+            printPageHeader(w, headerImagePath);
+            printSidebarToc(w);
+            beginMainContent(w);
+            printHtmlHeader(w);
+
+            printStarHtml(w);
+            printPlanetHtml(w);
+            printMoonHtml(w);
+            printRingHtml(w);
+            printBeltHtml(w);
+
+            printPageFooter(w);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("HTML report saved to: " + file.getAbsolutePath());
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Page Structure
+    // ═══════════════════════════════════════════════════════════════
+
+    private void printHtmlHeader(PrintWriter w) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM d, yyyy 'at' h:mm a");
+
+        w.println("<div class=\"report-header\">");
+        w.println("<h1>System Probability Report</h1>");
+        w.println("<p class=\"subtitle\">" + LocalDateTime.now().format(formatter) + "</p>");
+        w.println("<p class=\"subtitle\">Created " + counts.getSystemCount() + " systems in " + timer.getFinalTime() + "</p>");
+        w.println("</div>");
+
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, String.valueOf(counts.getSystemCount()), "Systems");
+        statCard(w, String.valueOf(counts.getStarCount()), "Stars");
+        statCard(w, String.valueOf(counts.getPlanetCount()), "Planets");
+        statCard(w, String.valueOf(counts.getMoonCount()), "Moons");
+        statCard(w, String.valueOf(counts.getRingCount()), "Rings");
+        statCard(w, String.valueOf(counts.getBeltCount()), "Belts");
+        statCard(w, String.valueOf(counts.getAsteroidCount()), "Asteroids");
+        statCard(w, timer.averageLap() + "ms", "Avg / System");
+        w.println("</div>");
+    }
+
+    private void printSidebarToc(PrintWriter w) {
+        w.println("<div class=\"toc-title\">Contents</div>");
+        w.println("<ol>");
+        tocLink(w, "Star Amounts");
+        tocLink(w, "Planet Types");
+        tocLink(w, "Per-Planet-Type Breakdown");
+        tocLink(w, "Atmosphere & Magnetic Fields");
+        tocLink(w, "Geology (Rocky/Surface Planets)");
+        tocLink(w, "Water System (Rocky/Surface Planets Only)");
+        tocLink(w, "Planetary Habitability");
+        tocLink(w, "Planetary Weather");
+        tocLink(w, "Surface Planet Weather");
+        tocLink(w, "Gas / Ice Giant Weather");
+        tocLink(w, "Moon Types");
+        tocLink(w, "Ring Types");
+        tocLink(w, "Belt Types");
+        w.println("</ol>");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Star HTML
+    // ═══════════════════════════════════════════════════════════════
+
+    private void printStarHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Star Amounts", 2);
+
+        // Star amounts table
+        w.println("<table>");
+        w.println("<thead><tr><th>Amount</th><th>Count</th><th>%</th><th class=\"bar-col\">Distribution</th></tr></thead>");
+        w.println("<tbody>");
+        starData.getStarAmounts().entrySet().stream()
+                .sorted(Map.Entry.<Integer, Integer>comparingByValue().reversed())
+                .forEach(entry -> {
+                    double pctVal = entry.getValue() * 100.0 / Math.max(1, counts.getSystemCount());
+                    w.println("<tr><td>" + entry.getKey() + " Star System</td><td>" + entry.getValue()
+                            + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
+                            + bar(pctVal) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+
+        printLinkedTable(w, starData.getStarTypes(), counts.getStarCount(), "Star Type");
+
+        printSubSection(w, "Star Roles");
+        printSortedTable(w, starData.getStarRoles(), counts.getStarCount(), "Role");
+
+        // Per-type breakdown
+        for (Map.Entry<String, Map<String, Map<String, Integer>>> entry : starData.getStarTypesData().entrySet()) {
+            Map<String, Map<String, Integer>> starTypeData = entry.getValue();
+            int starTypeCount = starData.getStarTypes().getOrDefault(entry.getKey(), 0);
+
+            if (starData.isUniformType(starTypeData)) {
+                printAnchor(w, entry.getKey());
+                beginCollapsible(w, entry.getKey() + " (" + starTypeCount + ")", 3);
+                Map<String, Integer> activityData = starTypeData.getOrDefault("activity", new HashMap<>());
+                Map<String, Integer> evoData = starTypeData.getOrDefault("evolutionary stage", new HashMap<>());
+                String activity = activityData.keySet().stream().findFirst().orElse("N/A");
+                String evo = evoData.keySet().stream().findFirst().orElse("N/A");
+                w.println("<p class=\"note\">Uniform profile — Activity: " + esc(activity)
+                        + ", Stage: " + esc(evo) + "</p>");
+                endCollapsible(w);
+                continue;
+            }
+
+            printAnchor(w, entry.getKey());
+            beginCollapsible(w, entry.getKey() + " Star Type Data", 3);
+
+            printStarSubTable(w, starTypeData, "activity", "Activity Level", starTypeCount);
+            printStarSubTable(w, starTypeData, "flare class", "Flare Class", starTypeCount);
+            printStarSubTable(w, starTypeData, "spot %", "Spot Coverage", starTypeCount);
+            printStarSubTable(w, starTypeData, "xray Luminosity", "X-Ray Luminosity", starTypeCount);
+            printStarSubTable(w, starTypeData, "evolutionary stage", "Evolutionary Stage", starTypeCount);
+            printStarSubTable(w, starTypeData, "planets per system", "Planets Per System", starTypeCount);
+
+            endCollapsible(w);
+        }
+
+        endCollapsible(w);
+    }
+
+    private void printStarSubTable(PrintWriter w, Map<String, Map<String, Integer>> typeData,
+                                   String key, String label, int total) {
+        Map<String, Integer> data = typeData.getOrDefault(key, new HashMap<>());
+        if (data.isEmpty()) return;
+        printSortedTable(w, data, total, label);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Planet HTML
+    // ═══════════════════════════════════════════════════════════════
+
+    private void printPlanetHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Planet Types", 2);
+
+        w.println("<p><strong>Summary:</strong> " + counts.getPlanetCount() + " planets across "
+                + counts.getSystemCount() + " systems (avg "
+                + String.format("%.1f", counts.getPlanetCount() * 1.0 / Math.max(1, counts.getSystemCount()))
+                + " per system)</p>");
+        w.println("<p>With rings: " + planetData.getPlanetsWithRings() + " ("
+                + pct(planetData.getPlanetsWithRings(), counts.getPlanetCount()) + "%)</p>");
+        if (planetData.getPhysicalPropsCount() > 0) {
+            w.println("<p>Avg mass: " + String.format("%.2f", planetData.getTotalMass() / planetData.getPhysicalPropsCount()) + " M&#8853;"
+                    + " | Avg radius: " + String.format("%.2f", planetData.getTotalRadius() / planetData.getPhysicalPropsCount()) + " R&#8853;"
+                    + " | Avg gravity: " + String.format("%.2f", planetData.getTotalGravity() / planetData.getPhysicalPropsCount()) + " g</p>");
+        }
+
+        printLinkedTable(w, planetData.getPlanetTypes(), counts.getPlanetCount(), "Planet Type");
+
+        printSubSection(w, "Composition Classification");
+        printSortedTable(w, planetData.getCompositionClasses(), counts.getPlanetCount(), "Classification");
+
+        printSubSection(w, "Surface Temperature Distribution");
+        printSortedTableByKey(w, planetData.getSurfaceTempBins(), counts.getPlanetCount(), "Temperature Range");
+
+        endCollapsible(w);
+
+        printPlanetPerTypeBreakdown(w);
+        printAtmosphereHtml(w);
+        printGeologyHtml(w);
+        printWaterAndHabHtml(w);
+        printWeatherHtml(w);
+    }
+
+    private void printPlanetPerTypeBreakdown(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Per-Planet-Type Breakdown", 2);
+        w.println("<p class=\"note\">Detailed breakdown of key properties for each planet type</p>");
+
+        planetData.getPerTypeData().entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue().getCount(), a.getValue().getCount()))
+                .forEach(entry -> printPlanetTypeHtml(w, entry.getKey(), entry.getValue()));
+
+        endCollapsible(w);
+    }
+
+    private void printPlanetTypeHtml(PrintWriter w, String planetType, PlanetTypeBreakdown ptb) {
+        printAnchor(w, planetType);
+        beginCollapsible(w, planetType + " (" + ptb.getCount() + ")", 3);
+
+        if (ptb.getPhysicalCount() > 0) {
+            w.println("<p>Avg mass: " + String.format("%.2f", ptb.getMassSum() / ptb.getPhysicalCount()) + " M&#8853;"
+                    + " | Avg radius: " + String.format("%.2f", ptb.getRadiusSum() / ptb.getPhysicalCount()) + " R&#8853;"
+                    + " | Avg gravity: " + String.format("%.2f", ptb.getGravitySum() / ptb.getPhysicalCount()) + " g"
+                    + " | Avg temp: " + String.format("%.0f", ptb.getTempSum() / ptb.getPhysicalCount()) + " K</p>");
+        }
+        w.println("<p>Tidally locked: " + ptb.getTidallyLocked() + " (" + pct(ptb.getTidallyLocked(), ptb.getCount()) + "%)"
+                + " | With rings: " + ptb.getWithRings() + " (" + pct(ptb.getWithRings(), ptb.getCount()) + "%)</p>");
+
+        if (!ptb.getCompositionClasses().isEmpty())
+            printSortedTable(w, ptb.getCompositionClasses(), ptb.getCount(), "Composition");
+        if (!ptb.getSurfaceTempBins().isEmpty())
+            printSortedTableByKey(w, ptb.getSurfaceTempBins(), ptb.getCount(), "Temperature");
+        if (!ptb.getAtmosphereClasses().isEmpty())
+            printSortedTable(w, ptb.getAtmosphereClasses(), ptb.getCount(), "Atmosphere");
+        if (!ptb.getHzPositions().isEmpty())
+            printSortedTable(w, ptb.getHzPositions(), ptb.getCount(), "HZ Position");
+        if (!ptb.getProtectionLevels().isEmpty())
+            printSortedTable(w, ptb.getProtectionLevels(), ptb.getCount(), "Protection");
+        if (!ptb.getMassBins().isEmpty())
+            printSortedTableByKey(w, ptb.getMassBins(), ptb.getCount(), "Mass Range");
+        if (!ptb.getMoonCountBins().isEmpty())
+            printSortedTableByKey(w, ptb.getMoonCountBins(), ptb.getCount(), "Moon Count");
+        if (!ptb.getGeologicalActivity().isEmpty())
+            printSortedTable(w, ptb.getGeologicalActivity(), ptb.getCount(), "Geological Activity");
+        if (!ptb.getWaterInventories().isEmpty())
+            printSortedTable(w, ptb.getWaterInventories(), ptb.getCount(), "Water Inventory");
+        if (!ptb.getHabitabilityClasses().isEmpty())
+            printSortedTable(w, ptb.getHabitabilityClasses(), ptb.getCount(), "Habitability Class");
+
+        endCollapsible(w);
+    }
+
+    private void printAtmosphereHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Atmosphere & Magnetic Fields", 2);
+
+        printSubSection(w, "Atmosphere Classifications (All Planets)");
+        printSortedTable(w, planetData.getAtmosphereClassifications(), counts.getPlanetCount(), "Classification");
+
+        printSubSection(w, "Tidal Locking");
+        printSortedTable(w, planetData.getTidalLockCounts(), counts.getPlanetCount(), "Status");
+
+        printSubSection(w, "Habitable Zone Positions");
+        printSortedTable(w, planetData.getHzPositions(), counts.getPlanetCount(), "Position");
+
+        printSubSection(w, "Magnetic Protection Levels");
+        printSortedTable(w, planetData.getProtectionLevels(), counts.getPlanetCount(), "Level");
+
+        printSubSection(w, "Magnetopause Distance Distribution");
+        printSortedTableByKey(w, planetData.getMagnetopauseBins(), counts.getPlanetCount(), "Range (planet radii)");
+
+        // Average Magnetopause by Distance
+        w.println("<h3>Average Magnetopause by Distance from Star</h3>");
+        w.println("<p class=\"note\">Should show compression (smaller magnetopause) closer to star</p>");
+        w.println("<table>");
+        w.println("<thead><tr><th>Distance Bin</th><th>Avg Magnetopause (radii)</th><th>Sample Count</th></tr></thead>");
+        w.println("<tbody>");
+        planetData.getDistanceVsMagnetopause().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    double avg = e.getValue()[0] / e.getValue()[1];
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>"
+                            + String.format("%.1f", avg) + "</td><td>" + (int) e.getValue()[1] + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+
+        printSubSection(w, "Atmospheric Loss Rate Distribution");
+        printSortedTableByKey(w, planetData.getAtmLossRateBins(), counts.getPlanetCount(), "Range");
+
+        printSubSection(w, "Auroral Frequency");
+        printSortedTable(w, planetData.getAuroralFrequencies(), counts.getPlanetCount(), "Frequency");
+
+        printSubSection(w, "Auroral Intensity");
+        printSortedTable(w, planetData.getAuroralIntensities(), counts.getPlanetCount(), "Intensity");
+
+        // Radiation Belt Intensity
+        w.println("<h3>Radiation Belt Intensity (Inner / Outer)</h3>");
+        w.println("<table>");
+        w.println("<thead><tr><th>Inner Belt</th><th>Count</th><th>%</th></tr></thead><tbody>");
+        planetData.getBeltIntensityInner().entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + e.getValue()
+                        + "</td><td>" + pct(e.getValue(), counts.getPlanetCount()) + "%</td></tr>"));
+        w.println("</tbody></table>");
+
+        w.println("<table>");
+        w.println("<thead><tr><th>Outer Belt</th><th>Count</th><th>%</th></tr></thead><tbody>");
+        planetData.getBeltIntensityOuter().entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + e.getValue()
+                        + "</td><td>" + pct(e.getValue(), counts.getPlanetCount()) + "%</td></tr>"));
+        w.println("</tbody></table>");
+
+        // Cross-reference tables
+        w.println("<h3>Star Activity vs Rocky Planet Atmosphere Stripping</h3>");
+        w.println("<p class=\"note\">Shows % of rocky planets that lost their atmosphere, grouped by parent star activity</p>");
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Star Activity</th><th>Total Rocky</th><th>Stripped (NONE)</th><th>Strip Rate</th></tr></thead>");
+        w.println("<tbody>");
+        planetData.getActivityVsAtmosphere().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    int total = e.getValue()[0];
+                    int stripped = e.getValue()[1];
+                    double rate = total > 0 ? (stripped * 100.0 / total) : 0;
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + total
+                            + "</td><td>" + stripped + "</td><td>" + String.format("%.1f", rate) + "%</td></tr>");
+                });
+        w.println("</tbody></table>");
+
+        w.println("<h3>Star Activity vs Protection Level (Rocky Planets)</h3>");
+        w.println("<p class=\"note\">Expectation: HYPERACTIVE/VERY_ACTIVE stars should shift protection toward NONE/MINIMAL</p>");
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Star Activity</th><th>Total</th><th>NONE</th><th>MINIMAL</th><th>MODERATE</th><th>STRONG</th><th>EXCEPTIONAL</th></tr></thead>");
+        w.println("<tbody>");
+        planetData.getActivityVsProtection().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    int[] c = e.getValue();
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + c[0] + "</td><td>" + c[1]
+                            + "</td><td>" + c[2] + "</td><td>" + c[3] + "</td><td>" + c[4] + "</td><td>" + c[5] + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+
+        endCollapsible(w);
+    }
+
+    private void printGeologyHtml(PrintWriter w) {
+        if (planetData.getGeologicalActivity().isEmpty() && planetData.getTectonicLevels().isEmpty()) return;
+
+        w.println("<hr>");
+        beginCollapsible(w, "Geology (Rocky/Surface Planets)", 2);
+        w.println("<p>Planets with geological data: " + planetData.getPlanetsWithGeology() + "</p>");
+
+        if (!planetData.getGeologicalActivity().isEmpty()) {
+            printSubSection(w, "Geological Activity");
+            printSortedTable(w, planetData.getGeologicalActivity(), planetData.getPlanetsWithGeology(), "Activity");
+        }
+        if (!planetData.getTectonicLevels().isEmpty()) {
+            printSubSection(w, "Tectonic Activity Level");
+            printSortedTable(w, planetData.getTectonicLevels(), planetData.getPlanetsWithGeology(), "Level");
+        }
+        if (!planetData.getVolcanismTypes().isEmpty()) {
+            printSubSection(w, "Volcanism Type");
+            printSortedTable(w, planetData.getVolcanismTypes(), planetData.getPlanetsWithGeology(), "Type");
+        }
+
+        endCollapsible(w);
+    }
+
+    private void printWaterAndHabHtml(PrintWriter w) {
+        // Water System
+        w.println("<hr>");
+        beginCollapsible(w, "Water System (Rocky/Surface Planets Only)", 2);
+        w.println("<p>Total rocky/surface planets analyzed: " + planetData.getTotalRockyPlanets() + "</p>");
+        w.println("<p>With liquid surface water: " + planetData.getPlanetsWithLiquidWater()
+                + " (" + pct(planetData.getPlanetsWithLiquidWater(), planetData.getTotalRockyPlanets()) + "%)</p>");
+        w.println("<p>With ice coverage: " + planetData.getPlanetsWithIce()
+                + " (" + pct(planetData.getPlanetsWithIce(), planetData.getTotalRockyPlanets()) + "%)</p>");
+        w.println("<p>With subsurface water: " + planetData.getPlanetsWithSubsurfaceWater()
+                + " (" + pct(planetData.getPlanetsWithSubsurfaceWater(), planetData.getTotalRockyPlanets()) + "%)</p>");
+
+        printSubSection(w, "Water Inventory Distribution");
+        printSortedTable(w, planetData.getWaterInventories(), planetData.getTotalRockyPlanets(), "Inventory");
+
+        printSubSection(w, "Water Phase at Surface");
+        printSortedTable(w, planetData.getWaterPhases(), planetData.getHabAssessmentCount(), "Phase");
+
+        endCollapsible(w);
+
+        // Habitability
+        w.println("<hr>");
+        beginCollapsible(w, "Planetary Habitability", 2);
+        w.println("<p>Planets assessed: " + planetData.getHabAssessmentCount() + "</p>");
+        w.println("<p>Average ESI: " + String.format("%.3f", planetData.getEsiSum() / Math.max(1, planetData.getHabAssessmentCount())) + "</p>");
+        w.println("<p>Average Habitability Score: " + String.format("%.1f", planetData.getHabScoreSum() / Math.max(1, planetData.getHabAssessmentCount())) + "</p>");
+        w.println("<p>Breathable atmospheres: " + planetData.getBreathablePlanets()
+                + " (" + String.format("%.2f", planetData.getBreathablePlanets() * 100.0 / Math.max(1, planetData.getHabAssessmentCount())) + "%)</p>");
+
+        printSubSection(w, "Habitability Class Distribution");
+        printSortedTable(w, planetData.getHabitabilityClasses(), planetData.getHabAssessmentCount(), "Class");
+
+        printSubSection(w, "Colonization Suitability");
+        printSortedTable(w, planetData.getColonizationSuitabilities(), planetData.getHabAssessmentCount(), "Suitability");
+
+        printSubSection(w, "Terraforming Potential");
+        printSortedTable(w, planetData.getTerraformingPotentials(), planetData.getHabAssessmentCount(), "Potential");
+
+        printSubSection(w, "Biosignature Potential");
+        printSortedTable(w, planetData.getBiosignaturePotentials(), planetData.getHabAssessmentCount(), "Potential");
+
+        printSubSection(w, "Life Complexity Potential");
+        printSortedTable(w, planetData.getLifeComplexityPotentials(), planetData.getHabAssessmentCount(), "Potential");
+
+        endCollapsible(w);
+    }
+
+    private void printWeatherHtml(PrintWriter w) {
+        PlanetDataCollector.WeatherBucket all = planetData.getWeatherAll();
+        PlanetDataCollector.WeatherBucket surface = planetData.getWeatherSurface();
+        PlanetDataCollector.WeatherBucket gas = planetData.getWeatherGas();
+
+        w.println("<hr>");
+        beginCollapsible(w, "Planetary Weather", 2);
+
+        if (all.getCount() == 0) {
+            w.println("<p>No planets with weather data.</p>");
+            endCollapsible(w);
+            return;
+        }
+
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, String.valueOf(all.getCount()), "Total");
+        statCard(w, String.valueOf(surface.getCount()), "Surface");
+        statCard(w, String.valueOf(gas.getCount()), "Gas / Ice");
+        statCard(w, String.format("%.1f%%", all.getTotalCloudCoverage() / all.getCount()), "Avg Cloud Cover");
+        statCard(w, all.getWindSpeedCount() > 0 ? String.format("%.1f m/s", all.getTotalWindSpeed() / all.getWindSpeedCount()) : "N/A", "Avg Wind Speed");
+        statCard(w, String.valueOf(all.getExtremeEventTotal()), "Extreme Events");
+        w.println("</div>");
+
+        if (surface.getCount() > 0) {
+            printWeatherBucketHtml(w, surface, "Surface Planet Weather");
+        }
+        if (gas.getCount() > 0) {
+            printWeatherBucketHtml(w, gas, "Gas / Ice Giant Weather");
+        }
+
+        endCollapsible(w);
+    }
+
+    private void printWeatherBucketHtml(PrintWriter w, PlanetDataCollector.WeatherBucket b, String title) {
+        w.println("<hr>");
+        beginCollapsible(w, title, 3);
+
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, String.valueOf(b.getCount()), "Planets");
+        statCard(w, b.getWithPrecipitation() + " (" + pct(b.getWithPrecipitation(), b.getCount()) + "%)", "Precipitation");
+        statCard(w, b.getWithDustStorms() + " (" + pct(b.getWithDustStorms(), b.getCount()) + "%)", "Dust Storms");
+        statCard(w, b.getWithLightning() + " (" + pct(b.getWithLightning(), b.getCount()) + "%)", "Lightning");
+        statCard(w, b.getWithSuperRotation() + " (" + pct(b.getWithSuperRotation(), b.getCount()) + "%)", "Super-Rotation");
+        statCard(w, b.getWithGreatDarkSpot() + " (" + pct(b.getWithGreatDarkSpot(), b.getCount()) + "%)", "Great Dark Spot");
+        statCard(w, String.format("%.1f%%", b.getTotalCloudCoverage() / b.getCount()), "Avg Cloud Cover");
+        if (b.getWindSpeedCount() > 0) {
+            statCard(w, String.format("%.1f m/s", b.getTotalWindSpeed() / b.getWindSpeedCount()), "Avg Wind Speed");
+        }
+        statCard(w, String.format("%.1f", b.getCloudLayerTotal() * 1.0 / b.getCount()), "Avg Cloud Layers");
+        statCard(w, String.format("%.1f", b.getPrecipTypeTotal() * 1.0 / b.getCount()), "Avg Precip Types");
+        statCard(w, b.getExtremeEventTotal() + " (avg " + String.format("%.1f", b.getExtremeEventTotal() * 1.0 / b.getCount()) + ")", "Extreme Events");
+        statCard(w, String.valueOf(b.getEclipseTotal()), "Eclipse Configs");
+        w.println("</div>");
+
+        printSubSection(w, "Sky Color");
+        printSortedTable(w, b.getSkyColors(), b.getCount(), "Sky Color");
+
+        printSubSection(w, "Cloud Coverage Class");
+        printSortedTable(w, b.getCloudCoverageClass(), b.getCount(), "Coverage");
+
+        printSubSection(w, "Wind Intensity");
+        printSortedTable(w, b.getWindIntensity(), b.getCount(), "Intensity");
+
+        printSubSection(w, "Circulation Pattern");
+        printSortedTable(w, b.getCirculationPattern(), b.getCount(), "Pattern");
+
+        printSubSection(w, "Storm Frequency");
+        printSortedTable(w, b.getStormFrequency(), b.getCount(), "Frequency");
+
+        if (!b.getLightningType().isEmpty()) {
+            printSubSection(w, "Lightning Type");
+            printSortedTable(w, b.getLightningType(), b.getWithLightning(), "Type");
+        }
+
+        printSubSection(w, "Weather Severity");
+        printSortedTable(w, b.getSeverity(), b.getCount(), "Severity");
+
+        printSubSection(w, "Outdoor Exposure Rating");
+        printSortedTable(w, b.getExposureRating(), b.getCount(), "Rating");
+
+        if (!b.getTidalRangeBins().isEmpty()) {
+            printSubSection(w, "Tidal Range Distribution");
+            printSortedTableByKey(w, b.getTidalRangeBins(), b.getCount(), "Tidal Range");
+        }
+
+        endCollapsible(w);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Moon HTML
+    // ═══════════════════════════════════════════════════════════════
+
+    private void printMoonHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Moon Types", 2);
+        printSortedTable(w, moonData.getMoonTypes(), counts.getMoonCount(), "Moon Type");
+
+        printSubSection(w, "Moon Composition Types");
+        printSortedTable(w, moonData.getMoonCompositionTypes(), counts.getMoonCount(), "Composition");
+
+        printSubSection(w, "Tidal Heating Levels");
+        printSortedTable(w, moonData.getMoonTidalHeatingLevels(), counts.getMoonCount(), "Level");
+
+        w.println("<p>Subsurface Oceans (from MoonCreator): " + moonData.getMoonsWithSubsurfaceOcean()
+                + " (" + pct(moonData.getMoonsWithSubsurfaceOcean(), counts.getMoonCount()) + "%)</p>");
+
+        // Detailed Analysis
+        beginCollapsible(w, "Moon Detailed Analysis (mass >= 0.0005 Earth)", 3);
+        w.println("<p>Moons assessed: " + moonData.getMoonsAssessed() + " of " + counts.getMoonCount()
+                + " total (" + pct(moonData.getMoonsAssessed(), counts.getMoonCount()) + "%)</p>");
+
+        w.println("<h4>Moon Magnetic Fields</h4>");
+        w.println("<p>Moons with magnetic field data: " + moonData.getMoonsWithMagField()
+                + " (" + pct(moonData.getMoonsWithMagField(), moonData.getMoonsAssessed()) + "% of assessed)</p>");
+        printSortedTable(w, moonData.getMoonDynamoTypes(), moonData.getMoonsWithMagField(), "Dynamo Type");
+        printSortedTable(w, moonData.getMoonProtectionLevels(), moonData.getMoonsWithMagField(), "Protection Level");
+
+        w.println("<h4>Moon Water System</h4>");
+        w.println("<p>With liquid surface water: " + moonData.getMoonsWithLiquidWater()
+                + " (" + pct(moonData.getMoonsWithLiquidWater(), counts.getMoonCount()) + "%)</p>");
+        w.println("<p>With ice coverage: " + moonData.getMoonsWithIce()
+                + " (" + pct(moonData.getMoonsWithIce(), counts.getMoonCount()) + "%)</p>");
+        w.println("<p>With subsurface water: " + moonData.getMoonsWithSubsurfaceWater()
+                + " (" + pct(moonData.getMoonsWithSubsurfaceWater(), counts.getMoonCount()) + "%)</p>");
+        printSortedTable(w, moonData.getMoonWaterInventories(), counts.getMoonCount(), "Water Inventory");
+
+        w.println("<h4>Moon Habitability</h4>");
+        w.println("<p>Moons with habitability assessment: " + moonData.getMoonHabCount() + "</p>");
+        w.println("<p>Average ESI: " + String.format("%.4f", moonData.getMoonEsiSum() / Math.max(1, moonData.getMoonHabCount())) + "</p>");
+        w.println("<p>Average Habitability Score: " + String.format("%.1f", moonData.getMoonHabScoreSum() / Math.max(1, moonData.getMoonHabCount())) + "</p>");
+
+        printSortedTable(w, moonData.getMoonHabitabilityClasses(), moonData.getMoonHabCount(), "Habitability Class");
+        printSortedTable(w, moonData.getMoonColonizationSuitabilities(), moonData.getMoonHabCount(), "Colonization Suitability");
+        printSortedTable(w, moonData.getMoonBiosignaturePotentials(), moonData.getMoonHabCount(), "Biosignature Potential");
+        printSortedTable(w, moonData.getMoonLifeComplexity(), moonData.getMoonHabCount(), "Life Complexity");
+        printSortedTable(w, moonData.getMoonRadiationBeltDose(), moonData.getMoonHabCount(), "Radiation Belt Surface Dose");
+        printSortedTable(w, moonData.getMoonTidalContribution(), moonData.getMoonHabCount(), "Tidal Heating Contribution");
+
+        // Moon Weather
+        printMoonWeatherHtml(w);
+
+        endCollapsible(w); // close detailed analysis
+        endCollapsible(w); // close Moon Types
+    }
+
+    private void printMoonWeatherHtml(PrintWriter w) {
+        w.println("<h4>Moon Weather</h4>");
+        w.println("<p>Moons with weather data: " + moonData.getMoonsWithWeather() + " of " + counts.getMoonCount()
+                + " total (" + pct(moonData.getMoonsWithWeather(), counts.getMoonCount()) + "%)</p>");
+        if (moonData.getMoonsWithWeather() == 0) return;
+
+        w.println("<p>With precipitation: " + moonData.getMoonsWithPrecipitation()
+                + " (" + pct(moonData.getMoonsWithPrecipitation(), moonData.getMoonsWithWeather()) + "%)</p>");
+        w.println("<p>With lightning: " + moonData.getMoonsWithLightning()
+                + " (" + pct(moonData.getMoonsWithLightning(), moonData.getMoonsWithWeather()) + "%)</p>");
+        w.println("<p>With parent planet visible in sky: " + moonData.getMoonsWithParentPlanetVisible()
+                + " (" + pct(moonData.getMoonsWithParentPlanetVisible(), moonData.getMoonsWithWeather()) + "%)</p>");
+        w.println("<p>With planetary eclipses: " + moonData.getMoonsWithPlanetaryEclipses()
+                + " (" + pct(moonData.getMoonsWithPlanetaryEclipses(), moonData.getMoonsWithWeather()) + "%)</p>");
+        w.println("<p>Total extreme weather events: " + moonData.getMoonExtremeEventTotal()
+                + " (avg " + String.format("%.1f", moonData.getMoonExtremeEventTotal() * 1.0 / moonData.getMoonsWithWeather()) + "/moon)</p>");
+
+        printSortedTable(w, moonData.getMoonWeatherSkyColor(), moonData.getMoonsWithWeather(), "Sky Color");
+        printSortedTable(w, moonData.getMoonWeatherCloudClass(), moonData.getMoonsWithWeather(), "Cloud Coverage");
+        printSortedTable(w, moonData.getMoonWeatherWindIntensity(), moonData.getMoonsWithWeather(), "Wind Intensity");
+        printSortedTable(w, moonData.getMoonWeatherSeverity(), moonData.getMoonsWithWeather(), "Weather Severity");
+        printSortedTable(w, moonData.getMoonWeatherExposure(), moonData.getMoonsWithWeather(), "Exposure Rating");
+
+        if (!moonData.getMoonWeatherTidalRangeBins().isEmpty()) {
+            w.println("<h4>Moon Tidal Range (from Parent Planet + Siblings)</h4>");
+            printSortedTableByKey(w, moonData.getMoonWeatherTidalRangeBins(), moonData.getMoonsWithWeather(), "Tidal Range");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Ring & Belt HTML
+    // ═══════════════════════════════════════════════════════════════
+
+    private void printRingHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Ring Types", 2);
+        printSortedTable(w, ringData.getRingTypes(), counts.getRingCount(), "Ring Type");
+        endCollapsible(w);
+    }
+
+    private void printBeltHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Belt Types", 2);
+        printSortedTable(w, beltData.getBeltTypes(), counts.getBeltCount(), "Belt Type");
+
+        printSubSection(w, "Asteroid Types");
+        printSortedTable(w, beltData.getAsteroidTypes(), counts.getAsteroidCount(), "Asteroid Type");
+
+        w.println("<p>Dwarf Planets in Belts: " + counts.getTempCount() + "</p>");
+        endCollapsible(w);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  HTML Utility Methods (inline from HtmlReportUtils)
+    // ═══════════════════════════════════════════════════════════════
+
+    private String pct(int count, int total) {
+        return String.format("%.1f", count * 100.0 / Math.max(1, total));
+    }
+
+    private void printSortedTable(PrintWriter w, Map<String, Integer> data, int total, String col1Name) {
+        w.println("<table>");
+        w.println("<thead><tr><th>" + col1Name + "</th><th>Count</th><th>%</th><th class=\"bar-col\">Distribution</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> {
+                    double pctVal = e.getValue() * 100.0 / Math.max(1, total);
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + e.getValue()
+                            + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
+                            + bar(pctVal) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private void printSortedTableByKey(PrintWriter w, Map<String, Integer> data, int total, String col1Name) {
+        w.println("<table>");
+        w.println("<thead><tr><th>" + col1Name + "</th><th>Count</th><th>%</th><th class=\"bar-col\">Distribution</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    double pctVal = e.getValue() * 100.0 / Math.max(1, total);
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + e.getValue()
+                            + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
+                            + bar(pctVal) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private void printLinkedTable(PrintWriter w, Map<String, Integer> data, int total, String col1Name) {
+        w.println("<table>");
+        w.println("<thead><tr><th>" + col1Name + "</th><th>Count</th><th>%</th><th class=\"bar-col\">Distribution</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> {
+                    String anchor = toAnchor(e.getKey());
+                    double pctVal = e.getValue() * 100.0 / Math.max(1, total);
+                    w.println("<tr><td><a href=\"#" + anchor + "\">" + esc(e.getKey()) + "</a></td><td>"
+                            + e.getValue() + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
+                            + bar(pctVal) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private String toAnchor(String text) {
+        return text.toLowerCase().replace(" ", "-").replaceAll("[^a-z0-9\\-]", "");
+    }
+
+    private void printAnchor(PrintWriter w, String text) {
+        w.println("<span id=\"" + toAnchor(text) + "\"></span>");
+    }
+
+    private void printSubSection(PrintWriter w, String title) {
+        w.println("<h3>" + esc(title) + "</h3>");
+    }
+
+    private void beginCollapsible(PrintWriter w, String title, int headingLevel) {
+        String id = toAnchor(title);
+        w.println("<details class=\"section\" id=\"" + id + "\">");
+        w.println("<summary><h" + headingLevel + ">" + esc(title) + "</h" + headingLevel + "></summary>");
+        w.println("<div class=\"section-body\">");
+    }
+
+    private void endCollapsible(PrintWriter w) {
+        w.println("</div>");
+        w.println("</details>");
+    }
+
+    private void statCard(PrintWriter w, String value, String label) {
+        w.println("<div class=\"stat-card\">");
+        w.println("<span class=\"stat-value\">" + value + "</span>");
+        w.println("<span class=\"stat-label\">" + esc(label) + "</span>");
+        w.println("</div>");
+    }
+
+    private void tocLink(PrintWriter w, String sectionTitle) {
+        String anchor = toAnchor(sectionTitle);
+        w.println("<li><a href=\"#" + anchor + "\">" + esc(sectionTitle) + "</a></li>");
+    }
+
+    private String bar(double pctVal) {
+        double clamped = Math.min(100, Math.max(0, pctVal));
+        return "<div class=\"bar\"><div class=\"bar-fill\" style=\"width:" + String.format("%.1f", clamped) + "%\"></div></div>";
+    }
+
+    private String esc(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Page Template (CSS & JS from HtmlReportUtils)
+    // ═══════════════════════════════════════════════════════════════
+
+    private void printPageHeader(PrintWriter w, String headerImagePath) {
+        w.println("<!DOCTYPE html>");
+        w.println("<html lang=\"en\">");
+        w.println("<head>");
+        w.println("<meta charset=\"UTF-8\">");
+        w.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+        w.println("<title>Star System Probability Report</title>");
+        w.println("<style>");
+        w.println(CSS);
+        w.println("</style>");
+        w.println("</head>");
+        w.println("<body>");
+
+        if (headerImagePath != null) {
+            w.println("<div class=\"hero-banner\">");
+            w.println("<img src=\"" + esc(headerImagePath) + "\" alt=\"Star Creator API\">");
+            w.println("</div>");
+        }
+
+        w.println("<div class=\"page-grid\">");
+        w.println("<aside class=\"toc-sidebar\" id=\"toc-sidebar\">");
+    }
+
+    private void beginMainContent(PrintWriter w) {
+        w.println("</aside>");
+        w.println("<main class=\"main-content\">");
+    }
+
+    private void printPageFooter(PrintWriter w) {
+        w.println("</main>");
+        w.println("</div>");
+        w.println("<script>");
+        w.println(JS);
+        w.println("</script>");
+        w.println("</body>");
+        w.println("</html>");
+    }
+
+    private String copyHeaderImage(File targetFolder) {
+        Path source = Path.of(HEADER_IMAGE_SOURCE);
+        if (!Files.exists(source)) return null;
+        try {
+            Path dest = targetFolder.toPath().resolve(HEADER_IMAGE_FILENAME);
+            Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
+            return HEADER_IMAGE_FILENAME;
+        } catch (IOException e) {
+            System.err.println("Failed to copy header image: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  CSS (same styles as test HtmlReportUtils)
+    // ═══════════════════════════════════════════════════════════════
+
+    private static final String CSS = """
+            :root {
+              --bg: #0b0e17;
+              --surface: #131825;
+              --surface2: #1a2035;
+              --border: #2a3050;
+              --text: #c8d0e0;
+              --text-muted: #6b7394;
+              --accent: #4e8cff;
+              --accent2: #7b61ff;
+              --gold: #f0b860;
+              --green: #4cd080;
+              --red: #f06060;
+              --cyan: #40d8d8;
+              --toc-width: 240px;
+            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            html { scroll-behavior: smooth; scroll-padding-top: 1rem; }
+            body {
+              font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+              background: var(--bg);
+              color: var(--text);
+              line-height: 1.6;
+              min-height: 100vh;
+            }
+            .hero-banner {
+              width: 100%;
+              background: var(--surface);
+              border-bottom: 1px solid var(--border);
+              text-align: center;
+              overflow: hidden;
+            }
+            .hero-banner img {
+              width: 100%;
+              max-height: 280px;
+              object-fit: cover;
+              object-position: center;
+              display: block;
+            }
+            .page-grid {
+              display: grid;
+              grid-template-columns: var(--toc-width) 1fr;
+              max-width: 1400px;
+              margin: 0 auto;
+              gap: 0;
+            }
+            .toc-sidebar {
+              position: sticky;
+              top: 0;
+              height: 100vh;
+              overflow-y: auto;
+              padding: 1.2rem 0 2rem 1rem;
+              background: var(--surface);
+              border-right: 1px solid var(--border);
+              scrollbar-width: thin;
+              scrollbar-color: var(--border) transparent;
+              z-index: 50;
+            }
+            .toc-sidebar::-webkit-scrollbar { width: 5px; }
+            .toc-sidebar::-webkit-scrollbar-track { background: transparent; }
+            .toc-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+            .toc-sidebar .toc-title {
+              font-size: 0.75rem;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              color: var(--text-muted);
+              padding: 0 0.6rem 0.8rem;
+              border-bottom: 1px solid var(--border);
+              margin-bottom: 0.5rem;
+            }
+            .toc-sidebar ol { list-style: none; padding: 0; margin: 0; }
+            .toc-sidebar li { margin: 0; }
+            .toc-sidebar a {
+              display: block;
+              padding: 0.35rem 0.6rem 0.35rem 0.8rem;
+              color: var(--text-muted);
+              text-decoration: none;
+              font-size: 0.82rem;
+              border-left: 2px solid transparent;
+              transition: all 0.15s ease;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .toc-sidebar a:hover {
+              color: var(--text);
+              background: rgba(78, 140, 255, 0.06);
+            }
+            .toc-sidebar a.active {
+              color: var(--accent);
+              border-left-color: var(--accent);
+              background: rgba(78, 140, 255, 0.08);
+              font-weight: 600;
+            }
+            .main-content {
+              padding: 2rem 2.5rem;
+              min-width: 0;
+            }
+            .report-header {
+              text-align: center;
+              padding: 2.5rem 2rem;
+              margin-bottom: 2rem;
+              background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+              border: 1px solid var(--border);
+              border-radius: 16px;
+              position: relative;
+              overflow: hidden;
+            }
+            .report-header::before {
+              content: '';
+              position: absolute;
+              top: 0; left: 0; right: 0; height: 3px;
+              background: linear-gradient(90deg, var(--accent), var(--accent2), var(--cyan));
+            }
+            .report-header h1 {
+              font-size: 2rem;
+              font-weight: 700;
+              background: linear-gradient(135deg, var(--accent), var(--cyan));
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+              margin-bottom: 0.5rem;
+            }
+            .report-header .subtitle { color: var(--text-muted); font-size: 0.95rem; }
+            .stats-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+              gap: 0.8rem;
+              margin: 1.5rem 0;
+            }
+            .stat-card {
+              background: var(--surface);
+              border: 1px solid var(--border);
+              border-radius: 10px;
+              padding: 0.8rem 1rem;
+              text-align: center;
+            }
+            .stat-card .stat-value {
+              font-size: 1.5rem;
+              font-weight: 700;
+              color: var(--accent);
+              display: block;
+            }
+            .stat-card .stat-label {
+              font-size: 0.72rem;
+              color: var(--text-muted);
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            hr { border: none; height: 1px; background: var(--border); margin: 2rem 0; }
+            h2 { font-size: 1.5rem; color: var(--text); margin: 0.5rem 0; }
+            h3 { font-size: 1.15rem; color: var(--text); margin: 1.2rem 0 0.5rem; }
+            h4 { font-size: 1rem; color: var(--text-muted); margin: 1rem 0 0.4rem; }
+            details.section {
+              background: var(--surface);
+              border: 1px solid var(--border);
+              border-radius: 12px;
+              margin: 1rem 0;
+              overflow: hidden;
+              scroll-margin-top: 1rem;
+            }
+            details.section > summary {
+              cursor: pointer;
+              padding: 0.8rem 1.2rem;
+              background: var(--surface2);
+              border-bottom: 1px solid var(--border);
+              list-style: none;
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+              user-select: none;
+              transition: background 0.2s;
+            }
+            details.section > summary:hover { background: #1e2845; }
+            details.section > summary::before {
+              content: '\\25B6';
+              font-size: 0.7rem;
+              color: var(--accent);
+              transition: transform 0.2s;
+              flex-shrink: 0;
+            }
+            details.section[open] > summary::before { transform: rotate(90deg); }
+            details.section > summary::-webkit-details-marker { display: none; }
+            details.section > summary h2,
+            details.section > summary h3,
+            details.section > summary h4 { margin: 0; display: inline; font-size: inherit; }
+            details.section > summary h2 { font-size: 1.3rem; }
+            details.section > summary h3 { font-size: 1.05rem; }
+            details.section > summary h4 { font-size: 0.95rem; }
+            .section-body { padding: 1.2rem; }
+            details.section details.section { border-radius: 8px; margin: 0.6rem 0; }
+            details.section details.section > summary { padding: 0.6rem 1rem; }
+            table { width: 100%; border-collapse: collapse; margin: 0.8rem 0 1.2rem; font-size: 0.88rem; }
+            thead th {
+              text-align: left; padding: 0.6rem 0.8rem; background: var(--surface2);
+              color: var(--text-muted); font-weight: 600; text-transform: uppercase;
+              font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 2px solid var(--border);
+            }
+            tbody td { padding: 0.5rem 0.8rem; border-bottom: 1px solid #1a2035; }
+            tbody tr:hover { background: rgba(78, 140, 255, 0.04); }
+            td a { color: var(--accent); text-decoration: none; }
+            td a:hover { text-decoration: underline; }
+            .bar-col { width: 30%; }
+            .bar { width: 100%; height: 8px; background: var(--surface); border-radius: 4px; overflow: hidden; }
+            .bar-fill {
+              height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+              border-radius: 4px; min-width: 2px; transition: width 0.3s ease;
+            }
+            p { margin: 0.5rem 0; }
+            .note { color: var(--text-muted); font-style: italic; font-size: 0.88rem; }
+            strong { color: var(--text); }
+            .xref-table { font-size: 0.85rem; }
+            .xref-table th { font-size: 0.72rem; }
+            .xref-table td { text-align: center; }
+            .xref-table td:first-child { text-align: left; }
+            @media (max-width: 900px) {
+              .page-grid { grid-template-columns: 1fr; }
+              .toc-sidebar {
+                position: fixed; left: -280px; top: 0; width: 280px; height: 100vh;
+                transition: left 0.3s ease; box-shadow: 4px 0 20px rgba(0,0,0,0.5);
+              }
+              .toc-sidebar.open { left: 0; }
+              .toc-toggle { display: flex !important; }
+              .main-content { padding: 1.5rem 1rem; }
+              .hero-banner img { max-height: 180px; }
+            }
+            @media (min-width: 901px) { .toc-toggle { display: none !important; } }
+            @media (max-width: 600px) {
+              .stats-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; }
+              table { font-size: 0.8rem; }
+              .bar-col { display: none; }
+              .report-header h1 { font-size: 1.4rem; }
+              .report-header { padding: 1.5rem 1rem; }
+            }
+            """;
+
+    // ═══════════════════════════════════════════════════════════════
+    //  JS (same scripts as test HtmlReportUtils)
+    // ═══════════════════════════════════════════════════════════════
+
+    private static final String JS = """
+            document.addEventListener('DOMContentLoaded', () => {
+              const expandBtn = document.createElement('button');
+              expandBtn.textContent = 'Expand All';
+              expandBtn.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;padding:0.6rem 1.2rem;' +
+                'background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;' +
+                'font-size:0.85rem;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:background 0.2s;';
+              expandBtn.addEventListener('mouseenter', () => expandBtn.style.background = 'var(--accent2)');
+              expandBtn.addEventListener('mouseleave', () => expandBtn.style.background = 'var(--accent)');
+              let expanded = false;
+              expandBtn.addEventListener('click', () => {
+                expanded = !expanded;
+                document.querySelectorAll('details.section').forEach(d => d.open = expanded);
+                expandBtn.textContent = expanded ? 'Collapse All' : 'Expand All';
+              });
+              document.body.appendChild(expandBtn);
+              const tocToggle = document.createElement('button');
+              tocToggle.className = 'toc-toggle';
+              tocToggle.innerHTML = '&#9776;';
+              tocToggle.style.cssText = 'position:fixed;top:0.8rem;left:0.8rem;padding:0.4rem 0.7rem;' +
+                'background:var(--surface2);color:var(--accent);border:1px solid var(--border);' +
+                'border-radius:6px;cursor:pointer;font-size:1.2rem;z-index:200;display:none;';
+              const sidebar = document.getElementById('toc-sidebar');
+              tocToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+              document.body.appendChild(tocToggle);
+              sidebar.querySelectorAll('a').forEach(a => {
+                a.addEventListener('click', () => sidebar.classList.remove('open'));
+              });
+              sidebar.querySelectorAll('a[href^="#"]').forEach(link => {
+                link.addEventListener('click', (e) => {
+                  const targetId = link.getAttribute('href').substring(1);
+                  const target = document.getElementById(targetId);
+                  if (target && target.tagName === 'DETAILS') { target.open = true; }
+                });
+              });
+              const tocLinks = sidebar.querySelectorAll('a[href^="#"]');
+              const sectionIds = Array.from(tocLinks).map(a => a.getAttribute('href').substring(1));
+              const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+              if (sections.length === 0) return;
+              let activeLink = null;
+              function setActive(id) {
+                if (activeLink) activeLink.classList.remove('active');
+                const link = sidebar.querySelector('a[href="#' + id + '"]');
+                if (link) {
+                  link.classList.add('active');
+                  activeLink = link;
+                  const sidebarRect = sidebar.getBoundingClientRect();
+                  const linkRect = link.getBoundingClientRect();
+                  if (linkRect.top < sidebarRect.top || linkRect.bottom > sidebarRect.bottom) {
+                    link.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                  }
+                }
+              }
+              const observer = new IntersectionObserver((entries) => {
+                let best = null;
+                let bestTop = Infinity;
+                entries.forEach(entry => {
+                  if (entry.isIntersecting) {
+                    const top = entry.boundingClientRect.top;
+                    if (top < bestTop) { bestTop = top; best = entry.target; }
+                  }
+                });
+                if (best) setActive(best.id);
+              }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+              let ticking = false;
+              window.addEventListener('scroll', () => {
+                if (ticking) return;
+                ticking = true;
+                requestAnimationFrame(() => {
+                  let current = null;
+                  for (const section of sections) {
+                    const rect = section.getBoundingClientRect();
+                    if (rect.top <= window.innerHeight * 0.3) { current = section; }
+                  }
+                  if (current) setActive(current.id);
+                  ticking = false;
+                });
+              });
+              sections.forEach(s => observer.observe(s));
+              if (sections.length > 0) setActive(sections[0].id);
+            });
+            """;
+}

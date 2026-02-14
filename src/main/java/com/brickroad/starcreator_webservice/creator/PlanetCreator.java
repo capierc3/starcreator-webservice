@@ -49,6 +49,9 @@ public class PlanetCreator {
     private HabitabilityCreator habitabilityCreator;
 
     @Autowired
+    private WeatherCreator weatherCreator;
+
+    @Autowired
     private StarTypeRefRepository starTypeRefRepository;
 
     private List<StarTypeRef> cachedStarTypes;
@@ -210,6 +213,7 @@ public class PlanetCreator {
         }
 
         populateAtmosphereProperties(planet, type);
+        applyGreenhouseWarming(planet);
 
         if (parentStar != null) {
             HabitableZone hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
@@ -235,6 +239,11 @@ public class PlanetCreator {
 
         PlanetaryHabitability habitability = habitabilityCreator.assess(planet, parentStar);
         planet.setHabitability(habitability);
+
+        // Weather generation (after habitability, magnetic field, and moons are populated)
+        StarSystem system = parentStar != null ? parentStar.getSystem() : null;
+        PlanetaryWeather weather = weatherCreator.generateWeather(planet, parentStar, system);
+        planet.setWeather(weather);
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());
@@ -646,6 +655,20 @@ public class PlanetCreator {
         planet.setInteriorComposition(composition.toInteriorString());
         planet.setEnvelopeComposition(composition.toEnvelopeString());
         planet.setCompositionClassification(composition.getClassification().name());
+    }
+
+    private void applyGreenhouseWarming(Planet planet) {
+        if (planet.getSurfaceTemp() == null || planet.getAtmosphereClassification() == null
+                || "NONE".equals(planet.getAtmosphereClassification())) {
+            return;
+        }
+        double pressure = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 0;
+        String composition = planet.getAtmosphereComposition() != null ? planet.getAtmosphereComposition() : "";
+        double greenhouse = TemperatureCalculator.estimateGreenhouseWarming(
+                planet.getAtmosphereClassification(), pressure, composition);
+        if (greenhouse > 0) {
+            planet.setSurfaceTemp(planet.getSurfaceTemp() + greenhouse);
+        }
     }
 
     private static class HabitableZone {
