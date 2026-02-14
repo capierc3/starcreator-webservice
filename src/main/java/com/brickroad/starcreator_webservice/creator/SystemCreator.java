@@ -293,8 +293,13 @@ public class SystemCreator {
         double innerEdge = Math.max(theoreticalInner, minStableDistance);
         double outerEdge = Math.max(theoreticalOuter, minStableDistance * 1.2);
 
-        system.setHabitableLow(innerEdge);
-        system.setHabitableHigh(outerEdge);
+        if (innerEdge > theoreticalOuter) {
+            system.setHabitableLow(-1.0);
+            system.setHabitableHigh(-1.0);
+        } else {
+            system.setHabitableLow(innerEdge);
+            system.setHabitableHigh(outerEdge);
+        }
     }
 
     private List<CelestialBody> generatePlanetsForSystem(StarSystem system, Set<Star> stars, BinaryConfiguration config) {

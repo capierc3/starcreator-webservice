@@ -562,6 +562,15 @@ public class PlanetCreator {
         if (!zoneFilteredTypes.isEmpty()) {
             return selectFromList(zoneFilteredTypes);
         }
+        // Zone fallback: only allow zone-agnostic types (formation_zone=NULL),
+        // not types explicitly assigned to a different zone
+        List<PlanetTypeRef> zoneAgnosticTypes = tempFilteredTypes.stream()
+                .filter(type -> type.getFormationZone() == null)
+                .collect(Collectors.toList());
+        if (!zoneAgnosticTypes.isEmpty()) {
+            return selectFromList(zoneAgnosticTypes);
+        }
+        // Last resort: full temp list to avoid returning null
         if (!tempFilteredTypes.isEmpty()) {
             return selectFromList(tempFilteredTypes);
         }

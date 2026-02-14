@@ -5,6 +5,7 @@ import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
 import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
+import com.brickroad.starcreator_webservice.utils.planets.StellarEnvironment;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -85,8 +86,6 @@ public class StarCreator {
         star.setCircumference(ConversionFormulas.radiusToCircumference(star.getRadius()));
 
         star.setSolarLuminosity(calculateLuminosity(solarMass, type));
-        star.setHabitableZoneInnerAU(Math.sqrt(star.getSolarLuminosity() / 1.1));
-        star.setHabitableZoneOuterAU(Math.sqrt(star.getSolarLuminosity() / 0.53));
         star.setSurfaceTemp(calculateSurfaceTemp(type, solarMass));
         star.setColorIndex(determineColor(star.getSurfaceTemp()));
 
@@ -101,6 +100,9 @@ public class StarCreator {
         }
 
         populateStellarActivity(star, type);
+        double effectiveLum = StellarEnvironment.effectiveLuminosity(star);
+        star.setHabitableZoneInnerAU(Math.sqrt(effectiveLum / 1.1));
+        star.setHabitableZoneOuterAU(Math.sqrt(effectiveLum / 0.53));
 
         star.setCreatedAt(LocalDateTime.now());
         star.setModifiedAt(LocalDateTime.now());
