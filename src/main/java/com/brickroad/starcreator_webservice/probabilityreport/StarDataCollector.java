@@ -14,6 +14,7 @@ public class StarDataCollector {
     private final Map<String, Map<String, Map<String, Integer>>> starTypesData = new HashMap<>();
     private final Map<Integer, Integer> starAmounts = new HashMap<>();
     private final Map<String, Integer> starRoles = new HashMap<>();
+    private final Map<String, Integer> binaryConfigurations = new HashMap<>();
 
     public void analyzeData(Star star) {
         starTypes.merge(star.getType(), 1, Integer::sum);

@@ -88,6 +88,7 @@ public class JsonReportBuilder {
         stars.put("amounts", starData.getStarAmounts());
         stars.put("types", starData.getStarTypes());
         stars.put("roles", starData.getStarRoles());
+        stars.put("binaryConfigurations", starData.getBinaryConfigurations());
 
         // Per-type breakdown
         Map<String, Object> perType = new LinkedHashMap<>();
@@ -199,12 +200,19 @@ public class JsonReportBuilder {
         crossRef.put("distanceVsMagnetopause", distMag);
         planets.put("crossReference", crossRef);
 
-        // Per-type breakdown
+        // Per-type breakdown (single-star / non-P-type systems)
         Map<String, Object> perType = new LinkedHashMap<>();
         for (Map.Entry<String, PlanetTypeBreakdown> entry : planetData.getPerTypeData().entrySet()) {
             perType.put(entry.getKey(), entry.getValue().toJson());
         }
         planets.put("perType", perType);
+
+        // Per-type breakdown (P-type binary systems)
+        Map<String, Object> perTypePType = new LinkedHashMap<>();
+        for (Map.Entry<String, PlanetTypeBreakdown> entry : planetData.getPerTypeDataPType().entrySet()) {
+            perTypePType.put(entry.getKey(), entry.getValue().toJson());
+        }
+        planets.put("perTypePType", perTypePType);
 
         return planets;
     }
