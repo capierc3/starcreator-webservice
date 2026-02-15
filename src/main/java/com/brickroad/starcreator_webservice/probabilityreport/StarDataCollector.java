@@ -1,5 +1,7 @@
 package com.brickroad.starcreator_webservice.probabilityreport;
 
+import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
+import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import lombok.Getter;
@@ -42,7 +44,14 @@ public class StarDataCollector {
         evoData.merge(star.getEvolutionaryStage(), 1, Integer::sum);
 
         Map<String, Integer> planetCountData = typeData.computeIfAbsent("planets per system", k -> new HashMap<>());
-        int planetCount = star.getSystem() != null ? star.getSystem().getPlanets().size() : 0;
+        int planetCount = 0;
+        if (star.getSystem() != null) {
+            for (CelestialBody body : star.getSystem().getPlanets()) {
+                if (body instanceof Planet planet && planet.getParentStar() == star) {
+                    planetCount++;
+                }
+            }
+        }
         String planetBin = binPlanetCount(planetCount);
         planetCountData.merge(planetBin, 1, Integer::sum);
 
