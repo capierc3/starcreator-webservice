@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.random.RandomGenerator;
 
 @Service
 public class MoonCreator {
@@ -87,6 +88,10 @@ public class MoonCreator {
         // Generate weather for all moons AFTER all moons are created,
         // so sibling moons are available for tidal and sky appearance calculations.
         generateMoonWeather(moons, planet, primaryStar);
+
+        int moonlets = calculateAdditionalMoonlets(planet);
+        planet.setAdditionalMoonlets(moonlets);
+        planet.setNumberOfMoons(moons.size() + moonlets);
 
         return moons;
     }
@@ -385,20 +390,30 @@ public class MoonCreator {
             }
         }
 
-        double budgetFactor = totalMassBudget / (planet.getEarthMass() * 0.001); // Ratio to 0.1% planet mass
-
         int targetMoons;
         int range = effectiveMax - minMoons;
-        if (budgetFactor < 0.1) {
-            int upperBound = minMoons + Math.max(1, range / 3);
-            targetMoons = RandomUtils.rollRange(minMoons, upperBound);
-        } else if (budgetFactor < 0.5) {
-            targetMoons = RandomUtils.rollRange(minMoons + Math.max(1, range / 3),
-                    minMoons + Math.max(2, 2 * range / 3));
+
+        if (range <= 3) {
+            // Small range: uniform distribution is fine
+            targetMoons = RandomUtils.rollRange(minMoons, effectiveMax);
         } else {
-            targetMoons = RandomUtils.rollRange(minMoons + Math.max(1, range / 2), effectiveMax);
+            // Gaussian distribution across full range for natural spread
+            // Budget gently nudges the mean but doesn't lock into a narrow band
+            double budgetFactor = totalMassBudget / (planet.getEarthMass() * 0.001);
+            double budgetInfluence = Math.min(1.0, budgetFactor);
+
+            // Mean at 25-50% of range (lower moons slightly more common, budget shifts up)
+            double meanFraction = 0.25 + 0.25 * budgetInfluence;
+            double mean = minMoons + meanFraction * range;
+
+            // Sigma = 28% of range gives good spread with natural tails
+            double sigma = Math.max(range * 0.28, 2.0);
+
+            double rawCount = RandomGenerator.getDefault().nextGaussian(mean, sigma);
+            targetMoons = (int) Math.round(Math.max(minMoons, Math.min(effectiveMax, rawCount)));
         }
 
+        // Metallicity adjustment
         double metallicity = primaryStar.getMetallicity();
         if (metallicity > 0.3 && RandomUtils.rollRange(0.0, 1.0) < 0.3) {
             targetMoons = Math.min(effectiveMax, targetMoons + 1);
@@ -1109,5 +1124,67 @@ public class MoonCreator {
     }
 
     private record MoonGenerationData(String moonType, double massEarthMasses) {
+    }
+
+    private int calculateAdditionalMoonlets(Planet planet) {
+        String planetType = planet.getPlanetType();
+        double mass = planet.getEarthMass() != null ? planet.getEarthMass() : 0;
+
+        // Inner rocky worlds and close-in giants: tidal forces clear small bodies
+        if (planetType == null) return 0;
+        if (planetType.contains("Hot") || planetType.contains("Lava")
+                || planetType.contains("Iron") || planetType.contains("Puffy")) {
+            return 0;
+        }
+
+        // Rocky/icy small bodies: rarely have moonlet swarms
+        if (planetType.contains("Terrestrial") || planetType.contains("Desert")
+                || planetType.contains("Carbon") || planetType.contains("Ocean")) {
+            return 0;
+        }
+        if (planetType.contains("Dwarf") || planetType.contains("Ice World")) {
+            if (RandomUtils.rollRange(0.0, 1.0) < 0.15) {
+                return RandomUtils.rollRange(1, 3);
+            }
+            return 0;
+        }
+        if (planetType.contains("Super-Earth")) {
+            if (RandomUtils.rollRange(0.0, 1.0) < 0.2) {
+                return RandomUtils.rollRange(1, 5);
+            }
+            return 0;
+        }
+
+        // Gas/ice worlds: mass-dependent swarms of captured irregulars
+        double base;
+        double sigma;
+        int cap;
+
+        if (planetType.contains("Mini-Neptune") || planetType.contains("Warm Neptune")) {
+            base = mass * 0.5;
+            sigma = Math.max(1, base * 0.5);
+            cap = 20;
+        } else if (planetType.contains("Sub-Neptune")) {
+            base = mass * 0.5;
+            sigma = Math.max(1, base * 0.5);
+            cap = 20;
+        } else if (planetType.contains("Ice Giant")) {
+            base = mass * 1.2;
+            sigma = Math.max(3, base * 0.5);
+            cap = 40;
+        } else if (planetType.contains("Super-Jupiter")) {
+            base = Math.sqrt(mass) * 4;
+            sigma = Math.max(10, base * 0.5);
+            cap = 300;
+        } else if (planetType.contains("Gas Giant")) {
+            base = Math.sqrt(mass) * 5;
+            sigma = Math.max(5, base * 0.5);
+            cap = 200;
+        } else {
+            return 0;
+        }
+
+        double raw = RandomGenerator.getDefault().nextGaussian(base, sigma);
+        return (int) Math.max(0, Math.min(cap, Math.round(raw)));
     }
 }

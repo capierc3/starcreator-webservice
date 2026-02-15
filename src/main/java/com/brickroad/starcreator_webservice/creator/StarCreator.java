@@ -349,6 +349,10 @@ public class StarCreator {
         double fraction = ageMY / msLifespan;
         fraction = Math.min(fraction, 0.99);
 
+        if (msLifespan > 50000.0) {
+            fraction = Math.min(fraction, 0.099);
+        }
+
         star.setMainSequenceFraction(fraction);
         star.setEstimatedRemainingMsMy(Math.max(0, msLifespan - ageMY));
 
