@@ -22,6 +22,7 @@ public class PlanetTypeBreakdown {
     private final Map<String, Integer> habitabilityClasses = new HashMap<>();
     private final Map<String, Integer> moonCountBins = new HashMap<>();
     private final Map<String, Integer> semiMajorAxisBins = new HashMap<>();
+    private final Map<String, Integer> moonletBins = new HashMap<>();
     private int withRings = 0;
 
     private double massSum = 0;
@@ -44,6 +45,7 @@ public class PlanetTypeBreakdown {
     public void addHabitabilityClass(String val) { habitabilityClasses.merge(val, 1, Integer::sum); }
     public void addMoonCountBin(String bin) { moonCountBins.merge(bin, 1, Integer::sum); }
     public void addSemiMajorAxisBin(String bin) { semiMajorAxisBins.merge(bin, 1, Integer::sum); }
+    public void addMoonletBin(String bin) { moonletBins.merge(bin, 1, Integer::sum); }
     public void addRings() { withRings++; }
 
     public void addPhysicalProps(double mass, double radius, double gravity, double temp) {
@@ -80,6 +82,7 @@ public class PlanetTypeBreakdown {
         if (!waterInventories.isEmpty()) json.put("waterInventories", waterInventories);
         if (!habitabilityClasses.isEmpty()) json.put("habitabilityClasses", habitabilityClasses);
         if (!semiMajorAxisBins.isEmpty()) json.put("semiMajorAxisAU", semiMajorAxisBins);
+        if (!moonletBins.isEmpty()) json.put("moonletBins", moonletBins);
 
         return json;
     }

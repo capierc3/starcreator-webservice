@@ -7,9 +7,11 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class HtmlReportBuilder {
@@ -72,17 +74,18 @@ public class HtmlReportBuilder {
         w.println("<div class=\"report-header\">");
         w.println("<h1>System Probability Report</h1>");
         w.println("<p class=\"subtitle\">" + LocalDateTime.now().format(formatter) + "</p>");
-        w.println("<p class=\"subtitle\">Created " + counts.getSystemCount() + " systems in " + timer.getFinalTime() + "</p>");
+        w.println("<p class=\"subtitle\">Created " + fmt(counts.getSystemCount()) + " systems in " + timer.getFinalTime() + "</p>");
         w.println("</div>");
 
         w.println("<div class=\"stats-grid\">");
-        statCard(w, String.valueOf(counts.getSystemCount()), "Systems");
-        statCard(w, String.valueOf(counts.getStarCount()), "Stars");
-        statCard(w, String.valueOf(counts.getPlanetCount()), "Planets");
-        statCard(w, String.valueOf(counts.getMoonCount()), "Moons");
-        statCard(w, String.valueOf(counts.getRingCount()), "Rings");
-        statCard(w, String.valueOf(counts.getBeltCount()), "Belts");
-        statCard(w, String.valueOf(counts.getAsteroidCount()), "Asteroids");
+        statCard(w, fmt(counts.getSystemCount()), "Systems");
+        statCard(w, fmt(counts.getStarCount()), "Stars");
+        statCard(w, fmt(counts.getPlanetCount()), "Planets");
+        statCard(w, fmt(counts.getMoonCount()), "Moons");
+        statCard(w, fmt(counts.getMoonletCount()), "Moonlets");
+        statCard(w, fmt(counts.getRingCount()), "Rings");
+        statCard(w, fmt(counts.getBeltCount()), "Belts");
+        statCard(w, fmt(counts.getAsteroidCount()), "Asteroids");
         statCard(w, timer.averageLap() + "ms", "Avg / System");
         w.println("</div>");
     }
@@ -124,7 +127,7 @@ public class HtmlReportBuilder {
                 .sorted(Map.Entry.<Integer, Integer>comparingByValue().reversed())
                 .forEach(entry -> {
                     double pctVal = entry.getValue() * 100.0 / Math.max(1, counts.getSystemCount());
-                    w.println("<tr><td>" + entry.getKey() + " Star System</td><td>" + entry.getValue()
+                    w.println("<tr><td>" + entry.getKey() + " Star System</td><td>" + fmt(entry.getValue())
                             + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
                             + bar(pctVal) + "</td></tr>");
                 });
@@ -192,11 +195,11 @@ public class HtmlReportBuilder {
         w.println("<hr>");
         beginCollapsible(w, "Planet Types", 2);
 
-        w.println("<p><strong>Summary:</strong> " + counts.getPlanetCount() + " planets across "
-                + counts.getSystemCount() + " systems (avg "
+        w.println("<p><strong>Summary:</strong> " + fmt(counts.getPlanetCount()) + " planets across "
+                + fmt(counts.getSystemCount()) + " systems (avg "
                 + String.format("%.1f", counts.getPlanetCount() * 1.0 / Math.max(1, counts.getSystemCount()))
                 + " per system)</p>");
-        w.println("<p>With rings: " + planetData.getPlanetsWithRings() + " ("
+        w.println("<p>With rings: " + fmt(planetData.getPlanetsWithRings()) + " ("
                 + pct(planetData.getPlanetsWithRings(), counts.getPlanetCount()) + "%)</p>");
         if (planetData.getPhysicalPropsCount() > 0) {
             w.println("<p>Avg mass: " + String.format("%.2f", planetData.getTotalMass() / planetData.getPhysicalPropsCount()) + " M&#8853;"
@@ -293,6 +296,8 @@ public class HtmlReportBuilder {
             printSortedTableByKey(w, ptb.getSemiMajorAxisBins(), ptb.getCount(), "Semi-Major Axis (AU)");
         if (!ptb.getMoonCountBins().isEmpty())
             printSortedTableByKey(w, ptb.getMoonCountBins(), ptb.getCount(), "Moon Count");
+        if (!ptb.getMoonletBins().isEmpty())
+            printSortedTableByKey(w, ptb.getMoonletBins(), ptb.getCount(), "Additional Moonlets");
         if (!ptb.getGeologicalActivity().isEmpty())
             printSortedTable(w, ptb.getGeologicalActivity(), ptb.getCount(), "Geological Activity");
         if (!ptb.getWaterInventories().isEmpty())
@@ -403,7 +408,7 @@ public class HtmlReportBuilder {
 
         w.println("<hr>");
         beginCollapsible(w, "Geology (Rocky/Surface Planets)", 2);
-        w.println("<p>Planets with geological data: " + planetData.getPlanetsWithGeology() + "</p>");
+        w.println("<p>Planets with geological data: " + fmt(planetData.getPlanetsWithGeology()) + "</p>");
 
         if (!planetData.getGeologicalActivity().isEmpty()) {
             printSubSection(w, "Geological Activity");
@@ -425,12 +430,12 @@ public class HtmlReportBuilder {
         // Water System
         w.println("<hr>");
         beginCollapsible(w, "Water System (Rocky/Surface Planets Only)", 2);
-        w.println("<p>Total rocky/surface planets analyzed: " + planetData.getTotalRockyPlanets() + "</p>");
-        w.println("<p>With liquid surface water: " + planetData.getPlanetsWithLiquidWater()
+        w.println("<p>Total rocky/surface planets analyzed: " + fmt(planetData.getTotalRockyPlanets()) + "</p>");
+        w.println("<p>With liquid surface water: " + fmt(planetData.getPlanetsWithLiquidWater())
                 + " (" + pct(planetData.getPlanetsWithLiquidWater(), planetData.getTotalRockyPlanets()) + "%)</p>");
-        w.println("<p>With ice coverage: " + planetData.getPlanetsWithIce()
+        w.println("<p>With ice coverage: " + fmt(planetData.getPlanetsWithIce())
                 + " (" + pct(planetData.getPlanetsWithIce(), planetData.getTotalRockyPlanets()) + "%)</p>");
-        w.println("<p>With subsurface water: " + planetData.getPlanetsWithSubsurfaceWater()
+        w.println("<p>With subsurface water: " + fmt(planetData.getPlanetsWithSubsurfaceWater())
                 + " (" + pct(planetData.getPlanetsWithSubsurfaceWater(), planetData.getTotalRockyPlanets()) + "%)</p>");
 
         printSubSection(w, "Water Inventory Distribution");
@@ -444,10 +449,10 @@ public class HtmlReportBuilder {
         // Habitability
         w.println("<hr>");
         beginCollapsible(w, "Planetary Habitability", 2);
-        w.println("<p>Planets assessed: " + planetData.getHabAssessmentCount() + "</p>");
+        w.println("<p>Planets assessed: " + fmt(planetData.getHabAssessmentCount()) + "</p>");
         w.println("<p>Average ESI: " + String.format("%.3f", planetData.getEsiSum() / Math.max(1, planetData.getHabAssessmentCount())) + "</p>");
         w.println("<p>Average Habitability Score: " + String.format("%.1f", planetData.getHabScoreSum() / Math.max(1, planetData.getHabAssessmentCount())) + "</p>");
-        w.println("<p>Breathable atmospheres: " + planetData.getBreathablePlanets()
+        w.println("<p>Breathable atmospheres: " + fmt(planetData.getBreathablePlanets())
                 + " (" + String.format("%.2f", planetData.getBreathablePlanets() * 100.0 / Math.max(1, planetData.getHabAssessmentCount())) + "%)</p>");
 
         printSubSection(w, "Habitability Class Distribution");
@@ -571,31 +576,31 @@ public class HtmlReportBuilder {
         printSubSection(w, "Tidal Heating Levels");
         printSortedTable(w, moonData.getMoonTidalHeatingLevels(), counts.getMoonCount(), "Level");
 
-        w.println("<p>Subsurface Oceans (from MoonCreator): " + moonData.getMoonsWithSubsurfaceOcean()
+        w.println("<p>Subsurface Oceans (from MoonCreator): " + fmt(moonData.getMoonsWithSubsurfaceOcean())
                 + " (" + pct(moonData.getMoonsWithSubsurfaceOcean(), counts.getMoonCount()) + "%)</p>");
 
         // Detailed Analysis
         beginCollapsible(w, "Moon Detailed Analysis (mass >= 0.0005 Earth)", 3);
-        w.println("<p>Moons assessed: " + moonData.getMoonsAssessed() + " of " + counts.getMoonCount()
+        w.println("<p>Moons assessed: " + fmt(moonData.getMoonsAssessed()) + " of " + fmt(counts.getMoonCount())
                 + " total (" + pct(moonData.getMoonsAssessed(), counts.getMoonCount()) + "%)</p>");
 
         w.println("<h4>Moon Magnetic Fields</h4>");
-        w.println("<p>Moons with magnetic field data: " + moonData.getMoonsWithMagField()
+        w.println("<p>Moons with magnetic field data: " + fmt(moonData.getMoonsWithMagField())
                 + " (" + pct(moonData.getMoonsWithMagField(), moonData.getMoonsAssessed()) + "% of assessed)</p>");
         printSortedTable(w, moonData.getMoonDynamoTypes(), moonData.getMoonsWithMagField(), "Dynamo Type");
         printSortedTable(w, moonData.getMoonProtectionLevels(), moonData.getMoonsWithMagField(), "Protection Level");
 
         w.println("<h4>Moon Water System</h4>");
-        w.println("<p>With liquid surface water: " + moonData.getMoonsWithLiquidWater()
+        w.println("<p>With liquid surface water: " + fmt(moonData.getMoonsWithLiquidWater())
                 + " (" + pct(moonData.getMoonsWithLiquidWater(), counts.getMoonCount()) + "%)</p>");
-        w.println("<p>With ice coverage: " + moonData.getMoonsWithIce()
+        w.println("<p>With ice coverage: " + fmt(moonData.getMoonsWithIce())
                 + " (" + pct(moonData.getMoonsWithIce(), counts.getMoonCount()) + "%)</p>");
-        w.println("<p>With subsurface water: " + moonData.getMoonsWithSubsurfaceWater()
+        w.println("<p>With subsurface water: " + fmt(moonData.getMoonsWithSubsurfaceWater())
                 + " (" + pct(moonData.getMoonsWithSubsurfaceWater(), counts.getMoonCount()) + "%)</p>");
         printSortedTable(w, moonData.getMoonWaterInventories(), counts.getMoonCount(), "Water Inventory");
 
         w.println("<h4>Moon Habitability</h4>");
-        w.println("<p>Moons with habitability assessment: " + moonData.getMoonHabCount() + "</p>");
+        w.println("<p>Moons with habitability assessment: " + fmt(moonData.getMoonHabCount()) + "</p>");
         w.println("<p>Average ESI: " + String.format("%.4f", moonData.getMoonEsiSum() / Math.max(1, moonData.getMoonHabCount())) + "</p>");
         w.println("<p>Average Habitability Score: " + String.format("%.1f", moonData.getMoonHabScoreSum() / Math.max(1, moonData.getMoonHabCount())) + "</p>");
 
@@ -615,19 +620,19 @@ public class HtmlReportBuilder {
 
     private void printMoonWeatherHtml(PrintWriter w) {
         w.println("<h4>Moon Weather</h4>");
-        w.println("<p>Moons with weather data: " + moonData.getMoonsWithWeather() + " of " + counts.getMoonCount()
+        w.println("<p>Moons with weather data: " + fmt(moonData.getMoonsWithWeather()) + " of " + fmt(counts.getMoonCount())
                 + " total (" + pct(moonData.getMoonsWithWeather(), counts.getMoonCount()) + "%)</p>");
         if (moonData.getMoonsWithWeather() == 0) return;
 
-        w.println("<p>With precipitation: " + moonData.getMoonsWithPrecipitation()
+        w.println("<p>With precipitation: " + fmt(moonData.getMoonsWithPrecipitation())
                 + " (" + pct(moonData.getMoonsWithPrecipitation(), moonData.getMoonsWithWeather()) + "%)</p>");
-        w.println("<p>With lightning: " + moonData.getMoonsWithLightning()
+        w.println("<p>With lightning: " + fmt(moonData.getMoonsWithLightning())
                 + " (" + pct(moonData.getMoonsWithLightning(), moonData.getMoonsWithWeather()) + "%)</p>");
-        w.println("<p>With parent planet visible in sky: " + moonData.getMoonsWithParentPlanetVisible()
+        w.println("<p>With parent planet visible in sky: " + fmt(moonData.getMoonsWithParentPlanetVisible())
                 + " (" + pct(moonData.getMoonsWithParentPlanetVisible(), moonData.getMoonsWithWeather()) + "%)</p>");
-        w.println("<p>With planetary eclipses: " + moonData.getMoonsWithPlanetaryEclipses()
+        w.println("<p>With planetary eclipses: " + fmt(moonData.getMoonsWithPlanetaryEclipses())
                 + " (" + pct(moonData.getMoonsWithPlanetaryEclipses(), moonData.getMoonsWithWeather()) + "%)</p>");
-        w.println("<p>Total extreme weather events: " + moonData.getMoonExtremeEventTotal()
+        w.println("<p>Total extreme weather events: " + fmt(moonData.getMoonExtremeEventTotal())
                 + " (avg " + String.format("%.1f", moonData.getMoonExtremeEventTotal() * 1.0 / moonData.getMoonsWithWeather()) + "/moon)</p>");
 
         printSortedTable(w, moonData.getMoonWeatherSkyColor(), moonData.getMoonsWithWeather(), "Sky Color");
@@ -661,13 +666,19 @@ public class HtmlReportBuilder {
         printSubSection(w, "Asteroid Types");
         printSortedTable(w, beltData.getAsteroidTypes(), counts.getAsteroidCount(), "Asteroid Type");
 
-        w.println("<p>Dwarf Planets in Belts: " + counts.getTempCount() + "</p>");
+        w.println("<p>Dwarf Planets in Belts: " + fmt(counts.getTempCount()) + "</p>");
         endCollapsible(w);
     }
 
     // ═══════════════════════════════════════════════════════════════
     //  HTML Utility Methods (inline from HtmlReportUtils)
     // ═══════════════════════════════════════════════════════════════
+
+    private static final NumberFormat NUMBER_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
+
+    private String fmt(int value) {
+        return NUMBER_FORMAT.format(value);
+    }
 
     private String pct(int count, int total) {
         return String.format("%.1f", count * 100.0 / Math.max(1, total));
@@ -681,7 +692,7 @@ public class HtmlReportBuilder {
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .forEach(e -> {
                     double pctVal = e.getValue() * 100.0 / Math.max(1, total);
-                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + e.getValue()
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(e.getValue())
                             + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
                             + bar(pctVal) + "</td></tr>");
                 });
@@ -696,7 +707,7 @@ public class HtmlReportBuilder {
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(e -> {
                     double pctVal = e.getValue() * 100.0 / Math.max(1, total);
-                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + e.getValue()
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(e.getValue())
                             + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
                             + bar(pctVal) + "</td></tr>");
                 });
@@ -713,7 +724,7 @@ public class HtmlReportBuilder {
                     String anchor = toAnchor(e.getKey());
                     double pctVal = e.getValue() * 100.0 / Math.max(1, total);
                     w.println("<tr><td><a href=\"#" + anchor + "\">" + esc(e.getKey()) + "</a></td><td>"
-                            + e.getValue() + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
+                            + fmt(e.getValue()) + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
                             + bar(pctVal) + "</td></tr>");
                 });
         w.println("</tbody></table>");

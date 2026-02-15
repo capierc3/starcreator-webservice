@@ -97,6 +97,10 @@ public class PlanetDataCollector {
                     planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 0);
         }
         typeData.addMoonCountBin(binMoonCount(planet.getMoons().size()));
+        if (planet.getAdditionalMoonlets() != null && planet.getAdditionalMoonlets() > 0) {
+            typeData.addMoonletBin(binMoonletCount(planet.getAdditionalMoonlets()));
+            counts.incrementMoonletCount(planet.getAdditionalMoonlets());
+        }
         if (planet.getSemiMajorAxisAU() != null) {
             typeData.addSemiMajorAxisBin(binDistance(planet.getSemiMajorAxisAU()));
         }
@@ -406,6 +410,16 @@ public class PlanetDataCollector {
         if (count <= 25) return "11-25";
         if (count <= 50) return "26-50";
         return "51+";
+    }
+
+    private String binMoonletCount(int count) {
+        if (count <= 5) return "1-5";
+        if (count <= 10) return "6-10";
+        if (count <= 25) return "11-25";
+        if (count <= 50) return "26-50";
+        if (count <= 100) return "51-100";
+        if (count <= 250) return "101-250";
+        return "251+";
     }
 
     private boolean isSurfaceType(String planetType) {

@@ -76,6 +76,7 @@ public class JsonReportBuilder {
         summary.put("rings", counts.getRingCount());
         summary.put("belts", counts.getBeltCount());
         summary.put("asteroids", counts.getAsteroidCount());
+        summary.put("moonlets", counts.getMoonletCount());
         return summary;
     }
 
