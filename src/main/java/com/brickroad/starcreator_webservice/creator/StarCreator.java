@@ -199,7 +199,8 @@ public class StarCreator {
         } else if (typeName.contains("main sequence")) {
             double maxLifespan = 10000 / Math.pow(solarMass, 2.5);
             double maxAge = Math.min(maxLifespan * 0.8, 13800);
-            return RandomUtils.rollRange(100, maxAge);
+            double minAge = Math.min(maxLifespan * 0.01, 100); // OB stars can be very young
+            return RandomUtils.rollRange(minAge, maxAge);
         } else if (typeName.contains("giant")) {
             return RandomUtils.rollRange(5000, 13000);
         } else if (typeName.contains("white dwarf")) {
@@ -371,9 +372,38 @@ public class StarCreator {
         String typeName = type.getName().toLowerCase();
 
         if (!hasConvectiveEnvelope(type)) {
+            // OB stars don't have convective dynamos, but they ARE active
+            // via radiation-driven winds, wind shocks, and (for ~10%) fossil magnetic fields
             star.setRossbyNumber(null);
             star.setLogRPrimeHk(null);
-            star.setActivityLevel("INACTIVE");
+
+            String spectral = type.getSpectralClass();
+            if ("O".equals(spectral)) {
+                // O stars: extremely powerful winds, strong X-ray from wind shocks
+                // ~10% are magnetic and even more active
+                double roll = Math.random();
+                if (roll < 0.10) {
+                    star.setActivityLevel("VERY_ACTIVE");  // Magnetic O star
+                } else if (roll < 0.50) {
+                    star.setActivityLevel("ACTIVE");        // Strong wind variability
+                } else {
+                    star.setActivityLevel("MODERATE");      // Typical wind-shock activity
+                }
+            } else if ("B".equals(spectral)) {
+                // B stars: significant winds (weaker than O), some magnetic
+                double roll = Math.random();
+                if (roll < 0.07) {
+                    star.setActivityLevel("VERY_ACTIVE");  // Magnetic B star (e.g., σ Ori E type)
+                } else if (roll < 0.30) {
+                    star.setActivityLevel("ACTIVE");
+                } else if (roll < 0.70) {
+                    star.setActivityLevel("MODERATE");
+                } else {
+                    star.setActivityLevel("LOW");          // Weak-wind late B stars
+                }
+            } else {
+                star.setActivityLevel("INACTIVE");
+            }
             return;
         }
 
@@ -509,10 +539,34 @@ public class StarCreator {
         }
 
         if (!hasConvectiveEnvelope(type)) {
-            star.setFlareFrequencyPerDay(0.0);
-            star.setMaxFlareEnergyErgs(null);
-            star.setFlareClass("NONE");
-            star.setSuperflareCapable(false);
+            String spectral = type.getSpectralClass();
+            if ("O".equals(spectral) || "B".equals(spectral)) {
+                // OB stars have wind-driven variability events, not classical flares
+                // Magnetic OB stars can have actual flare-like magnetospheric events
+                boolean magnetic = "VERY_ACTIVE".equals(star.getActivityLevel());
+                if (magnetic) {
+                    star.setFlareFrequencyPerDay(RandomUtils.rollRange(0.1, 2.0));
+                    star.setMaxFlareEnergyErgs(RandomUtils.rollRange(32.0, 35.0));
+                    star.setFlareClass("X_CLASS");
+                    star.setSuperflareCapable(true);
+                } else if ("ACTIVE".equals(star.getActivityLevel())) {
+                    star.setFlareFrequencyPerDay(RandomUtils.rollRange(0.01, 0.5));
+                    star.setMaxFlareEnergyErgs(RandomUtils.rollRange(30.0, 33.0));
+                    star.setFlareClass("C_CLASS");
+                    star.setSuperflareCapable(false);
+                } else {
+                    // Wind variability — not true flares but detectable events
+                    star.setFlareFrequencyPerDay(RandomUtils.rollRange(0.001, 0.1));
+                    star.setMaxFlareEnergyErgs(RandomUtils.rollRange(28.0, 31.0));
+                    star.setFlareClass("MICROFLARE");
+                    star.setSuperflareCapable(false);
+                }
+            } else {
+                star.setFlareFrequencyPerDay(0.0);
+                star.setMaxFlareEnergyErgs(null);
+                star.setFlareClass("NONE");
+                star.setSuperflareCapable(false);
+            }
             return;
         }
 
