@@ -39,7 +39,7 @@ public class AtmosphereCreator {
     public AtmosphereResult generateAtmosphereWithTemplate(String planetType, double surfaceTemp,
                                                            double earthMass, double distanceAU,
                                                            Star parentStar) {
-        if (surfaceTemp > 2000) {
+        if (surfaceTemp > 2000 && !CelestialBodyUtils.isGasGiant(planetType)) {
             return new AtmosphereResult(createNoneAtmosphere(), null);
         }
 

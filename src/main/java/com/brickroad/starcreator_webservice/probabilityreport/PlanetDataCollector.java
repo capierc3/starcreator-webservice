@@ -312,8 +312,9 @@ public class PlanetDataCollector {
     private boolean isGasType(String planetType) {
         if (planetType == null) return false;
         return planetType.contains("Gas Giant") || planetType.contains("Ice Giant")
-                || planetType.contains("Hot Jupiter") || planetType.contains("Hot Neptune")
-                || planetType.contains("Sub-Neptune") || planetType.contains("Mini-Neptune");
+                || planetType.contains("Jupiter") || planetType.contains("Neptune")
+                || planetType.contains("Sub-Neptune") || planetType.contains("Mini-Neptune")
+                || planetType.contains("Puffy");
     }
 
     private void analyzeWeatherData(Planet planet) {
