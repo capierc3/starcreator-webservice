@@ -616,20 +616,6 @@ public class PlanetCreator {
                         type.getFormationZone().equals(zone))
                 .toList();
 
-        List<PlanetTypeRef> distanceFilteredTypes = zoneFilteredTypes.stream()
-                .filter(type -> {
-                    if (type.getMinFormationDistanceAU() == null ||
-                            type.getMaxFormationDistanceAU() == null) {
-                        return true;
-                    }
-                    return distanceAU >= type.getMinFormationDistanceAU() &&
-                            distanceAU <= type.getMaxFormationDistanceAU();
-                })
-                .collect(Collectors.toList());
-
-        if (!distanceFilteredTypes.isEmpty()) {
-            return selectFromList(distanceFilteredTypes);
-        }
         if (!zoneFilteredTypes.isEmpty()) {
             return selectFromList(zoneFilteredTypes);
         }
