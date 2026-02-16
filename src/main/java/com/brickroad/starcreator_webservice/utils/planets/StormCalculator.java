@@ -82,9 +82,9 @@ public class StormCalculator {
             stormWindMs = Math.max(20.0, Math.min(200.0, stormWindMs));
             weather.setTypicalStormWindSpeedMs(round2(stormWindMs));
 
-            if (cycloneIntensity > 1.5) {
+            if (cycloneIntensity > 0.8) {
                 weather.setStormFrequency("FREQUENT");
-            } else if (cycloneIntensity > 0.5) {
+            } else if (cycloneIntensity > 0.3) {
                 weather.setStormFrequency("OCCASIONAL");
             } else {
                 weather.setStormFrequency("RARE");
@@ -111,8 +111,15 @@ public class StormCalculator {
                 events.add(hypercane);
             }
         } else {
-            // No cyclone potential
-            weather.setStormFrequency(hasPrecip && cloudCoverage > 40 ? "OCCASIONAL" : "RARE");
+            // Non-cyclone storm frequency: thick atmosphere + high cloud cover can still produce frequent storms
+            // (e.g., Titan-like methane storms, Venus-like convective activity, dense CO2 worlds)
+            if (hasPrecip && cloudCoverage > 70 && pressureAtm > 1.0) {
+                weather.setStormFrequency("FREQUENT");
+            } else if (hasPrecip && cloudCoverage > 40) {
+                weather.setStormFrequency("OCCASIONAL");
+            } else {
+                weather.setStormFrequency("RARE");
+            }
             weather.setTypicalStormWindSpeedMs(round2(maxWindForNonCyclone(meanWindMs, pressureAtm)));
         }
 
