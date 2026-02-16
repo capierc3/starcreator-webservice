@@ -18,6 +18,9 @@ public class StarDataCollector {
     private final Map<String, Integer> starRoles = new HashMap<>();
     private final Map<String, Integer> binaryConfigurations = new HashMap<>();
 
+    // Planet formations per star type: starType -> planetType -> [count, minAU, maxAU]
+    private final Map<String, Map<String, double[]>> planetFormationsByStarType = new HashMap<>();
+
     public void analyzeData(Star star) {
         starTypes.merge(star.getType(), 1, Integer::sum);
 
@@ -46,9 +49,24 @@ public class StarDataCollector {
         Map<String, Integer> planetCountData = typeData.computeIfAbsent("planets per system", k -> new HashMap<>());
         int planetCount = 0;
         if (star.getSystem() != null) {
+            Map<String, double[]> formations = planetFormationsByStarType.computeIfAbsent(star.getType(), k -> new HashMap<>());
             for (CelestialBody body : star.getSystem().getPlanets()) {
                 if (body instanceof Planet planet && planet.getParentStar() == star) {
                     planetCount++;
+                    String pType = planet.getPlanetType() != null ? planet.getPlanetType() : "UNKNOWN";
+                    double au = planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : -1;
+                    double[] stats = formations.get(pType);
+                    if (stats == null) {
+                        // [count, minAU, maxAU]
+                        stats = new double[]{1, au, au};
+                        formations.put(pType, stats);
+                    } else {
+                        stats[0]++;
+                        if (au >= 0) {
+                            stats[1] = stats[1] < 0 ? au : Math.min(stats[1], au);
+                            stats[2] = stats[2] < 0 ? au : Math.max(stats[2], au);
+                        }
+                    }
                 }
             }
         }

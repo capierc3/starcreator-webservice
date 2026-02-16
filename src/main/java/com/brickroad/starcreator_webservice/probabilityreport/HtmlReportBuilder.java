@@ -158,6 +158,7 @@ public class HtmlReportBuilder {
                 String evo = evoData.keySet().stream().findFirst().orElse("N/A");
                 w.println("<p class=\"note\">Uniform profile — Activity: " + esc(activity)
                         + ", Stage: " + esc(evo) + "</p>");
+                printPlanetFormationsTable(w, entry.getKey());
                 endCollapsible(w);
                 continue;
             }
@@ -173,6 +174,7 @@ public class HtmlReportBuilder {
             printStarSubTable(w, starTypeData, "planets per system", "Planets Per System", starTypeCount);
             printStarSubTable(w, starTypeData, "hz inner AU", "Habitable Zone Inner Edge (AU)", starTypeCount);
             printStarSubTable(w, starTypeData, "hz outer AU", "Habitable Zone Outer Edge (AU)", starTypeCount);
+            printPlanetFormationsTable(w, entry.getKey());
 
             endCollapsible(w);
         }
@@ -185,6 +187,39 @@ public class HtmlReportBuilder {
         Map<String, Integer> data = typeData.getOrDefault(key, new HashMap<>());
         if (data.isEmpty()) return;
         printSortedTable(w, data, total, label);
+    }
+
+    private void printPlanetFormationsTable(PrintWriter w, String starType) {
+        Map<String, double[]> formations = starData.getPlanetFormationsByStarType().get(starType);
+        if (formations == null || formations.isEmpty()) return;
+
+        int totalPlanets = formations.values().stream().mapToInt(v -> (int) v[0]).sum();
+
+        w.println("<h3>Planet Formations</h3>");
+        w.println("<p class=\"note\">Planet types produced by " + esc(starType) + " stars (" + fmt(totalPlanets) + " total planets)</p>");
+        w.println("<table>");
+        w.println("<thead><tr><th>Planet Type</th><th>Count</th><th>Distance Range (AU)</th><th>%</th><th class=\"bar-col\">Distribution</th></tr></thead>");
+        w.println("<tbody>");
+        formations.entrySet().stream()
+                .sorted((a, b) -> Integer.compare((int) b.getValue()[0], (int) a.getValue()[0]))
+                .forEach(e -> {
+                    int count = (int) e.getValue()[0];
+                    double minAU = e.getValue()[1];
+                    double maxAU = e.getValue()[2];
+                    double pctVal = count * 100.0 / Math.max(1, totalPlanets);
+                    String distRange;
+                    if (minAU < 0 && maxAU < 0) {
+                        distRange = "N/A";
+                    } else if (Math.abs(minAU - maxAU) < 0.0001) {
+                        distRange = String.format("%.3f AU", minAU);
+                    } else {
+                        distRange = String.format("%.3f - %.3f AU", minAU, maxAU);
+                    }
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(count)
+                            + "</td><td>" + distRange + "</td><td>" + String.format("%.1f", pctVal)
+                            + "%</td><td>" + bar(pctVal) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
     }
 
     // ═══════════════════════════════════════════════════════════════

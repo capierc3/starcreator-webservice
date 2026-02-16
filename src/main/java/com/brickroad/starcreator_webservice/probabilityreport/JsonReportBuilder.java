@@ -105,6 +105,30 @@ public class JsonReportBuilder {
             if (data.containsKey("planets per system")) typeEntry.put("planetsPerSystem", data.get("planets per system"));
             if (data.containsKey("hz inner AU")) typeEntry.put("hzInnerAU", data.get("hz inner AU"));
             if (data.containsKey("hz outer AU")) typeEntry.put("hzOuterAU", data.get("hz outer AU"));
+
+            // Planet formations for this star type
+            Map<String, double[]> formations = starData.getPlanetFormationsByStarType().get(entry.getKey());
+            if (formations != null && !formations.isEmpty()) {
+                int totalPlanets = formations.values().stream().mapToInt(v -> (int) v[0]).sum();
+                Map<String, Object> formationsJson = new LinkedHashMap<>();
+                formationsJson.put("totalPlanets", totalPlanets);
+                Map<String, Object> planetTypes = new LinkedHashMap<>();
+                formations.entrySet().stream()
+                        .sorted((a, b) -> Integer.compare((int) b.getValue()[0], (int) a.getValue()[0]))
+                        .forEach(fe -> {
+                            Map<String, Object> ptEntry = new LinkedHashMap<>();
+                            ptEntry.put("count", (int) fe.getValue()[0]);
+                            ptEntry.put("percent", round(fe.getValue()[0] * 100.0 / Math.max(1, totalPlanets)));
+                            double minAU = fe.getValue()[1];
+                            double maxAU = fe.getValue()[2];
+                            if (minAU >= 0) ptEntry.put("minDistanceAU", roundAU(minAU));
+                            if (maxAU >= 0) ptEntry.put("maxDistanceAU", roundAU(maxAU));
+                            planetTypes.put(fe.getKey(), ptEntry);
+                        });
+                formationsJson.put("planetTypes", planetTypes);
+                typeEntry.put("planetFormations", formationsJson);
+            }
+
             perType.put(entry.getKey(), typeEntry);
         }
         stars.put("perType", perType);
@@ -354,5 +378,9 @@ public class JsonReportBuilder {
 
     private double round(double val) {
         return Math.round(val * 100.0) / 100.0;
+    }
+
+    private double roundAU(double val) {
+        return Math.round(val * 10000.0) / 10000.0;
     }
 }
