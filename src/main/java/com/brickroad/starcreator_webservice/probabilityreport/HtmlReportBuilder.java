@@ -294,6 +294,8 @@ public class HtmlReportBuilder {
             printSortedTableByKey(w, ptb.getMassBins(), ptb.getCount(), "Mass Range");
         if (!ptb.getSemiMajorAxisBins().isEmpty())
             printSortedTableByKey(w, ptb.getSemiMajorAxisBins(), ptb.getCount(), "Semi-Major Axis (AU)");
+        if (!ptb.getTidalLockByDistance().isEmpty())
+            printTidalLockByDistanceTable(w, ptb.getTidalLockByDistance());
         if (!ptb.getMoonCountBins().isEmpty())
             printSortedTableByKey(w, ptb.getMoonCountBins(), ptb.getCount(), "Moon Count");
         if (!ptb.getMoonletBins().isEmpty())
@@ -306,6 +308,24 @@ public class HtmlReportBuilder {
             printSortedTable(w, ptb.getHabitabilityClasses(), ptb.getCount(), "Habitability Class");
 
         endCollapsible(w);
+    }
+
+    private void printTidalLockByDistanceTable(PrintWriter w, Map<String, int[]> data) {
+        w.println("<h3>Tidal Locking by Distance</h3>");
+        w.println("<table>");
+        w.println("<thead><tr><th>Distance Bin</th><th>Total</th><th>Locked</th><th>Lock Rate</th><th class=\"bar-col\">Distribution</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    int total = e.getValue()[0];
+                    int locked = e.getValue()[1];
+                    double rate = total > 0 ? (locked * 100.0 / total) : 0;
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(total)
+                            + "</td><td>" + fmt(locked) + "</td><td>" + String.format("%.1f", rate)
+                            + "%</td><td>" + bar(rate) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
     }
 
     private void printAtmosphereHtml(PrintWriter w) {

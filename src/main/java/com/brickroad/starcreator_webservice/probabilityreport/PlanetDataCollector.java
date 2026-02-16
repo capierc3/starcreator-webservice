@@ -102,7 +102,9 @@ public class PlanetDataCollector {
             counts.incrementMoonletCount(planet.getAdditionalMoonlets());
         }
         if (planet.getSemiMajorAxisAU() != null) {
-            typeData.addSemiMajorAxisBin(binDistance(planet.getSemiMajorAxisAU()));
+            String distBin = binDistance(planet.getSemiMajorAxisAU());
+            typeData.addSemiMajorAxisBin(distBin);
+            typeData.addTidalLockAtDistance(distBin, Boolean.TRUE.equals(planet.getTidallyLocked()));
         }
 
         // Composition classification
