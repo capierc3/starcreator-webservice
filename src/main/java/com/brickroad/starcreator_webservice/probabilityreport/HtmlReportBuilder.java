@@ -631,6 +631,24 @@ public class HtmlReportBuilder {
         printSubSection(w, "Tidal Heating Levels");
         printSortedTable(w, moonData.getMoonTidalHeatingLevels(), counts.getMoonCount(), "Level");
 
+        printSubSection(w, "Orbit Distance (Planet Radii)");
+        printSortedTableByKey(w, moonData.getOrbitDistanceBins(), counts.getMoonCount(), "Distance Bin");
+
+        printSubSection(w, "Eccentricity Distribution");
+        printSortedTableByKey(w, moonData.getEccentricityBins(), counts.getMoonCount(), "Eccentricity");
+
+        printSubSection(w, "Tidal Heating by Planet Type");
+        printNestedTidalTable(w, moonData.getTidalHeatingByPlanetType());
+
+        printSubSection(w, "Tidal Heating by Moon Type");
+        printNestedTidalTable(w, moonData.getTidalHeatingByMoonType());
+
+        printSubSection(w, "Geological Activity");
+        printSortedTable(w, moonData.getGeologicalActivity(), counts.getMoonCount(), "Activity");
+
+        printSubSection(w, "Atmosphere Classifications");
+        printSortedTable(w, moonData.getAtmosphereClassifications(), counts.getMoonCount(), "Classification");
+
         w.println("<p>Subsurface Oceans (from MoonCreator): " + fmt(moonData.getMoonsWithSubsurfaceOcean())
                 + " (" + pct(moonData.getMoonsWithSubsurfaceOcean(), counts.getMoonCount()) + "%)</p>");
 
@@ -671,6 +689,27 @@ public class HtmlReportBuilder {
 
         endCollapsible(w); // close detailed analysis
         endCollapsible(w); // close Moon Types
+    }
+
+    private void printNestedTidalTable(PrintWriter w, Map<String, Map<String, Integer>> data) {
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Type</th><th>NONE</th><th>LOW</th><th>MODERATE</th><th>HIGH</th><th>EXTREME</th><th>Total</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    Map<String, Integer> levels = e.getValue();
+                    int none = levels.getOrDefault("NONE", 0);
+                    int low = levels.getOrDefault("LOW", 0);
+                    int moderate = levels.getOrDefault("MODERATE", 0);
+                    int high = levels.getOrDefault("HIGH", 0);
+                    int extreme = levels.getOrDefault("EXTREME", 0);
+                    int total = none + low + moderate + high + extreme;
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(none) + "</td><td>"
+                            + fmt(low) + "</td><td>" + fmt(moderate) + "</td><td>" + fmt(high) + "</td><td>"
+                            + fmt(extreme) + "</td><td>" + fmt(total) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
     }
 
     private void printMoonWeatherHtml(PrintWriter w) {
