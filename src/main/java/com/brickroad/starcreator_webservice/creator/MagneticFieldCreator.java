@@ -62,6 +62,8 @@ public class MagneticFieldCreator {
         String coreType = planet.getCoreType();
         String planetType = planet.getPlanetType();
 
+        // Gas/ice giant types above 5 M⊕ have enough internal pressure
+        // and heat for ionic fluid or metallic hydrogen dynamos
         if (planetType != null && (planetType.contains("Ice Giant") ||
                 planetType.contains("Sub-Neptune") ||
                 planetType.contains("Mini-Neptune"))) {
@@ -74,8 +76,20 @@ public class MagneticFieldCreator {
             return false;
         }
 
+        // Pure ice cores have no conductive fluid for dynamo generation
         if (coreType.contains("Ice") && !coreType.contains("Rock")) {
             return false;
+        }
+
+        if (planetType != null && (planetType.contains("Ice World") || planetType.contains("Dwarf Planet"))) {
+            double mass = planet.getEarthMass() != null ? planet.getEarthMass() : 0.0;
+            if (mass < 0.5) {
+                return false;
+            }
+            // Probability scales with mass: rocky core fraction increases with size
+            // 0.5 M⊕ → ~5%, 2 M⊕ → ~20%, 5 M⊕ → ~35%
+            double dynamoChance = Math.min(40.0, mass * 8.0);
+            return RandomUtils.rollRange(0, 100) < dynamoChance;
         }
 
         if (coreType.contains("Solid")) {
@@ -96,7 +110,13 @@ public class MagneticFieldCreator {
         //double massLimit = planet.getEarthMass() * 3.0;
         double massLimit = planet.getEarthMass() * densityFactor * 2.5;
         double baseStrength = rotationFactor * Math.sqrt(massFactor) * densityFactor * ageFactor;
-        baseStrength *= RandomUtils.rollRange(0.5, 2.0);
+
+        String pType = planet.getPlanetType();
+        if (pType != null && (pType.contains("Ice World") || pType.contains("Dwarf Planet"))) {
+            baseStrength = RandomUtils.rollRange(0.005, 0.03);
+        } else {
+            baseStrength *= RandomUtils.rollRange(0.5, 2.0);
+        }
         baseStrength = Math.min(baseStrength, massLimit);
         
         field.setStrengthComparedToEarth(baseStrength);
@@ -666,6 +686,10 @@ public class MagneticFieldCreator {
         }
 
         double protectionRatio = baseStrength / Math.max(0.01, effectiveThreat);
+
+        if (baseStrength < 0.1) {
+            protectionRatio = Math.min(protectionRatio, 0.75);
+        }
 
         if (protectionRatio < 0.05) {
             field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);

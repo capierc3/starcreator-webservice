@@ -113,14 +113,15 @@ public class StellarEnvironment {
         if (star.getEvolutionaryStage() == null) return 1.0;
 
         return switch (star.getEvolutionaryStage()) {
-            case "PRE_MAIN_SEQUENCE" -> 0.5;  // Still forming, fewer stable planets
+            case "PRE_MAIN_SEQUENCE" -> 0.3;  // Still forming, fewer stable planets
             case "EARLY_MAIN_SEQUENCE" -> 1.0;
             case "MID_MAIN_SEQUENCE" -> 1.0;
             case "LATE_MAIN_SEQUENCE" -> 0.9;  // Some inner migration/loss
             case "SUBGIANT" -> 0.7;            // Expanding, inner planets threatened
             case "RED_GIANT", "ASYMPTOTIC_GIANT" -> 0.4; // Inner planets consumed
-            case "WHITE_DWARF_COOLING" -> 0.3;  // Most planets lost
-            case "BROWN_DWARF_COOLING" -> 0.8;
+            case "WHITE_DWARF_COOLING" -> 0.2;  // Most planets lost
+            case "BROWN_DWARF_COOLING" -> 0.6;
+            case "NEUTRON_STAR" -> .15;
             default -> 1.0;
         };
     }

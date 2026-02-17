@@ -201,6 +201,9 @@ public class Planet extends CelestialBody {
     @JsonManagedReference
     private List<Moon> moons = new ArrayList<>();
 
+    @Column(name = "additional_moonlets")
+    private Integer additionalMoonlets;
+
     @OneToMany(mappedBy = "planet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference
     private List<Ring> rings = new ArrayList<>();
@@ -564,4 +567,12 @@ public class Planet extends CelestialBody {
 
     public PlanetaryWeather getWeather() { return weather; }
     public void setWeather(PlanetaryWeather weather) { this.weather = weather; }
+
+    public Integer getAdditionalMoonlets() {
+        return additionalMoonlets;
+    }
+
+    public void setAdditionalMoonlets(Integer additionalMoonlets) {
+        this.additionalMoonlets = additionalMoonlets;
+    }
 }

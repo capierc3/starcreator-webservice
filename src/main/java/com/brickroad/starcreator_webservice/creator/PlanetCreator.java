@@ -484,7 +484,78 @@ public class PlanetCreator {
         double mass = star.getSolarMass();
         double age = star.getAgeMY();
         double metallicity = star.getMetallicity();
+        String evoStage = star.getEvolutionaryStage();
 
+        // === SPECIAL STAR TYPES WITH HARD CAPS ===
+
+        // Neutron Stars: supernova destroys nearly everything
+        // Only ~6 pulsar planets known total; <0.5% of pulsars host planets
+        // Max 3 (PSR B1257+12 has 3), but most should have 0
+        if ("NEUTRON_STAR".equals(evoStage)) {
+            double roll = Math.random();
+            if (roll < 0.45) return 0;       // 45% — no surviving/reformed planets
+            if (roll < 0.80) return RandomUtils.rollRange(1, 2);  // 35% — 1-2 planets
+            return RandomUtils.rollRange(2, 3);  // 20% — 2-3 (fallback disk formation)
+        }
+
+        // Protostars: still forming, no finished planets
+        // At most protoplanetary embryos in the disk
+        if ("PRE_MAIN_SEQUENCE".equals(evoStage) && age < 1.0) {
+            // Protostars < 1 MY: essentially no planets yet
+            double roll = Math.random();
+            if (roll < 0.50) return 0;       // 50% — just a disk
+            return 1;                         // 50% — one embryo forming
+        }
+
+        // T Tauri / young pre-MS: planets forming but not finished
+        // ALMA shows gaps in disks suggesting forming planets at 1-10 MY
+        if ("PRE_MAIN_SEQUENCE".equals(evoStage)) {
+            double roll = Math.random();
+            if (roll < 0.20) return 0;       // 20% — disk but no significant bodies yet
+            if (roll < 0.65) return RandomUtils.rollRange(1, 2);  // 45% — 1-2 forming planets
+            if (roll < 0.90) return RandomUtils.rollRange(2, 3);  // 25% — 2-3
+            return RandomUtils.rollRange(3, 4);  // 10% — active formation, multiple embryos
+        }
+
+        // White Dwarfs: post-red-giant remnant, most planets consumed/ejected
+        // Only outer planets survive; WD 1856+534 b is only confirmed transiting planet
+        if ("WHITE_DWARF_COOLING".equals(evoStage)) {
+            double roll = Math.random();
+            if (roll < 0.12) return 0;       // 12% — all planets lost
+            if (roll < 0.70) return RandomUtils.rollRange(1, 2);  // 58% — 1-2 survivors
+            if (roll < 0.92) return RandomUtils.rollRange(2, 3);  // 22% — 2-3
+            return RandomUtils.rollRange(3, 4);  // 8% — lucky system, max 4
+        }
+
+        // Brown Dwarfs: tiny disks, limited material for planet formation
+        // Y-dwarfs especially: disk mass ~0.0001-0.0004 M☉
+        if ("BROWN_DWARF_COOLING".equals(evoStage)) {
+            if (mass < 0.02) {
+                // Y-dwarfs: smallest disks
+                double roll = Math.random();
+                if (roll < 0.15) return 0;
+                if (roll < 0.65) return RandomUtils.rollRange(1, 2);  // 50%
+                if (roll < 0.92) return RandomUtils.rollRange(2, 3);  // 27%
+                return 4;                     // 8% — max for Y-dwarf
+            } else if (mass < 0.05) {
+                // T-dwarfs: small disks
+                double roll = Math.random();
+                if (roll < 0.08) return 0;
+                if (roll < 0.45) return RandomUtils.rollRange(1, 2);
+                if (roll < 0.80) return RandomUtils.rollRange(3, 4);
+                return RandomUtils.rollRange(4, 5);  // 20% — max 5
+            } else {
+                // L-dwarfs: modest disks, can form small systems
+                double roll = Math.random();
+                if (roll < 0.05) return 0;
+                if (roll < 0.35) return RandomUtils.rollRange(1, 2);
+                if (roll < 0.70) return RandomUtils.rollRange(3, 4);
+                if (roll < 0.90) return RandomUtils.rollRange(4, 5);
+                return RandomUtils.rollRange(5, 6);  // 10% — max 6
+            }
+        }
+
+        // === STANDARD MAIN SEQUENCE LOGIC (unchanged) ===
         int basePlanets;
         if (mass > 2.0) {
             basePlanets = RandomUtils.rollRange(1, 4);
@@ -545,23 +616,18 @@ public class PlanetCreator {
                         type.getFormationZone().equals(zone))
                 .toList();
 
-        List<PlanetTypeRef> distanceFilteredTypes = zoneFilteredTypes.stream()
-                .filter(type -> {
-                    if (type.getMinFormationDistanceAU() == null ||
-                            type.getMaxFormationDistanceAU() == null) {
-                        return true;
-                    }
-                    return distanceAU >= type.getMinFormationDistanceAU() &&
-                            distanceAU <= type.getMaxFormationDistanceAU();
-                })
-                .collect(Collectors.toList());
-
-        if (!distanceFilteredTypes.isEmpty()) {
-            return selectFromList(distanceFilteredTypes);
-        }
         if (!zoneFilteredTypes.isEmpty()) {
             return selectFromList(zoneFilteredTypes);
         }
+        // Zone fallback: only allow zone-agnostic types (formation_zone=NULL),
+        // not types explicitly assigned to a different zone
+        List<PlanetTypeRef> zoneAgnosticTypes = tempFilteredTypes.stream()
+                .filter(type -> type.getFormationZone() == null)
+                .collect(Collectors.toList());
+        if (!zoneAgnosticTypes.isEmpty()) {
+            return selectFromList(zoneAgnosticTypes);
+        }
+        // Last resort: full temp list to avoid returning null
         if (!tempFilteredTypes.isEmpty()) {
             return selectFromList(tempFilteredTypes);
         }
@@ -662,6 +728,12 @@ public class PlanetCreator {
                 || "NONE".equals(planet.getAtmosphereClassification())) {
             return;
         }
+
+        String atmClass = planet.getAtmosphereClassification();
+        if ("JOVIAN".equals(atmClass) || "ICE_GIANT".equals(atmClass)) {
+            return;
+        }
+
         double pressure = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 0;
         String composition = planet.getAtmosphereComposition() != null ? planet.getAtmosphereComposition() : "";
         double greenhouse = TemperatureCalculator.estimateGreenhouseWarming(

@@ -76,6 +76,7 @@ public class JsonReportBuilder {
         summary.put("rings", counts.getRingCount());
         summary.put("belts", counts.getBeltCount());
         summary.put("asteroids", counts.getAsteroidCount());
+        summary.put("moonlets", counts.getMoonletCount());
         return summary;
     }
 
@@ -88,6 +89,7 @@ public class JsonReportBuilder {
         stars.put("amounts", starData.getStarAmounts());
         stars.put("types", starData.getStarTypes());
         stars.put("roles", starData.getStarRoles());
+        stars.put("binaryConfigurations", starData.getBinaryConfigurations());
 
         // Per-type breakdown
         Map<String, Object> perType = new LinkedHashMap<>();
@@ -101,6 +103,32 @@ public class JsonReportBuilder {
             if (data.containsKey("xray Luminosity")) typeEntry.put("xrayLuminosity", data.get("xray Luminosity"));
             if (data.containsKey("evolutionary stage")) typeEntry.put("evolutionaryStage", data.get("evolutionary stage"));
             if (data.containsKey("planets per system")) typeEntry.put("planetsPerSystem", data.get("planets per system"));
+            if (data.containsKey("hz inner AU")) typeEntry.put("hzInnerAU", data.get("hz inner AU"));
+            if (data.containsKey("hz outer AU")) typeEntry.put("hzOuterAU", data.get("hz outer AU"));
+
+            // Planet formations for this star type
+            Map<String, double[]> formations = starData.getPlanetFormationsByStarType().get(entry.getKey());
+            if (formations != null && !formations.isEmpty()) {
+                int totalPlanets = formations.values().stream().mapToInt(v -> (int) v[0]).sum();
+                Map<String, Object> formationsJson = new LinkedHashMap<>();
+                formationsJson.put("totalPlanets", totalPlanets);
+                Map<String, Object> planetTypes = new LinkedHashMap<>();
+                formations.entrySet().stream()
+                        .sorted((a, b) -> Integer.compare((int) b.getValue()[0], (int) a.getValue()[0]))
+                        .forEach(fe -> {
+                            Map<String, Object> ptEntry = new LinkedHashMap<>();
+                            ptEntry.put("count", (int) fe.getValue()[0]);
+                            ptEntry.put("percent", round(fe.getValue()[0] * 100.0 / Math.max(1, totalPlanets)));
+                            double minAU = fe.getValue()[1];
+                            double maxAU = fe.getValue()[2];
+                            if (minAU >= 0) ptEntry.put("minDistanceAU", roundAU(minAU));
+                            if (maxAU >= 0) ptEntry.put("maxDistanceAU", roundAU(maxAU));
+                            planetTypes.put(fe.getKey(), ptEntry);
+                        });
+                formationsJson.put("planetTypes", planetTypes);
+                typeEntry.put("planetFormations", formationsJson);
+            }
+
             perType.put(entry.getKey(), typeEntry);
         }
         stars.put("perType", perType);
@@ -197,12 +225,26 @@ public class JsonReportBuilder {
         crossRef.put("distanceVsMagnetopause", distMag);
         planets.put("crossReference", crossRef);
 
-        // Per-type breakdown
+        // Per-type breakdown (single-star / non-P-type systems)
         Map<String, Object> perType = new LinkedHashMap<>();
         for (Map.Entry<String, PlanetTypeBreakdown> entry : planetData.getPerTypeData().entrySet()) {
             perType.put(entry.getKey(), entry.getValue().toJson());
         }
         planets.put("perType", perType);
+
+        // Per-type breakdown (P-type binary systems)
+        Map<String, Object> perTypePType = new LinkedHashMap<>();
+        for (Map.Entry<String, PlanetTypeBreakdown> entry : planetData.getPerTypeDataPType().entrySet()) {
+            perTypePType.put(entry.getKey(), entry.getValue().toJson());
+        }
+        planets.put("perTypePType", perTypePType);
+
+        // Per-type breakdown (trinary systems)
+        Map<String, Object> perTypeTrinary = new LinkedHashMap<>();
+        for (Map.Entry<String, PlanetTypeBreakdown> entry : planetData.getPerTypeDataTrinary().entrySet()) {
+            perTypeTrinary.put(entry.getKey(), entry.getValue().toJson());
+        }
+        planets.put("perTypeTrinary", perTypeTrinary);
 
         return planets;
     }
@@ -216,6 +258,25 @@ public class JsonReportBuilder {
         moons.put("types", moonData.getMoonTypes());
         moons.put("compositionTypes", moonData.getMoonCompositionTypes());
         moons.put("tidalHeatingLevels", moonData.getMoonTidalHeatingLevels());
+        moons.put("orbitDistanceBins", moonData.getOrbitDistanceBins());
+        moons.put("eccentricityBins", moonData.getEccentricityBins());
+        moons.put("geologicalActivity", moonData.getGeologicalActivity());
+        moons.put("atmosphereClassifications", moonData.getAtmosphereClassifications());
+
+        // Tidal heating by planet type
+        Map<String, Object> tidalByPlanet = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : moonData.getTidalHeatingByPlanetType().entrySet()) {
+            tidalByPlanet.put(entry.getKey(), entry.getValue());
+        }
+        moons.put("tidalHeatingByPlanetType", tidalByPlanet);
+
+        // Tidal heating by moon type
+        Map<String, Object> tidalByMoon = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : moonData.getTidalHeatingByMoonType().entrySet()) {
+            tidalByMoon.put(entry.getKey(), entry.getValue());
+        }
+        moons.put("tidalHeatingByMoonType", tidalByMoon);
+
         moons.put("moonsWithSubsurfaceOcean", moonData.getMoonsWithSubsurfaceOcean());
         moons.put("moonsAssessed", moonData.getMoonsAssessed());
 
@@ -336,5 +397,9 @@ public class JsonReportBuilder {
 
     private double round(double val) {
         return Math.round(val * 100.0) / 100.0;
+    }
+
+    private double roundAU(double val) {
+        return Math.round(val * 10000.0) / 10000.0;
     }
 }

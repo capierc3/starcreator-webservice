@@ -21,6 +21,9 @@ public class PlanetTypeBreakdown {
     private final Map<String, Integer> waterInventories = new HashMap<>();
     private final Map<String, Integer> habitabilityClasses = new HashMap<>();
     private final Map<String, Integer> moonCountBins = new HashMap<>();
+    private final Map<String, Integer> semiMajorAxisBins = new HashMap<>();
+    private final Map<String, int[]> tidalLockByDistance = new HashMap<>();
+    private final Map<String, Integer> moonletBins = new HashMap<>();
     private int withRings = 0;
 
     private double massSum = 0;
@@ -42,6 +45,13 @@ public class PlanetTypeBreakdown {
     public void addWaterInventory(String val) { waterInventories.merge(val, 1, Integer::sum); }
     public void addHabitabilityClass(String val) { habitabilityClasses.merge(val, 1, Integer::sum); }
     public void addMoonCountBin(String bin) { moonCountBins.merge(bin, 1, Integer::sum); }
+    public void addSemiMajorAxisBin(String bin) { semiMajorAxisBins.merge(bin, 1, Integer::sum); }
+    public void addTidalLockAtDistance(String distanceBin, boolean locked) {
+        int[] counts = tidalLockByDistance.computeIfAbsent(distanceBin, k -> new int[]{0, 0});
+        counts[0]++; // total
+        if (locked) counts[1]++; // locked
+    }
+    public void addMoonletBin(String bin) { moonletBins.merge(bin, 1, Integer::sum); }
     public void addRings() { withRings++; }
 
     public void addPhysicalProps(double mass, double radius, double gravity, double temp) {
@@ -77,6 +87,21 @@ public class PlanetTypeBreakdown {
         if (!geologicalActivity.isEmpty()) json.put("geologicalActivity", geologicalActivity);
         if (!waterInventories.isEmpty()) json.put("waterInventories", waterInventories);
         if (!habitabilityClasses.isEmpty()) json.put("habitabilityClasses", habitabilityClasses);
+        if (!semiMajorAxisBins.isEmpty()) json.put("semiMajorAxisAU", semiMajorAxisBins);
+        if (!tidalLockByDistance.isEmpty()) {
+            Map<String, Object> tlbd = new LinkedHashMap<>();
+            tidalLockByDistance.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(e -> {
+                        Map<String, Object> entry = new LinkedHashMap<>();
+                        entry.put("total", e.getValue()[0]);
+                        entry.put("locked", e.getValue()[1]);
+                        entry.put("lockRate", e.getValue()[0] > 0 ? round(e.getValue()[1] * 100.0 / e.getValue()[0]) : 0);
+                        tlbd.put(e.getKey(), entry);
+                    });
+            json.put("tidalLockByDistance", tlbd);
+        }
+        if (!moonletBins.isEmpty()) json.put("moonletBins", moonletBins);
 
         return json;
     }

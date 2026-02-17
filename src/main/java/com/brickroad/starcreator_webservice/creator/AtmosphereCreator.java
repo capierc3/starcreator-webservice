@@ -5,6 +5,7 @@ import com.brickroad.starcreator_webservice.entity.ref.AtmosphereTemplateRef;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.enums.AtmosphereClassification;
 import com.brickroad.starcreator_webservice.enums.AtmosphereGas;
+import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.repository.AtmosphereTemplateRefRepository;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
@@ -38,10 +39,12 @@ public class AtmosphereCreator {
     public AtmosphereResult generateAtmosphereWithTemplate(String planetType, double surfaceTemp,
                                                            double earthMass, double distanceAU,
                                                            Star parentStar) {
-        if (surfaceTemp > 2000) {
+        if (surfaceTemp > 2000 && !CelestialBodyUtils.isGasGiant(planetType)) {
             return new AtmosphereResult(createNoneAtmosphere(), null);
         }
-        if (shouldLoseAtmosphere(earthMass, distanceAU, surfaceTemp, parentStar)) {
+
+        if (!CelestialBodyUtils.isGasGiant(planetType)
+                && shouldLoseAtmosphere(earthMass, distanceAU, surfaceTemp, parentStar)) {
             return new AtmosphereResult(createNoneAtmosphere(), null);
         }
         List<AtmosphereTemplateRef> matchingTemplates = findMatchingTemplates(planetType, surfaceTemp, earthMass);

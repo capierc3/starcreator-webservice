@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.probabilityreport;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import lombok.Getter;
 
 import java.util.HashMap;
@@ -50,6 +51,8 @@ public class PlanetDataCollector {
     private final Map<String, Integer> tectonicLevels = new HashMap<>();
     private final Map<String, Integer> volcanismTypes = new HashMap<>();
     private final Map<String, PlanetTypeBreakdown> perTypeData = new HashMap<>();
+    private final Map<String, PlanetTypeBreakdown> perTypeDataPType = new HashMap<>();
+    private final Map<String, PlanetTypeBreakdown> perTypeDataTrinary = new HashMap<>();
     private double totalMass = 0;
     private double totalRadius = 0;
     private double totalGravity = 0;
@@ -73,8 +76,9 @@ public class PlanetDataCollector {
     public void analyzeData(Planet planet, ProbabilityCounts counts) {
         planetTypes.merge(planet.getPlanetType(), 1, Integer::sum);
 
-        // Per-type breakdown
-        PlanetTypeBreakdown typeData = perTypeData.computeIfAbsent(planet.getPlanetType(), k -> new PlanetTypeBreakdown());
+        // Per-type breakdown — route to P-type or single-star map
+        Map<String, PlanetTypeBreakdown> targetPerTypeMap = getPerTypeMapFor(planet);
+        PlanetTypeBreakdown typeData = targetPerTypeMap.computeIfAbsent(planet.getPlanetType(), k -> new PlanetTypeBreakdown());
         typeData.increment();
         typeData.addCompositionClass(planet.getCompositionClassification() != null ? planet.getCompositionClassification() : "NULL");
         if (planet.getSurfaceTemp() != null) {
@@ -93,6 +97,15 @@ public class PlanetDataCollector {
                     planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 0);
         }
         typeData.addMoonCountBin(binMoonCount(planet.getMoons().size()));
+        if (planet.getAdditionalMoonlets() != null && planet.getAdditionalMoonlets() > 0) {
+            typeData.addMoonletBin(binMoonletCount(planet.getAdditionalMoonlets()));
+            counts.incrementMoonletCount(planet.getAdditionalMoonlets());
+        }
+        if (planet.getSemiMajorAxisAU() != null) {
+            String distBin = binDistance(planet.getSemiMajorAxisAU());
+            typeData.addSemiMajorAxisBin(distBin);
+            typeData.addTidalLockAtDistance(distBin, Boolean.TRUE.equals(planet.getTidallyLocked()));
+        }
 
         // Composition classification
         String compClass = planet.getCompositionClassification() != null ? planet.getCompositionClassification() : "NULL";
@@ -237,7 +250,7 @@ public class PlanetDataCollector {
         String inventory = planet.getWaterInventory() != null ?
                 planet.getWaterInventory() : "NULL";
         waterInventories.merge(inventory, 1, Integer::sum);
-        PlanetTypeBreakdown typeData = perTypeData.get(planet.getPlanetType());
+        PlanetTypeBreakdown typeData = getPerTypeMapFor(planet).get(planet.getPlanetType());
         if (typeData != null) typeData.addWaterInventory(inventory);
 
         Double liquidPct = planet.getLiquidWaterCoveragePercent();
@@ -257,7 +270,7 @@ public class PlanetDataCollector {
         String habClass = hab.getHabitabilityClass() != null ? hab.getHabitabilityClass().name() : "NULL";
         habitabilityClasses.merge(habClass, 1, Integer::sum);
 
-        PlanetTypeBreakdown typeData = perTypeData.get(planet.getPlanetType());
+        PlanetTypeBreakdown typeData = getPerTypeMapFor(planet).get(planet.getPlanetType());
         if (typeData != null) typeData.addHabitabilityClass(habClass);
 
         String colSuit = hab.getColonizationSuitability() != null ? hab.getColonizationSuitability().name() : "NULL";
@@ -280,11 +293,30 @@ public class PlanetDataCollector {
         waterPhases.merge(waterPhase, 1, Integer::sum);
     }
 
+    private BinaryConfiguration getBinaryConfig(Planet planet) {
+        Star parentStar = planet.getParentStar();
+        if (parentStar == null) return null;
+        StarSystem system = parentStar.getSystem();
+        if (system == null) return null;
+        return system.getBinaryConfiguration();
+    }
+
+    private Map<String, PlanetTypeBreakdown> getPerTypeMapFor(Planet planet) {
+        BinaryConfiguration config = getBinaryConfig(planet);
+        if (config == null) return perTypeData;
+        return switch (config) {
+            case P_TYPE -> perTypeDataPType;
+            case HIERARCHICAL_BINARY_THIRD, HIERARCHICAL_TRIPLE -> perTypeDataTrinary;
+            default -> perTypeData;
+        };
+    }
+
     private boolean isGasType(String planetType) {
         if (planetType == null) return false;
         return planetType.contains("Gas Giant") || planetType.contains("Ice Giant")
-                || planetType.contains("Hot Jupiter") || planetType.contains("Hot Neptune")
-                || planetType.contains("Sub-Neptune") || planetType.contains("Mini-Neptune");
+                || planetType.contains("Jupiter") || planetType.contains("Neptune")
+                || planetType.contains("Sub-Neptune") || planetType.contains("Mini-Neptune")
+                || planetType.contains("Puffy");
     }
 
     private void analyzeWeatherData(Planet planet) {
@@ -381,6 +413,16 @@ public class PlanetDataCollector {
         if (count <= 25) return "11-25";
         if (count <= 50) return "26-50";
         return "51+";
+    }
+
+    private String binMoonletCount(int count) {
+        if (count <= 5) return "1-5";
+        if (count <= 10) return "6-10";
+        if (count <= 25) return "11-25";
+        if (count <= 50) return "26-50";
+        if (count <= 100) return "51-100";
+        if (count <= 250) return "101-250";
+        return "251+";
     }
 
     private boolean isSurfaceType(String planetType) {

@@ -35,12 +35,6 @@ public class PlanetTypeRef {
     @Column(name = "typical_density_g_cm3")
     private Double typicalDensity;
 
-    @Column(name = "min_formation_distance_au")
-    private Double minFormationDistanceAU;
-
-    @Column(name = "max_formation_distance_au")
-    private Double maxFormationDistanceAU;
-
     @Column(name = "can_have_atmosphere")
     private Boolean canHaveAtmosphere;
 
