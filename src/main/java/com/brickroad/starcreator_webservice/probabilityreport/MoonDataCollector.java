@@ -35,6 +35,19 @@ public class MoonDataCollector {
     private final Map<String, Integer> moonCompositionTypes = new HashMap<>();
     private final Map<String, Integer> moonTidalHeatingLevels = new HashMap<>();
 
+    // Orbit distance bins (in planet radii)
+    private final Map<String, Integer> orbitDistanceBins = new HashMap<>();
+    // Eccentricity bins
+    private final Map<String, Integer> eccentricityBins = new HashMap<>();
+    // Tidal heating broken down by parent planet type
+    private final Map<String, Map<String, Integer>> tidalHeatingByPlanetType = new HashMap<>();
+    // Tidal heating broken down by moon type
+    private final Map<String, Map<String, Integer>> tidalHeatingByMoonType = new HashMap<>();
+    // Geological activity counts
+    private final Map<String, Integer> geologicalActivity = new HashMap<>();
+    // Atmosphere classifications (like the planet version)
+    private final Map<String, Integer> atmosphereClassifications = new HashMap<>();
+
     private int moonsWithWeather = 0;
     private final Map<String, Integer> moonWeatherSeverity = new HashMap<>();
     private final Map<String, Integer> moonWeatherExposure = new HashMap<>();
@@ -57,6 +70,40 @@ public class MoonDataCollector {
 
         String tidalLevel = moon.getTidalHeatingLevel() != null ? moon.getTidalHeatingLevel() : "NONE";
         moonTidalHeatingLevels.merge(tidalLevel, 1, Integer::sum);
+
+        // Orbit distance bins (in planet radii)
+        if (moon.getSemiMajorAxisKm() != null && moon.getPlanet() != null && moon.getPlanet().getRadius() > 0) {
+            double orbitRadii = moon.getSemiMajorAxisKm() / moon.getPlanet().getRadius();
+            orbitDistanceBins.merge(binOrbitDistance(orbitRadii), 1, Integer::sum);
+        }
+
+        // Eccentricity bins
+        if (moon.getEccentricity() != null) {
+            eccentricityBins.merge(binEccentricity(moon.getEccentricity()), 1, Integer::sum);
+        }
+
+        // Tidal heating by parent planet type
+        if (moon.getPlanet() != null && moon.getPlanet().getPlanetType() != null) {
+            String planetType = moon.getPlanet().getPlanetType();
+            tidalHeatingByPlanetType.computeIfAbsent(planetType, k -> new HashMap<>())
+                    .merge(tidalLevel, 1, Integer::sum);
+        }
+
+        // Tidal heating by moon type
+        tidalHeatingByMoonType.computeIfAbsent(moon.getMoonType(), k -> new HashMap<>())
+                .merge(tidalLevel, 1, Integer::sum);
+
+        // Geological activity
+        String geoActivity = moon.getGeologicalActivity() != null ? moon.getGeologicalActivity() : "NONE";
+        geologicalActivity.merge(geoActivity, 1, Integer::sum);
+
+        // Atmosphere classification
+        if (Boolean.TRUE.equals(moon.getHasAtmosphere()) && moon.getAtmosphere() != null
+                && moon.getAtmosphere().getClassification() != null) {
+            atmosphereClassifications.merge(moon.getAtmosphere().getClassification(), 1, Integer::sum);
+        } else {
+            atmosphereClassifications.merge("NONE", 1, Integer::sum);
+        }
 
         if (Boolean.TRUE.equals(moon.getHasSubsurfaceOcean())) {
             moonsWithSubsurfaceOcean++;
@@ -155,6 +202,21 @@ public class MoonDataCollector {
                     .anyMatch(e -> "PLANET_SOLAR".equals(e.getEclipseSource()));
             if (hasPlanetaryEclipse) moonsWithPlanetaryEclipses++;
         }
+    }
+
+    private String binOrbitDistance(double radii) {
+        if (radii < 5) return "a: 2-5 Rp";
+        if (radii < 10) return "b: 5-10 Rp";
+        if (radii < 20) return "c: 10-20 Rp";
+        if (radii < 40) return "d: 20-40 Rp";
+        return "e: 40+ Rp";
+    }
+
+    private String binEccentricity(double ecc) {
+        if (ecc < 0.005) return "a: <0.005";
+        if (ecc < 0.01) return "b: 0.005-0.01";
+        if (ecc < 0.05) return "c: 0.01-0.05";
+        return "d: 0.05+";
     }
 
     private String binTidalRange(double meters) {

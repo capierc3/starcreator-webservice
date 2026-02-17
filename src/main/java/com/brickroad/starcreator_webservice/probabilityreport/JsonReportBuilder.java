@@ -258,6 +258,25 @@ public class JsonReportBuilder {
         moons.put("types", moonData.getMoonTypes());
         moons.put("compositionTypes", moonData.getMoonCompositionTypes());
         moons.put("tidalHeatingLevels", moonData.getMoonTidalHeatingLevels());
+        moons.put("orbitDistanceBins", moonData.getOrbitDistanceBins());
+        moons.put("eccentricityBins", moonData.getEccentricityBins());
+        moons.put("geologicalActivity", moonData.getGeologicalActivity());
+        moons.put("atmosphereClassifications", moonData.getAtmosphereClassifications());
+
+        // Tidal heating by planet type
+        Map<String, Object> tidalByPlanet = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : moonData.getTidalHeatingByPlanetType().entrySet()) {
+            tidalByPlanet.put(entry.getKey(), entry.getValue());
+        }
+        moons.put("tidalHeatingByPlanetType", tidalByPlanet);
+
+        // Tidal heating by moon type
+        Map<String, Object> tidalByMoon = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : moonData.getTidalHeatingByMoonType().entrySet()) {
+            tidalByMoon.put(entry.getKey(), entry.getValue());
+        }
+        moons.put("tidalHeatingByMoonType", tidalByMoon);
+
         moons.put("moonsWithSubsurfaceOcean", moonData.getMoonsWithSubsurfaceOcean());
         moons.put("moonsAssessed", moonData.getMoonsAssessed());
 
