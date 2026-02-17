@@ -44,10 +44,6 @@ public class MoonCreator {
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
     private static final double GRAVITATIONAL_CONSTANT_SI = 6.674e-11; // m³/(kg·s²)
-
-    // Minimum mass for a tracked moon entity. Below this, redirect to moonlet count.
-    // ~1e-6 M⊕ ≈ 40km radius rocky, 55km icy — roughly Hyperion-sized.
-    // Anything smaller is a shapeless rock not worth full physics generation.
     private static final double MIN_TRACKED_MOON_MASS = 1e-6;
 
     // ═══════════════════════════════════════════════════════════════
@@ -225,10 +221,6 @@ public class MoonCreator {
         return planetMass * baseMassRatio;
     }
 
-    /**
-     * Distributes mass budget using a power-law, then determines moon type FROM the mass.
-     * Moons whose mass share falls below MIN_TRACKED_MOON_MASS are redirected to moonlet count.
-     */
     private MoonDistributionResult distributeMoonMasses(int numMoons, double totalMassBudget,
                                                         Planet planet, Star primaryStar,
                                                         RingCreator.RingSystemData ringPlan) {
@@ -278,18 +270,6 @@ public class MoonCreator {
         return new MoonDistributionResult(moonData, redirectedToMoonlets);
     }
 
-    /**
-     * Determines moon type based on the mass it actually received from the budget.
-     * This ensures type always matches mass — no more IRREGULAR_CAPTURED at 0.002 M⊕.
-     *
-     * Mass brackets based on real solar system moons:
-     *   >= 0.01 M⊕:    REGULAR_LARGE    (Ganymede 0.0248, Titan 0.0225, Callisto 0.018)
-     *   0.001 - 0.01:   REGULAR_MEDIUM   (Io 0.015, Europa 0.008, Triton 0.0036)
-     *                   or COLLISION_DEBRIS for rocky planet primaries (Earth's Moon 0.0123)
-     *   0.00001 - 0.001: REGULAR_SMALL   (Mimas 6.3e-6, Enceladus 1.8e-5, Miranda 8.6e-5)
-     *   1e-6 - 1e-5:    IRREGULAR_CAPTURED or TROJAN (marginal tracked moons)
-     *   < 1e-6:         redirected to moonlet count (not tracked)
-     */
     private String determineMoonTypeFromMass(double massEarth, Planet planet,
                                              boolean isPrimaryMoon, boolean isGasIceGiant) {
 
@@ -429,22 +409,35 @@ public class MoonCreator {
                 outerRocheLimit : innerRocheLimit;
         double minOrbitKm = rocheLimit * 1.5;
 
-        // Cap regular moon orbits at 40 planet radii or 0.15 Hill sphere, whichever is smaller.
-        // Real significant moons orbit at 3-60 planet radii (Io at 6, Callisto at 26, Iapetus at 61).
-        // The Hill sphere fraction alone allows orbits at 100+ planet radii, which don't exist.
-        double maxOrbitByRadii = planet.getRadius() * 40.0;
-        double maxOrbitByHill = hillSphereKm * 0.15;
-        double maxOrbitKm = Math.min(maxOrbitByRadii, maxOrbitByHill);
+        boolean isGiantPlanet = isGasIceGiant(planet);
+
+        double maxOrbitKm;
+        if (isGiantPlanet) {
+            // Gas/ice giants: real major moons orbit at 3-60 planet radii
+            // (Io at 6, Callisto at 26, Iapetus at 61 Rp)
+            // Cap at 60 Rp or 0.15 Hill, whichever is smaller.
+            double maxOrbitByRadii = planet.getRadius() * 60.0;
+            double maxOrbitByHill = hillSphereKm * 0.15;
+            maxOrbitKm = Math.min(maxOrbitByRadii, maxOrbitByHill);
+        } else {
+            // Rocky/terrestrial planets: moons can orbit at wide Rp ranges
+            // (Earth's Moon at 60 Rp, Charon at 17 Rp of Pluto)
+            // Use Hill sphere fraction — the actual gravitational stability limit.
+            maxOrbitKm = hillSphereKm * 0.3;
+        }
 
         // Ensure max > min (can happen for very small planets with large Roche limits)
         maxOrbitKm = Math.max(maxOrbitKm, minOrbitKm * 2.0);
 
         double semiMajorAxisKm;
         if ("IRREGULAR_CAPTURED".equals(moon.getMoonType())) {
-            // Irregular captured moons orbit in the outer Hill sphere (beyond regular moons)
             double irregularMin = Math.max(maxOrbitKm, hillSphereKm * 0.15);
             double irregularMax = hillSphereKm * 0.5;
             semiMajorAxisKm = RandomUtils.rollRange(irregularMin, irregularMax);
+        } else if (isGiantPlanet) {
+            double logMin = Math.log(minOrbitKm);
+            double logMax = Math.log(maxOrbitKm);
+            semiMajorAxisKm = Math.exp(RandomUtils.rollRange(logMin, logMax));
         } else {
             semiMajorAxisKm = RandomUtils.rollRange(minOrbitKm, maxOrbitKm);
         }
@@ -467,28 +460,40 @@ public class MoonCreator {
 
         moon.setSemiMajorAxisKm(semiMajorAxisKm);
 
-        // ── Distance-dependent eccentricity ──
-        // Close-in moons are tidally circularized; far moons retain primordial eccentricity.
-        // ~15% of moons are in mean-motion resonances that pump eccentricity
-        // (Io-Europa-Ganymede, Mimas-Tethys, Enceladus-Dione).
         double eccentricity;
         if ("IRREGULAR_CAPTURED".equals(moon.getMoonType())) {
             eccentricity = RandomUtils.rollRange(0.1, 0.5);
         } else {
-            double regularZone = hillSphereKm * 0.3;
-            double orbitFraction = Math.min(1.0, semiMajorAxisKm / regularZone);
+            // Normalize orbit fraction to the actual regular moon zone
+            // (not Hill sphere, which is vastly larger and makes fractions tiny)
+            double orbitRange = Math.max(1.0, maxOrbitKm - minOrbitKm);
+            double orbitFraction = Math.max(0.0, Math.min(1.0,
+                    (semiMajorAxisKm - minOrbitKm) / orbitRange));
 
-            // Base eccentricity: 0.001 (close-in) to 0.026 (edge of regular zone)
-            double baseEcc = 0.001 + 0.025 * Math.pow(orbitFraction, 0.7);
+            // Base eccentricity ramps from ~0.0005 (close-in, tidally circularized)
+            // to ~0.02 (outer edge of regular zone, retains primordial eccentricity)
+            double baseEcc = 0.0003 + 0.008 * Math.pow(orbitFraction, 0.8);
 
-            // Resonance kick: ~15% chance, adds 0.003-0.01
-            boolean isResonant = RandomUtils.rollRange(0.0, 1.0) < 0.15;
-            if (isResonant) {
-                baseEcc += RandomUtils.rollRange(0.003, 0.01);
+            // Tidal circularization is stronger around massive planets:
+            // timescale ∝ 1/Mp^(5/2), so Jupiter circularizes ~60x faster than Earth.
+            // Reduce eccentricity for close-in moons around massive planets.
+            double planetMassEarth = planet.getEarthMass();
+            if (planetMassEarth > 50 && orbitFraction < 0.3) {
+                double circularizationFactor = 1.0 - 0.5 * Math.min(1.0, planetMassEarth / 500.0)
+                        * (1.0 - orbitFraction / 0.3);
+                baseEcc *= circularizationFactor;
             }
 
-            // Random scatter ±40%
-            double scatter = RandomUtils.rollRange(0.6, 1.4);
+            // Resonance kick: ~15% chance, adds 0.003-0.008
+            // This is the ONLY mechanism that maintains eccentricity against tidal damping
+            // at close orbits (e.g., Io's Laplace resonance)
+            boolean isResonant = RandomUtils.rollRange(0.0, 1.0) < 0.15;
+            if (isResonant) {
+                baseEcc += RandomUtils.rollRange(0.003, 0.008);
+            }
+
+            // Random scatter ±30%
+            double scatter = RandomUtils.rollRange(0.7, 1.3);
             eccentricity = Math.max(0.0001, baseEcc * scatter);
         }
         moon.setEccentricity(eccentricity);
@@ -752,20 +757,6 @@ public class MoonCreator {
         }
     }
 
-    /**
-     * Composition-dependent tidal dissipation factor (k₂/Q).
-     * k₂ = Love number (deformability), Q = quality factor (energy retention).
-     * Higher k₂/Q = more tidal energy dissipated as heat.
-     *
-     * Calibrated against solar system moons:
-     *   Io (rocky, partially molten):    k₂/Q ≈ 0.015
-     *   Europa (ice shell over ocean):   k₂/Q ≈ 0.01-0.1
-     *   Enceladus (thin ice, ocean):     k₂/Q ≈ 0.1+
-     *   Ganymede (thick ice):            k₂/Q ≈ 0.003
-     *
-     * We use conservative base values. Downstream systems (subsurface oceans,
-     * geological activity) create natural feedback without circular dependency.
-     */
     private double calculateTidalK2Q(Moon moon) {
         String composition = moon.getCompositionType();
 
@@ -789,7 +780,6 @@ public class MoonCreator {
     }
 
     private void determineGeologicalActivity(Moon moon) {
-        String tidalHeating = moon.getTidalHeatingLevel();
         Double tidalHeatingWattPerM2 = moon.getTidalHeatingWattPerM2();
 
         boolean hasSignificantTidalHeating = tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.5;
@@ -798,17 +788,17 @@ public class MoonCreator {
                 1.0 : (1.0 / (1.0 + moon.getAgeMY() / 5000.0));
         double activityScore = moon.getEarthMass() * 100 * ageModifier;
 
-        if (tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.0) {
-            activityScore += tidalHeatingWattPerM2 * 20;
+        if (tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.001) {
+            activityScore += (Math.log10(tidalHeatingWattPerM2) + 3) * 3;
         }
 
-        if (activityScore > 9 || "EXTREME".equals(tidalHeating)) {
+        if (activityScore > 10) {
             moon.setGeologicalActivity("HIGH");
             moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()));
-        } else if (activityScore > 4 || "HIGH".equals(tidalHeating)) {
+        } else if (activityScore > 7.5) {
             moon.setGeologicalActivity("MODERATE");
             moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()) && RandomUtils.rollRange(0.0, 1.0) < 0.6);
-        } else if (activityScore > 1.2 || "MODERATE".equals(tidalHeating)) {
+        } else if (activityScore > 3) {
             moon.setGeologicalActivity("LOW");
             if ("ICY".equals(moon.getCompositionType()) && tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.8) {
                 moon.setHasCryovolcanism(RandomUtils.rollRange(0.0, 1.0) < 0.3);
