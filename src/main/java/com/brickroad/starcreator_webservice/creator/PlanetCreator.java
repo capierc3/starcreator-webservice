@@ -118,7 +118,7 @@ public class PlanetCreator {
         double currentDistance;
         if (parentStar.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
             hz = new HabitableZone(parentStar.getSystem().getHabitableLow(), parentStar.getSystem().getHabitableHigh());
-            double minStableDistanceAU = parentStar.getSystem().getBinarySeparationAu() * 2.5;
+            double minStableDistanceAU = parentStar.getSystem().getBinarySeparationAu() * 4.0;
             currentDistance = minStableDistanceAU * RandomUtils.rollRange(1.0, 1.2);
         } else {
             hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
@@ -157,6 +157,9 @@ public class PlanetCreator {
 
             currentDistance = calculateNextOrbitDistance(currentDistance, i, numPlanets,
                     maxSystemDistance, planet, starMassSolar);
+            if (currentDistance >= maxSystemDistance * 0.95) {
+                break;
+            }
         }
 
         // ── Post-generation stability analysis ──
@@ -283,7 +286,7 @@ public class PlanetCreator {
         planet.setOrbitalPeriodDays(orbitalPeriod);
 
         // --- Eccentricity: constrained by neighbor clearance ---
-        double maxEcc = 0.2; // universal ceiling
+        double maxEcc = 0.15; // universal ceiling
 
         if (previousPlanet != null && previousPlanet.getSemiMajorAxisAU() != null
                 && previousPlanet.getEccentricity() != null) {
@@ -305,22 +308,30 @@ public class PlanetCreator {
             maxEcc = Math.min(maxEcc, neighborCeiling);
         }
 
-        // Close-in planets are tidally circularized; outer planets can be more eccentric
+        double effectiveDistance = distanceAU;
+        if (star.getSolarLuminosity() > 0) {
+            effectiveDistance = distanceAU / Math.sqrt(star.getSolarLuminosity());
+        }
         double baseLow = 0.0;
         double baseHigh;
-        if (distanceAU < 0.1) {
-            baseHigh = 0.02;  // hot planets: nearly circular
-        } else if (distanceAU < 0.5) {
+        if (effectiveDistance < 0.3) {
+            baseHigh = 0.02;
+        } else if (effectiveDistance < 1.0) {
+            baseHigh = 0.05;
+        } else if (effectiveDistance < 5.0) {
             baseHigh = 0.08;
-        } else if (distanceAU < 2.0) {
-            baseHigh = 0.12;
         } else {
-            baseHigh = 0.18;  // outer system: more eccentric allowed
+            baseHigh = 0.12;
         }
 
         // Cap by neighbor constraint
         baseHigh = Math.min(baseHigh, maxEcc);
         baseHigh = Math.max(baseHigh, 0.001); // never negative
+
+        if (star.getSystem() != null
+                && star.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
+            baseHigh = Math.min(baseHigh, 0.04);
+        }
 
         planet.setEccentricity(RandomUtils.rollRange(baseLow, baseHigh));
 
@@ -737,10 +748,16 @@ public class PlanetCreator {
         double minFromAphelion = aphelionCurrent + minSafeGap;
 
         double minDistance = Math.max(currentDistance + minSafeGap, minFromAphelion);
+        if (currentPlanet != null && currentPlanet.getParentStar() != null
+                && currentPlanet.getParentStar().getSystem() != null
+                && currentPlanet.getParentStar().getSystem().getBinaryConfiguration()
+                == BinaryConfiguration.P_TYPE) {
+            minDistance *= 1.5;
+        }
         nextDistance = Math.max(nextDistance, minDistance);
 
-        if (nextDistance > maxSystemDistance * 0.9) {
-            nextDistance = maxSystemDistance * RandomUtils.rollRange(0.85, 0.95);
+        if (minDistance > maxSystemDistance * 0.90) {
+            return maxSystemDistance; // triggers break in generatePlanetarySystem
         }
         return nextDistance;
     }

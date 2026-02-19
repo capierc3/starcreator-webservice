@@ -17,7 +17,7 @@ public class OrbitalStabilityAnalyzer {
      * Two planets need Δa > GLADMAN_FACTOR * R_H,mutual to be Hill-stable.
      * 3.46 corresponds to the circular-orbit limit; eccentric orbits need more.
      */
-    private static final double GLADMAN_FACTOR = 3.46;
+    public static final double GLADMAN_FACTOR = 3.46;
 
     /**
      * Safety margin above Gladman minimum for generation.

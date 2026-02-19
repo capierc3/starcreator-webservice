@@ -2,16 +2,15 @@ package com.brickroad.starcreator_webservice.probabilityreport;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
 import lombok.Getter;
 
 import java.util.*;
 
+import static com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer.GLADMAN_FACTOR;
+
 @Getter
 public class OrbitStabilityCollector {
-
-    private static final double SOLAR_MASS_IN_EARTH = 333000.0;
-    private static final double GLADMAN_FACTOR = 3.46;
-    private static final double CHAMBERS_B = 0.6;
 
     // ===== Section 1: Core Stability Metrics =====
     private final Map<String, Integer> stabilityClassification = new HashMap<>();
@@ -120,17 +119,17 @@ public class OrbitStabilityCollector {
                 if ("CROSSING".equals(classification)) anyCrossing = true;
 
                 // Section 2: Gladman delta
-                double delta = result.ratio;
+                double delta = result.gladmanDelta;
                 allGladmanDeltas.add(delta);
                 gladmanDeltaBins.merge(binGladmanDelta(delta), 1, Integer::sum);
                 if (delta < systemMinDelta) systemMinDelta = delta;
 
                 // Section 3: Orbit crossing
-                if (result.gap < 0) {
+                if (result.clearanceAU < 0) {
                     crossingPairCount++;
                     if (crossingDetails.size() < 1000) {
                         crossingDetails.add(new double[]{
-                                result.gap,
+                                result.clearanceAU,
                                 safe(inner.getEccentricity(), 0.0),
                                 safe(outer.getEccentricity(), 0.0)
                         });
@@ -140,10 +139,12 @@ public class OrbitStabilityCollector {
                 }
 
                 // Section 5: Timescale
-                double periodDaysInner = safe(inner.getOrbitalPeriodDays(), 365.25);
-                double periodMYInner = periodDaysInner / 365.25 / 1_000_000.0;
-                double clampedDelta = Math.max(0, delta);
-                double timescaleMY = periodMYInner * Math.exp(CHAMBERS_B * clampedDelta);
+                double timescaleMY = OrbitalStabilityAnalyzer.estimateInstabilityTimescaleMy(
+                        safe(inner.getSemiMajorAxisAU(), 1.0),
+                        safe(inner.getEarthMass(), 1.0),
+                        safe(outer.getSemiMajorAxisAU(), 1.0),
+                        safe(outer.getEarthMass(), 1.0),
+                        starMassSolar);
                 timescaleBins.merge(binTimescale(timescaleMY), 1, Integer::sum);
 
                 if (timescaleMY < starAgeMY) {
@@ -214,30 +215,29 @@ public class OrbitStabilityCollector {
         double mass1 = safe(p1.getEarthMass(), 1.0);
         double mass2 = safe(p2.getEarthMass(), 1.0);
 
-        double apo1 = sma1 * (1 + ecc1);
-        double peri2 = sma2 * (1 - ecc2);
-        double gap = peri2 - apo1;
+        // Delegate to the canonical physics implementation
+        double delta = OrbitalStabilityAnalyzer.gladmanDelta(sma1, mass1, sma2, mass2, starMassSolar);
+        boolean crossing = OrbitalStabilityAnalyzer.orbitsAreCrossing(sma1, ecc1, sma2, ecc2);
+        double clearance = OrbitalStabilityAnalyzer.orbitClearanceAU(sma1, ecc1, sma2, ecc2);
 
-        double hill1 = sma1 * Math.pow(mass1 / (3 * starMassSolar * SOLAR_MASS_IN_EARTH), 1.0 / 3.0);
-        double hill2 = sma2 * Math.pow(mass2 / (3 * starMassSolar * SOLAR_MASS_IN_EARTH), 1.0 / 3.0);
-        double mutualHill = GLADMAN_FACTOR * (hill1 + hill2);
-        double ratio = mutualHill > 0 ? gap / mutualHill : 999;
-
+        // Use the same classification logic as the analyzer
+        // (pass 0 for systemAge — we classify based on delta thresholds here,
+        //  timescale is computed separately for bins)
         String classification;
-        if (gap < 0) {
+        if (crossing) {
             classification = "CROSSING";
-        } else if (ratio < 1) {
+        } else if (delta < 3.46) {
             classification = "UNSTABLE";
-        } else if (ratio < 2) {
+        } else if (delta < 3.46 * 1.5) {
             classification = "MARGINAL";
         } else {
             classification = "STABLE";
         }
 
-        return new StabilityResult(gap, mutualHill, ratio, classification);
+        return new StabilityResult(clearance, delta, classification);
     }
 
-    private record StabilityResult(double gap, double mutualHill, double ratio, String classification) {}
+    private record StabilityResult(double clearanceAU, double gladmanDelta, String classification) {}
 
     // ═══════════════════════════════════════════════════════════════
     //  Helpers
