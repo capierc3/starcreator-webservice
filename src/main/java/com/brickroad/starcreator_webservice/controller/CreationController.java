@@ -8,6 +8,7 @@ import com.brickroad.starcreator_webservice.request.StarRequest;
 import com.brickroad.starcreator_webservice.request.StarSystemRequest;
 import com.brickroad.starcreator_webservice.service.CreationService;
 import com.brickroad.starcreator_webservice.service.FactionService;
+import com.brickroad.starcreator_webservice.utils.visualization.OrbitalAnalysisHtmlGenerator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -58,6 +59,19 @@ public class CreationController {
     @GetMapping("/solarsystem")
     public ResponseEntity<StarSystem> createSolarSystem(@RequestBody(required = false) StarSystemRequest systemRequest) {
         return ResponseEntity.ok(creationService.createStarSystem(systemRequest));
+    }
+
+    @Operation(summary = "Generate Solar System with Orbital Analysis",
+            description = "Generates a random solar system and returns an interactive HTML orbital simulation",
+            tags = {"Star Creation"})
+    @ApiResponse(responseCode = "200", description = "HTML orbital analysis generated",
+            content = {@Content(mediaType = "text/html")})
+    @GetMapping(value = "/solarsystem/orbital-analysis", produces = "text/html")
+    public ResponseEntity<String> createSolarSystemWithOrbitalAnalysis(
+            @RequestBody(required = false) StarSystemRequest systemRequest) {
+        StarSystem system = creationService.createStarSystem(systemRequest);
+        String html = OrbitalAnalysisHtmlGenerator.generate(system);
+        return ResponseEntity.ok(html);
     }
 
 
