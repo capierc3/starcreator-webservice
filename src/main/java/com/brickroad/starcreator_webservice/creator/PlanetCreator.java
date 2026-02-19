@@ -213,6 +213,10 @@ public class PlanetCreator {
         }
 
         populateAtmosphereProperties(planet, type);
+        if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
+            planet.setSurfaceTemp(TemperatureCalculator.calculatePlanetTemperature(
+                    parentStar, planet.getSemiMajorAxisAU(), planet.getAlbedo()));
+        }
         applyGreenhouseWarming(planet);
 
         if (parentStar != null) {

@@ -139,6 +139,20 @@ public class BeltCreator {
                     .orElse(0.0);
         }
 
+        // Track outermost non-dwarf planet (any giant or rocky)
+        double maxNonDwarf = 0;
+        for (Planet p : arch.giantPlanets) {
+            if (p.getSemiMajorAxisAU() != null && p.getSemiMajorAxisAU() > maxNonDwarf) {
+                maxNonDwarf = p.getSemiMajorAxisAU();
+            }
+        }
+        for (Planet p : arch.rockyPlanets) {
+            if (p.getSemiMajorAxisAU() != null && p.getSemiMajorAxisAU() > maxNonDwarf) {
+                maxNonDwarf = p.getSemiMajorAxisAU();
+            }
+        }
+        arch.outermostNonDwarfAu = maxNonDwarf;
+
         if (!arch.giantPlanets.isEmpty()) {
             arch.innermostGiantAu = arch.giantPlanets.stream()
                     .mapToDouble(Planet::getSemiMajorAxisAU)
@@ -290,7 +304,12 @@ public class BeltCreator {
 
         // Calculate bounds (3:2 resonance with outermost giant)
         double innerEdge = arch.outermostGiantAu * 1.5;
-        double outerEdge = arch.outermostGiantAu * RandomUtils.rollRange(2.5, 3.5);
+        // But push outward if non-dwarf planets exist beyond the outermost giant
+        if (arch.outermostNonDwarfAu > arch.outermostGiantAu) {
+            double minInnerEdge = arch.outermostNonDwarfAu * 1.3;
+            innerEdge = Math.max(innerEdge, minInnerEdge);
+        }
+        double outerEdge = innerEdge * RandomUtils.rollRange(1.8, 2.5);
 
         belt.setInnerRadiusAu(innerEdge);
         belt.setOuterRadiusAu(outerEdge);
@@ -838,6 +857,7 @@ public class BeltCreator {
         double outermostRockyAu = 0;
         double innermostGiantAu = 0;
         double outermostGiantAu = 0;
+        double outermostNonDwarfAu = 0;
         double largestGiantMass = 0;
 
         double frostLineAu = 0;
