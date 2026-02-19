@@ -4,9 +4,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -24,8 +21,7 @@ public class HtmlReportBuilder {
     private final RingDataCollector ringData;
     private final BeltDataCollector beltData;
 
-    private static final String HEADER_IMAGE_SOURCE = ".scratch/headerImg.png";
-    private static final String HEADER_IMAGE_FILENAME = "headerImg.png";
+    private static final String HEADER_IMAGE_PATH = "/report/headerImg.png";
 
     public HtmlReportBuilder(ProbabilityCounts counts, PerformanceTimer timer,
                              StarDataCollector starData, PlanetDataCollector planetData,
@@ -42,10 +38,9 @@ public class HtmlReportBuilder {
 
     public void saveReport(File targetFolder) {
         File file = new File(targetFolder, "system_report_" + counts.getSystemCount() + "_systems.html");
-        String headerImagePath = copyHeaderImage(targetFolder);
 
         try (PrintWriter w = new PrintWriter(new FileWriter(file))) {
-            printPageHeader(w, headerImagePath);
+            printPageHeader(w);
             printSidebarToc(w);
             beginMainContent(w);
             printHtmlHeader(w);
@@ -874,7 +869,7 @@ public class HtmlReportBuilder {
     //  Page Template (CSS & JS from HtmlReportUtils)
     // ═══════════════════════════════════════════════════════════════
 
-    private void printPageHeader(PrintWriter w, String headerImagePath) {
+    private void printPageHeader(PrintWriter w) {
         w.println("<!DOCTYPE html>");
         w.println("<html lang=\"en\">");
         w.println("<head>");
@@ -887,11 +882,9 @@ public class HtmlReportBuilder {
         w.println("</head>");
         w.println("<body>");
 
-        if (headerImagePath != null) {
-            w.println("<div class=\"hero-banner\">");
-            w.println("<img src=\"" + esc(headerImagePath) + "\" alt=\"Star Creator API\">");
-            w.println("</div>");
-        }
+        w.println("<div class=\"hero-banner\">");
+        w.println("<img src=\"" + HEADER_IMAGE_PATH + "\" alt=\"Star Creator API\">");
+        w.println("</div>");
 
         w.println("<div class=\"page-grid\">");
         w.println("<aside class=\"toc-sidebar\" id=\"toc-sidebar\">");
@@ -910,19 +903,6 @@ public class HtmlReportBuilder {
         w.println("</script>");
         w.println("</body>");
         w.println("</html>");
-    }
-
-    private String copyHeaderImage(File targetFolder) {
-        Path source = Path.of(HEADER_IMAGE_SOURCE);
-        if (!Files.exists(source)) return null;
-        try {
-            Path dest = targetFolder.toPath().resolve(HEADER_IMAGE_FILENAME);
-            Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
-            return HEADER_IMAGE_FILENAME;
-        } catch (IOException e) {
-            System.err.println("Failed to copy header image: " + e.getMessage());
-            return null;
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════

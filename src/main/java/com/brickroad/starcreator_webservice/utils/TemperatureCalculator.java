@@ -88,7 +88,11 @@ public class TemperatureCalculator {
         greenhouse += pressureAtm * 2.0;
 
         // Venus-like dense CO2 floor
-        if ("VENUS_LIKE".equals(atmClass)) greenhouse = Math.max(greenhouse, 400.0);
+        if ("VENUS_LIKE".equals(atmClass)) {
+            double venusFloor = 100.0 * Math.log1p(pressureAtm * 2.0);
+            venusFloor = Math.min(500.0, venusFloor);
+            greenhouse = Math.max(greenhouse, venusFloor);
+        }
 
         return Math.min(600.0, greenhouse);
     }
