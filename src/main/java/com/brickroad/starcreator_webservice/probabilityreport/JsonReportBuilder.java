@@ -19,11 +19,12 @@ public class JsonReportBuilder {
     private final MoonDataCollector moonData;
     private final RingDataCollector ringData;
     private final BeltDataCollector beltData;
+    private final OrbitStabilityCollector stabilityData;
 
     public JsonReportBuilder(ProbabilityCounts counts, PerformanceTimer timer,
                              StarDataCollector starData, PlanetDataCollector planetData,
                              MoonDataCollector moonData, RingDataCollector ringData,
-                             BeltDataCollector beltData) {
+                             BeltDataCollector beltData, OrbitStabilityCollector stabilityData) {
         this.counts = counts;
         this.timer = timer;
         this.starData = starData;
@@ -31,6 +32,7 @@ public class JsonReportBuilder {
         this.moonData = moonData;
         this.ringData = ringData;
         this.beltData = beltData;
+        this.stabilityData = stabilityData;
     }
 
     public void saveReport(File targetFolder) throws IOException {
@@ -54,6 +56,7 @@ public class JsonReportBuilder {
         report.put("rings", buildRingData());
         report.put("belts", buildBeltData());
         report.put("weather", buildWeatherData());
+        report.put("orbitalStability", buildOrbitalStabilityData());
         return report;
     }
 
@@ -393,6 +396,91 @@ public class JsonReportBuilder {
         bucket.put("stats", stats);
 
         return bucket;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Orbital Stability
+    // ═══════════════════════════════════════════════════════════════
+
+    private Map<String, Object> buildOrbitalStabilityData() {
+        Map<String, Object> stability = new LinkedHashMap<>();
+        int totalPairs = stabilityData.getTotalAdjacentPairs();
+        int multiPlanetSystems = stabilityData.getSystemsWithMultiplePlanets();
+
+        // Summary
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalAdjacentPairs", totalPairs);
+        summary.put("multiPlanetSystems", multiPlanetSystems);
+        summary.put("systemsAllStable", stabilityData.getSystemsAllStable());
+        summary.put("systemsAnyMarginalOrWorse", stabilityData.getSystemsAnyMarginalOrWorse());
+        summary.put("systemsAnyCrossing", stabilityData.getSystemsAnyCrossing());
+        summary.put("crossingPairCount", stabilityData.getCrossingPairCount());
+        summary.put("doomedButAliveCount", stabilityData.getDoomedButAliveCount());
+        summary.put("meanGladmanDelta", round(stabilityData.getMeanGladmanDelta()));
+        summary.put("medianGladmanDelta", round(stabilityData.getMedianGladmanDelta()));
+        summary.put("meanPerSystemMinDelta", round(stabilityData.getMeanPerSystemMinDelta()));
+        summary.put("medianMinSmaGapAU", roundAU(stabilityData.getMedianMinSmaGapAU()));
+        summary.put("gladmanFloorOverridePercent", round(stabilityData.getGladmanFloorOverridePercent()));
+        if (stabilityData.getMaxSmaCount() > 0) {
+            summary.put("avgSystemOuterExtentAU", round(stabilityData.getMaxSmaSum() / stabilityData.getMaxSmaCount()));
+        }
+        stability.put("summary", summary);
+
+        // Core stability classifications
+        stability.put("stabilityClassification", stabilityData.getStabilityClassification());
+        stability.put("stabilityByStarType", stabilityData.getStabilityByStarType());
+        stability.put("stabilityByOrbitalPosition", stabilityData.getStabilityByOrbitalPosition());
+        stability.put("stabilityByBinaryConfig", stabilityData.getStabilityByBinaryConfig());
+
+        // Gladman delta
+        Map<String, Object> gladman = new LinkedHashMap<>();
+        gladman.put("deltaBins", stabilityData.getGladmanDeltaBins());
+        gladman.put("systemsWithAnyPairBelowCritical", stabilityData.getSystemsWithAnyPairBelowCritical());
+        stability.put("gladmanDelta", gladman);
+
+        // Orbit crossing
+        Map<String, Object> crossing = new LinkedHashMap<>();
+        crossing.put("crossingPairCount", stabilityData.getCrossingPairCount());
+        if (!stabilityData.getCrossingByPlanetTypePair().isEmpty()) {
+            crossing.put("crossingByPlanetTypePair", stabilityData.getCrossingByPlanetTypePair());
+        }
+        stability.put("orbitCrossing", crossing);
+
+        // Eccentricity
+        Map<String, Object> ecc = new LinkedHashMap<>();
+        ecc.put("eccentricityBins", stabilityData.getEccentricityBins());
+        Map<String, Object> eccByPos = new LinkedHashMap<>();
+        for (Map.Entry<String, double[]> e : stabilityData.getEccentricityByPosition().entrySet()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("meanEccentricity", e.getValue()[1] > 0 ? round(e.getValue()[0] / e.getValue()[1]) : 0);
+            entry.put("sampleCount", (int) e.getValue()[1]);
+            eccByPos.put(e.getKey(), entry);
+        }
+        ecc.put("eccentricityByPosition", eccByPos);
+        stability.put("eccentricity", ecc);
+
+        // Timescale
+        Map<String, Object> timescale = new LinkedHashMap<>();
+        timescale.put("timescaleBins", stabilityData.getTimescaleBins());
+        timescale.put("timescaleVsAge", stabilityData.getTimescaleVsAgeBins());
+        timescale.put("doomedButAlive", stabilityData.getDoomedButAliveCount());
+        stability.put("timescale", timescale);
+
+        // Spacing
+        Map<String, Object> spacing = new LinkedHashMap<>();
+        spacing.put("smaRatioBins", stabilityData.getSmaRatioBins());
+        spacing.put("pairsNeedingWiderSpacing", stabilityData.getPairsWhereGladmanFloorWouldWiden());
+        spacing.put("totalPairsChecked", stabilityData.getTotalSpacingPairsChecked());
+        spacing.put("gladmanFloorOverridePercent", round(stabilityData.getGladmanFloorOverridePercent()));
+        stability.put("spacing", spacing);
+
+        // System-level
+        Map<String, Object> systemLevel = new LinkedHashMap<>();
+        systemLevel.put("planetsPerSystem", stabilityData.getPlanetsPerSystemBins());
+        systemLevel.put("systemOuterExtent", stabilityData.getSystemOuterExtentBins());
+        stability.put("systemLevel", systemLevel);
+
+        return stability;
     }
 
     private double round(double val) {

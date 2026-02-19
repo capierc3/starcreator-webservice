@@ -20,13 +20,14 @@ public class HtmlReportBuilder {
     private final MoonDataCollector moonData;
     private final RingDataCollector ringData;
     private final BeltDataCollector beltData;
+    private final OrbitStabilityCollector stabilityData;
 
     private static final String HEADER_IMAGE_PATH = "/report/headerImg.png";
 
     public HtmlReportBuilder(ProbabilityCounts counts, PerformanceTimer timer,
                              StarDataCollector starData, PlanetDataCollector planetData,
                              MoonDataCollector moonData, RingDataCollector ringData,
-                             BeltDataCollector beltData) {
+                             BeltDataCollector beltData, OrbitStabilityCollector stabilityData) {
         this.counts = counts;
         this.timer = timer;
         this.starData = starData;
@@ -34,6 +35,7 @@ public class HtmlReportBuilder {
         this.moonData = moonData;
         this.ringData = ringData;
         this.beltData = beltData;
+        this.stabilityData = stabilityData;
     }
 
     public void saveReport(File targetFolder) {
@@ -50,6 +52,7 @@ public class HtmlReportBuilder {
             printMoonHtml(w);
             printRingHtml(w);
             printBeltHtml(w);
+            printOrbitalStabilityHtml(w);
 
             printPageFooter(w);
         } catch (IOException e) {
@@ -103,6 +106,7 @@ public class HtmlReportBuilder {
         tocLink(w, "Moon Types");
         tocLink(w, "Ring Types");
         tocLink(w, "Belt Types");
+        tocLink(w, "Orbital Stability");
         w.println("</ol>");
     }
 
@@ -734,6 +738,215 @@ public class HtmlReportBuilder {
             w.println("<h4>Moon Tidal Range (from Parent Planet + Siblings)</h4>");
             printSortedTableByKey(w, moonData.getMoonWeatherTidalRangeBins(), moonData.getMoonsWithWeather(), "Tidal Range");
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Orbital Stability HTML
+    // ═══════════════════════════════════════════════════════════════
+
+    private void printOrbitalStabilityHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Orbital Stability", 2);
+
+        int totalPairs = stabilityData.getTotalAdjacentPairs();
+        int multiPlanetSystems = stabilityData.getSystemsWithMultiplePlanets();
+
+        if (totalPairs == 0) {
+            w.println("<p>No adjacent planet pairs found for stability analysis.</p>");
+            endCollapsible(w);
+            return;
+        }
+
+        // Summary stat cards
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, fmt(totalPairs), "Adjacent Pairs");
+        statCard(w, fmt(multiPlanetSystems), "Multi-Planet Systems");
+        statCard(w, pct(stabilityData.getSystemsAllStable(), multiPlanetSystems) + "%", "All-Stable Systems");
+        statCard(w, fmt(stabilityData.getCrossingPairCount()), "Orbit Crossings");
+        statCard(w, String.format("%.2f", stabilityData.getMeanGladmanDelta()), "Mean Gladman \u0394");
+        statCard(w, String.format("%.2f", stabilityData.getMedianGladmanDelta()), "Median Gladman \u0394");
+        statCard(w, fmt(stabilityData.getDoomedButAliveCount()), "Doomed But Alive");
+        statCard(w, String.format("%.1f%%", stabilityData.getGladmanFloorOverridePercent()), "Need Wider Spacing");
+        w.println("</div>");
+
+        // Section 1: Stability Classification
+        printSubSection(w, "Stability Classification");
+        w.println("<p class=\"note\">CROSSING = orbits intersect, UNSTABLE = within mutual Hill sphere, "
+                + "MARGINAL = gap/mutualHill &lt; 2, STABLE = gap/mutualHill &ge; 2</p>");
+        printSortedTable(w, stabilityData.getStabilityClassification(), totalPairs, "Classification");
+
+        // Stability by Star Type
+        printSubSection(w, "Stability by Star Type");
+        w.println("<p class=\"note\">M-dwarfs pack planets tighter and are the primary stress test for stability</p>");
+        printStabilityCrossRefTable(w, stabilityData.getStabilityByStarType());
+
+        // Stability by Orbital Position
+        printSubSection(w, "Stability by Pair Position (Inner Planet Index)");
+        w.println("<p class=\"note\">Position 1 = innermost pair (planets 1&#x2194;2), position 2 = next pair (2&#x2194;3), etc.</p>");
+        printStabilityByPositionTable(w, stabilityData.getStabilityByOrbitalPosition());
+
+        // Stability by Binary Configuration
+        printSubSection(w, "Stability by System Configuration");
+        w.println("<p class=\"note\">P_TYPE (circumbinary) should be hardest for stability</p>");
+        printStabilityCrossRefTable(w, stabilityData.getStabilityByBinaryConfig());
+
+        // Section 2: Gladman Delta Distribution
+        printSubSection(w, "Gladman \u0394 Distribution");
+        w.println("<p class=\"note\">Gladman separation ratio: gap between orbits divided by mutual Hill sphere (\u0394 = 3.46). "
+                + "Values below 3.46 indicate pairs within the critical mutual Hill sphere radius.</p>");
+        printSortedTableByKey(w, stabilityData.getGladmanDeltaBins(), totalPairs, "Gladman \u0394 Range");
+        w.println("<p>Systems with any pair below \u0394 = 3.46: <strong>"
+                + fmt(stabilityData.getSystemsWithAnyPairBelowCritical())
+                + "</strong> of " + fmt(multiPlanetSystems) + " ("
+                + pct(stabilityData.getSystemsWithAnyPairBelowCritical(), multiPlanetSystems) + "%)</p>");
+        w.println("<p>Mean per-system min \u0394: <strong>"
+                + String.format("%.2f", stabilityData.getMeanPerSystemMinDelta()) + "</strong></p>");
+        w.println("<p>Median min SMA gap per system: <strong>"
+                + String.format("%.4f", stabilityData.getMedianMinSmaGapAU()) + " AU</strong></p>");
+
+        // Section 3: Orbit Crossing Detection
+        printSubSection(w, "Orbit Crossing Detection");
+        if (stabilityData.getCrossingPairCount() == 0) {
+            w.println("<p>No orbit crossings detected.</p>");
+        } else {
+            w.println("<p>Total crossing pairs: <strong>" + fmt(stabilityData.getCrossingPairCount())
+                    + "</strong> of " + fmt(totalPairs) + " ("
+                    + pct(stabilityData.getCrossingPairCount(), totalPairs) + "%)</p>");
+            if (!stabilityData.getCrossingByPlanetTypePair().isEmpty()) {
+                w.println("<h4>Crossings by Planet Type Pair</h4>");
+                printSortedTable(w, stabilityData.getCrossingByPlanetTypePair(),
+                        stabilityData.getCrossingPairCount(), "Planet Type Pair");
+            }
+            if (!stabilityData.getCrossingDetails().isEmpty()) {
+                w.println("<h4>Crossing Details (first " + Math.min(20, stabilityData.getCrossingDetails().size()) + ")</h4>");
+                w.println("<table>");
+                w.println("<thead><tr><th>#</th><th>Clearance (AU)</th><th>Inner Ecc</th><th>Outer Ecc</th></tr></thead>");
+                w.println("<tbody>");
+                int limit = Math.min(20, stabilityData.getCrossingDetails().size());
+                for (int i = 0; i < limit; i++) {
+                    double[] d = stabilityData.getCrossingDetails().get(i);
+                    w.println("<tr><td>" + (i + 1) + "</td><td>" + String.format("%.6f", d[0])
+                            + "</td><td>" + String.format("%.4f", d[1])
+                            + "</td><td>" + String.format("%.4f", d[2]) + "</td></tr>");
+                }
+                w.println("</tbody></table>");
+            }
+        }
+
+        // Section 4: Eccentricity Validation
+        printSubSection(w, "Eccentricity Distribution");
+        w.println("<p class=\"note\">Current generator: uniform random [0, 0.2]. No neighbor cap or Gladman floor on eccentricity.</p>");
+        printSortedTableByKey(w, stabilityData.getEccentricityBins(),
+                getTotalFromMap(stabilityData.getEccentricityBins()), "Eccentricity Range");
+
+        printSubSection(w, "Mean Eccentricity by Orbital Position");
+        w.println("<p class=\"note\">Inner planets should trend toward lower eccentricity in stable systems</p>");
+        printEccentricityByPositionTable(w, stabilityData.getEccentricityByPosition());
+
+        // Section 5: Timescale Analysis
+        printSubSection(w, "Stability Timescale Estimates");
+        w.println("<p class=\"note\">Chambers et al. (1996) approximation: "
+                + "\u03C4 \u2248 P<sub>inner</sub> \u00D7 e<sup>(0.6 \u00D7 \u0394)</sup>. "
+                + "Rough estimate; actual N-body timescales may differ by orders of magnitude.</p>");
+        printSortedTableByKey(w, stabilityData.getTimescaleBins(), totalPairs, "Timescale Range");
+
+        printSubSection(w, "Timescale vs System Age");
+        w.println("<p class=\"note\">\"should_not_exist\" = timescale &lt; star age (physically implausible); "
+                + "\"doomed_but_alive\" = 2-10\u00D7 age (interesting for worldbuilding)</p>");
+        printSortedTable(w, stabilityData.getTimescaleVsAgeBins(), totalPairs, "Category");
+        w.println("<p>Total pairs with timescale &lt; star age: <strong>"
+                + fmt(stabilityData.getDoomedButAliveCount()) + "</strong> of " + fmt(totalPairs)
+                + " (" + pct(stabilityData.getDoomedButAliveCount(), totalPairs) + "%)</p>");
+
+        // Section 6: Spacing Metrics
+        printSubSection(w, "SMA Ratio Distribution (Adjacent Pairs)");
+        w.println("<p class=\"note\">Kepler systems peak around 1.5-2.0\u00D7. "
+                + "Current Titius-Bode spacing: inner 1.3-2.0\u00D7, outer 1.5-3.0\u00D7 (\u00B115% variance)</p>");
+        printSortedTableByKey(w, stabilityData.getSmaRatioBins(), totalPairs, "SMA Ratio (a\u2099\u208A\u2081/a\u2099)");
+        w.println("<p>Pairs where Gladman floor (\u0394 &lt; 3.46) would require wider spacing: <strong>"
+                + fmt(stabilityData.getPairsWhereGladmanFloorWouldWiden()) + "</strong> of "
+                + fmt(stabilityData.getTotalSpacingPairsChecked()) + " ("
+                + String.format("%.1f", stabilityData.getGladmanFloorOverridePercent()) + "%)</p>");
+
+        // Section 7: System-Level Summary
+        printSubSection(w, "System-Level Summary");
+        w.println("<h4>Planets Per System</h4>");
+        printSortedTableByKey(w, stabilityData.getPlanetsPerSystemBins(),
+                counts.getSystemCount(), "Planets Per System");
+        w.println("<p>Systems with all pairs STABLE: <strong>" + fmt(stabilityData.getSystemsAllStable())
+                + "</strong> of " + fmt(multiPlanetSystems) + " multi-planet systems ("
+                + pct(stabilityData.getSystemsAllStable(), multiPlanetSystems) + "%)</p>");
+        w.println("<p>Systems with any MARGINAL or worse: <strong>"
+                + fmt(stabilityData.getSystemsAnyMarginalOrWorse()) + "</strong> ("
+                + pct(stabilityData.getSystemsAnyMarginalOrWorse(), multiPlanetSystems) + "%)</p>");
+        w.println("<p>Systems with any CROSSING: <strong>" + fmt(stabilityData.getSystemsAnyCrossing())
+                + "</strong> (" + pct(stabilityData.getSystemsAnyCrossing(), multiPlanetSystems) + "%)</p>");
+        if (stabilityData.getMaxSmaCount() > 0) {
+            w.println("<p>Average system outer extent (max SMA): <strong>"
+                    + String.format("%.2f", stabilityData.getMaxSmaSum() / stabilityData.getMaxSmaCount()) + " AU</strong></p>");
+        }
+        w.println("<h4>System Outer Extent</h4>");
+        printSortedTableByKey(w, stabilityData.getSystemOuterExtentBins(), counts.getSystemCount(), "Outer Extent");
+
+        endCollapsible(w);
+    }
+
+    private void printStabilityCrossRefTable(PrintWriter w, Map<String, Map<String, Integer>> data) {
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Category</th><th>STABLE</th><th>MARGINAL</th><th>UNSTABLE</th><th>CROSSING</th><th>Total</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    Map<String, Integer> cats = e.getValue();
+                    int stable = cats.getOrDefault("STABLE", 0);
+                    int marginal = cats.getOrDefault("MARGINAL", 0);
+                    int unstable = cats.getOrDefault("UNSTABLE", 0);
+                    int crossing = cats.getOrDefault("CROSSING", 0);
+                    int total = stable + marginal + unstable + crossing;
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(stable)
+                            + "</td><td>" + fmt(marginal) + "</td><td>" + fmt(unstable)
+                            + "</td><td>" + fmt(crossing) + "</td><td>" + fmt(total) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private void printStabilityByPositionTable(PrintWriter w, Map<Integer, Map<String, Integer>> data) {
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Pair Position</th><th>STABLE</th><th>MARGINAL</th><th>UNSTABLE</th><th>CROSSING</th><th>Total</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    Map<String, Integer> cats = e.getValue();
+                    int stable = cats.getOrDefault("STABLE", 0);
+                    int marginal = cats.getOrDefault("MARGINAL", 0);
+                    int unstable = cats.getOrDefault("UNSTABLE", 0);
+                    int crossing = cats.getOrDefault("CROSSING", 0);
+                    int total = stable + marginal + unstable + crossing;
+                    w.println("<tr><td>" + e.getKey() + " &#x2194; " + (e.getKey() + 1) + "</td><td>" + fmt(stable)
+                            + "</td><td>" + fmt(marginal) + "</td><td>" + fmt(unstable)
+                            + "</td><td>" + fmt(crossing) + "</td><td>" + fmt(total) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private void printEccentricityByPositionTable(PrintWriter w, Map<String, double[]> data) {
+        w.println("<table>");
+        w.println("<thead><tr><th>Position Group</th><th>Mean Eccentricity</th><th>Sample Count</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    double avg = e.getValue()[1] > 0 ? e.getValue()[0] / e.getValue()[1] : 0;
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>"
+                            + String.format("%.4f", avg) + "</td><td>" + (int) e.getValue()[1] + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private int getTotalFromMap(Map<String, Integer> map) {
+        return map.values().stream().mapToInt(Integer::intValue).sum();
     }
 
     // ═══════════════════════════════════════════════════════════════
