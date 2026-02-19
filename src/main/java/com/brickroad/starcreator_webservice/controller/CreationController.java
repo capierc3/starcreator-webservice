@@ -9,6 +9,9 @@ import com.brickroad.starcreator_webservice.request.StarSystemRequest;
 import com.brickroad.starcreator_webservice.service.CreationService;
 import com.brickroad.starcreator_webservice.service.FactionService;
 import com.brickroad.starcreator_webservice.utils.visualization.OrbitalAnalysisHtmlGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -18,6 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -62,15 +67,38 @@ public class CreationController {
     }
 
     @Operation(summary = "Generate Solar System with Orbital Analysis",
-            description = "Generates a random solar system and returns an interactive HTML orbital simulation",
+            description = "Generates a random solar system, saves system JSON and orbital analysis HTML to target folder, and returns the HTML",
             tags = {"Star Creation"})
     @ApiResponse(responseCode = "200", description = "HTML orbital analysis generated",
             content = {@Content(mediaType = "text/html")})
     @GetMapping(value = "/solarsystem/orbital-analysis", produces = "text/html")
     public ResponseEntity<String> createSolarSystemWithOrbitalAnalysis(
             @RequestBody(required = false) StarSystemRequest systemRequest) {
+
         StarSystem system = creationService.createStarSystem(systemRequest);
         String html = OrbitalAnalysisHtmlGenerator.generate(system);
+
+        // Save both files to target folder
+        try {
+            File targetFolder = new File("target/orbital-analysis/");
+            if (!targetFolder.exists()) {
+                targetFolder.mkdirs();
+            }
+
+            // Save system JSON
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            mapper.enable(SerializationFeature.INDENT_OUTPUT);
+            mapper.writeValue(new File(targetFolder, "system.json"), system);
+
+            // Save orbital analysis HTML
+            try (FileWriter writer = new FileWriter(new File(targetFolder, "system_orbital.html"))) {
+                writer.write(html);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to save orbital analysis files: " + e.getMessage());
+        }
+
         return ResponseEntity.ok(html);
     }
 

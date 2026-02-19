@@ -149,6 +149,14 @@ public class OrbitalAnalysisHtmlGenerator {
         }
 
         sb.append("};\n");
+        double minPeriod = Double.MAX_VALUE;
+        for (StarData sd : starMap.values()) {
+            for (Planet p : sd.planets) {
+                double period = safe(p.getOrbitalPeriodDays(), 365.0);
+                if (period < minPeriod) minPeriod = period;
+            }
+        }
+        sb.append(String.format("const MIN_PERIOD = %.6f;\n", minPeriod));
         return sb.toString();
     }
 
@@ -747,7 +755,8 @@ for (const key of STAR_KEYS) {
 let lastTime = performance.now();
 function animate(now) {
   const dt = Math.min(50, now - lastTime); lastTime = now;
-  if (playing) simTime += dt * 0.05 * speedFactor;
+  const timeRate = Math.min(0.05, MIN_PERIOD / 5000);
+  if (playing) simTime += dt * timeRate * speedFactor;
   for (const key of STAR_KEYS) drawSystem(canvases[key], key, simTime);
   const years = (simTime / 365.25).toFixed(1);
   for (const key of STAR_KEYS) {
