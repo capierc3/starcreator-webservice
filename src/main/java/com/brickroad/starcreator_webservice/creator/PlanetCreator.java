@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.entity.ref.PlanetTypeRef;
 import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
+import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.repository.PlanetTypeRefRepository;
@@ -75,18 +76,28 @@ public class PlanetCreator {
         return generatePlanetByType(type, null, 1, 1.0);
     }
 
-    public Planet generatePlanetByType(PlanetTypeRef type, Star parentStar, int orbitalPosition, double distanceAU) {
+    public Planet generatePlanetByType(PlanetTypeRef type, Star parentStar,
+                                       int orbitalPosition, double distanceAU) {
+        return generatePlanetByType(type, parentStar, orbitalPosition, distanceAU, null);
+    }
+
+    public Planet generatePlanetByType(PlanetTypeRef type, Star parentStar,
+                                       int orbitalPosition, double distanceAU,
+                                       Planet previousPlanet) {
         Planet planet = new Planet();
 
         double earthMass = RandomUtils.rollRange(type.getMinMassEarth(), type.getMaxMassEarth());
         double earthRadius = calculateRadius(earthMass, type);
         earthRadius = addVariance(earthRadius);
 
+        // Set mass early so populateOrbitalParameters can use it for Hill radius
+        planet.setEarthMass(earthMass);
+
         if (parentStar != null) {
-            populateOrbitalParameters(planet, parentStar, distanceAU, orbitalPosition);
+            populateOrbitalParameters(planet, parentStar, distanceAU, orbitalPosition, previousPlanet);
         } else {
             planet.setSemiMajorAxisAU(distanceAU);
-            planet.setOrbitalPeriodDays(calculateOrbitalPeriod(distanceAU, 1.0)); // Assume 1 solar mass
+            planet.setOrbitalPeriodDays(calculateOrbitalPeriod(distanceAU, 1.0));
         }
 
         populatePlanet(planet, type, earthMass, earthRadius, parentStar);
@@ -101,12 +112,13 @@ public class PlanetCreator {
 
         double frostLine = calculateFrostLine(parentStar);
         double maxSystemDistance = getMaxSystemDistance(parentStar);
+        double starMassSolar = parentStar.getSolarMass();
 
         HabitableZone hz;
         double currentDistance;
         if (parentStar.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
             hz = new HabitableZone(parentStar.getSystem().getHabitableLow(), parentStar.getSystem().getHabitableHigh());
-            double minStableDistanceAU = parentStar.getSystem().getBinarySeparationAu() * 2.5;
+            double minStableDistanceAU = parentStar.getSystem().getBinarySeparationAu() * 4.0;
             currentDistance = minStableDistanceAU * RandomUtils.rollRange(1.0, 1.2);
         } else {
             hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
@@ -125,6 +137,9 @@ public class PlanetCreator {
             startCeiling = Math.max(startCeiling, minFormation * 2.0);
             currentDistance = RandomUtils.rollRange(minFormation, startCeiling);
         }
+
+        Planet previousPlanet = null;
+
         for (int i = 0; i < numPlanets; i++) {
             double estimatedTempK = TemperatureCalculator.calculatePlanetTemperature(parentStar, currentDistance, 0.3);
             if (estimatedTempK < MIN_VIABLE_PLANET_TEMP_K) {
@@ -136,11 +151,19 @@ public class PlanetCreator {
                 break;
             }
 
-            Planet planet = generatePlanetByType(type, parentStar, i + 1, currentDistance);
+            Planet planet = generatePlanetByType(type, parentStar, i + 1, currentDistance, previousPlanet);
             planets.add(planet);
+            previousPlanet = planet;
 
-            currentDistance = calculateNextOrbitDistance(currentDistance, i, numPlanets, maxSystemDistance);
+            currentDistance = calculateNextOrbitDistance(currentDistance, i, numPlanets,
+                    maxSystemDistance, planet, starMassSolar);
+            if (currentDistance >= maxSystemDistance * 0.95) {
+                break;
+            }
         }
+
+        // ── Post-generation stability analysis ──
+        analyzeSystemStability(planets, parentStar);
 
         return planets;
     }
@@ -196,7 +219,7 @@ public class PlanetCreator {
         planet.setEscapeVelocity(calculateEscapeVelocity(planet.getMass(), planet.getRadius()));
 
         if (planet.getEccentricity() == null) {
-            planet.setEccentricity(RandomUtils.rollRange(0.0, 0.2));
+            planet.setEccentricity(RandomUtils.rollRange(0.0, 0.1));
         }
         if (planet.getOrbitalInclinationDegrees() == null) {
             planet.setOrbitalInclinationDegrees(RandomUtils.rollRange(0.0, 15.0));
@@ -253,7 +276,8 @@ public class PlanetCreator {
         planet.setModifiedAt(LocalDateTime.now());
     }
 
-    private void populateOrbitalParameters(Planet planet, Star star, double distanceAU, int position) {
+    private void populateOrbitalParameters(Planet planet, Star star, double distanceAU,
+                                           int position, Planet previousPlanet) {
         planet.setParentStar(star);
         planet.setOrbitalPosition(position);
         planet.setSemiMajorAxisAU(distanceAU);
@@ -261,9 +285,60 @@ public class PlanetCreator {
         double orbitalPeriod = calculateOrbitalPeriod(distanceAU, star.getSolarMass());
         planet.setOrbitalPeriodDays(orbitalPeriod);
 
-        planet.setEccentricity(RandomUtils.rollRange(0.0, 0.2));
+        // --- Eccentricity: constrained by neighbor clearance ---
+        double maxEcc = 0.15; // universal ceiling
+
+        if (previousPlanet != null && previousPlanet.getSemiMajorAxisAU() != null
+                && previousPlanet.getEccentricity() != null) {
+            // Ensure our perihelion stays clear of previous planet's aphelion
+            // plus a safety margin of 1 mutual Hill radius
+            double rH = OrbitalStabilityAnalyzer.mutualHillRadius(
+                    previousPlanet.getSemiMajorAxisAU(),
+                    previousPlanet.getEarthMass() != null ? previousPlanet.getEarthMass() : 1.0,
+                    distanceAU,
+                    planet.getEarthMass() != null ? planet.getEarthMass() : 1.0,
+                    star.getSolarMass());
+
+            double neighborCeiling = OrbitalStabilityAnalyzer.maxEccentricityForClearance(
+                    previousPlanet.getSemiMajorAxisAU(),
+                    previousPlanet.getEccentricity(),
+                    distanceAU,
+                    rH); // 1 mutual Hill radius safety margin
+
+            maxEcc = Math.min(maxEcc, neighborCeiling);
+        }
+
+        double effectiveDistance = distanceAU;
+        if (star.getSolarLuminosity() > 0) {
+            effectiveDistance = distanceAU / Math.sqrt(star.getSolarLuminosity());
+        }
+        double baseLow = 0.0;
+        double baseHigh;
+        if (effectiveDistance < 0.3) {
+            baseHigh = 0.02;
+        } else if (effectiveDistance < 1.0) {
+            baseHigh = 0.05;
+        } else if (effectiveDistance < 5.0) {
+            baseHigh = 0.08;
+        } else {
+            baseHigh = 0.12;
+        }
+
+        // Cap by neighbor constraint
+        baseHigh = Math.min(baseHigh, maxEcc);
+        baseHigh = Math.max(baseHigh, 0.001); // never negative
+
+        if (star.getSystem() != null
+                && star.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
+            baseHigh = Math.min(baseHigh, 0.04);
+        }
+
+        planet.setEccentricity(RandomUtils.rollRange(baseLow, baseHigh));
 
         planet.setOrbitalInclinationDegrees(RandomUtils.rollRange(0.0, 10.0));
+        planet.setLongitudeOfAscendingNodeDegrees(RandomUtils.rollRange(0.0, 360.0));
+        planet.setArgumentOfPeriapsisDegrees(RandomUtils.rollRange(0.0, 360.0));
+        planet.setMeanAnomalyDegrees(RandomUtils.rollRange(0.0, 360.0));
     }
 
     private void populateRotationProperties(Planet planet, PlanetTypeRef type, Star parentStar) {
@@ -305,9 +380,13 @@ public class PlanetCreator {
         } else {
             double tilt = RandomUtils.rollRange(0, 45);
             if (Math.random() < 0.05) {
-                tilt = RandomUtils.rollRange(45, 120);
+                tilt = RandomUtils.rollRange(45, 170);
             }
             planet.setAxialTilt(tilt);
+        }
+
+        if (planet.getAxialTilt() > 90.0) {
+            planet.setRotationPeriodHours(-Math.abs(planet.getRotationPeriodHours()));
         }
     }
 
@@ -639,7 +718,8 @@ public class PlanetCreator {
     }
 
     private double calculateNextOrbitDistance(double currentDistance, int planetIndex,
-                                              int totalPlanets, double maxSystemDistance) {
+                                              int totalPlanets, double maxSystemDistance,
+                                              Planet currentPlanet, double starMassSolar) {
 
         double remainingSpace = maxSystemDistance - currentDistance;
         int remainingPlanets = totalPlanets - planetIndex - 1;
@@ -654,14 +734,37 @@ public class PlanetCreator {
         // Inner system: 1.3-2.0x, Outer system: 1.5-3.0x
         double progressFraction = currentDistance / maxSystemDistance;
         double minSpacing = 1.3 + (progressFraction * 0.2);  // 1.3 → 1.5
-        double maxSpacing = 2.0 + (progressFraction * 1.0);  // 2.0 → 3.0
+        double maxSpacing = 2.0 + progressFraction;  // 2.0 → 3.0
 
         targetSpacing = Math.max(minSpacing, Math.min(maxSpacing, targetSpacing));
         double spacing = targetSpacing * RandomUtils.rollRange(0.85, 1.15);
 
         double nextDistance = currentDistance * spacing;
-        if (nextDistance > maxSystemDistance * 0.9) {
-            nextDistance = maxSystemDistance * RandomUtils.rollRange(0.85, 0.95);
+
+        // Use current planet's mass + estimate next planet as ~Earth mass (conservative)
+        double currentMass = (currentPlanet != null && currentPlanet.getEarthMass() != null)
+                ? currentPlanet.getEarthMass() : 1.0;
+        // assume similar mass as conservative estimate
+        double minSafeGap = OrbitalStabilityAnalyzer.minimumSafeSpacingAU(
+                currentDistance, currentMass, currentMass, starMassSolar);
+
+        // Also ensure aphelion clearance: account for current planet's eccentricity
+        double currentEcc = (currentPlanet != null && currentPlanet.getEccentricity() != null)
+                ? currentPlanet.getEccentricity() : 0.05;
+        double aphelionCurrent = currentDistance * (1.0 + currentEcc);
+        double minFromAphelion = aphelionCurrent + minSafeGap;
+
+        double minDistance = Math.max(currentDistance + minSafeGap, minFromAphelion);
+        if (currentPlanet != null && currentPlanet.getParentStar() != null
+                && currentPlanet.getParentStar().getSystem() != null
+                && currentPlanet.getParentStar().getSystem().getBinaryConfiguration()
+                == BinaryConfiguration.P_TYPE) {
+            minDistance *= 1.5;
+        }
+        nextDistance = Math.max(nextDistance, minDistance);
+
+        if (minDistance > maxSystemDistance * 0.90) {
+            return maxSystemDistance; // triggers break in generatePlanetarySystem
         }
         return nextDistance;
     }
@@ -745,6 +848,83 @@ public class PlanetCreator {
         if (greenhouse > 0) {
             planet.setSurfaceTemp(planet.getSurfaceTemp() + greenhouse);
         }
+    }
+
+    private void analyzeSystemStability(List<Planet> planets, Star parentStar) {
+        if (planets.size() < 2 || parentStar == null) {
+            // Single planet or orphan — always stable
+            if (planets.size() == 1) {
+                planets.getFirst().setOrbitStability("STABLE");
+            }
+            return;
+        }
+
+        double starMassSolar = parentStar.getSolarMass();
+        double systemAgeMy = parentStar.getAgeMY();
+
+        // For each planet, track the worst stability result from either neighbor
+        for (int i = 0; i < planets.size(); i++) {
+            Planet planet = planets.get(i);
+            String worstClassification = "STABLE";
+            Double worstTimescale = null;
+            String worstNeighbor = null;
+
+            // Check inner neighbor
+            if (i > 0) {
+                Planet inner = planets.get(i - 1);
+                OrbitalStabilityAnalyzer.StabilityResult sr = OrbitalStabilityAnalyzer.analyzeStability(
+                        safe(inner.getSemiMajorAxisAU(), 1.0), safe(inner.getEccentricity(), 0.0),
+                        safe(inner.getEarthMass(), 1.0),
+                        safe(planet.getSemiMajorAxisAU(), 1.0), safe(planet.getEccentricity(), 0.0),
+                        safe(planet.getEarthMass(), 1.0),
+                        starMassSolar, systemAgeMy);
+
+                if (isWorse(sr.classification, worstClassification)) {
+                    worstClassification = sr.classification;
+                    worstTimescale = Double.isInfinite(sr.timescaleMy) ? null : sr.timescaleMy;
+                    worstNeighbor = inner.getName();
+                }
+            }
+
+            // Check outer neighbor
+            if (i < planets.size() - 1) {
+                Planet outer = planets.get(i + 1);
+                OrbitalStabilityAnalyzer.StabilityResult sr = OrbitalStabilityAnalyzer.analyzeStability(
+                        safe(planet.getSemiMajorAxisAU(), 1.0), safe(planet.getEccentricity(), 0.0),
+                        safe(planet.getEarthMass(), 1.0),
+                        safe(outer.getSemiMajorAxisAU(), 1.0), safe(outer.getEccentricity(), 0.0),
+                        safe(outer.getEarthMass(), 1.0),
+                        starMassSolar, systemAgeMy);
+
+                if (isWorse(sr.classification, worstClassification)) {
+                    worstClassification = sr.classification;
+                    worstTimescale = Double.isInfinite(sr.timescaleMy) ? null : sr.timescaleMy;
+                    worstNeighbor = outer.getName();
+                }
+            }
+
+            planet.setOrbitStability(worstClassification);
+            planet.setOrbitStabilityTimescaleMy(worstTimescale);
+            planet.setOrbitCrossingNeighbor(
+                    "STABLE".equals(worstClassification) ? null : worstNeighbor);
+        }
+    }
+
+    private static int stabilitySeverity(String classification) {
+        return switch (classification) {
+            case "UNSTABLE" -> 3;
+            case "CROSSING" -> 2;
+            case "MARGINAL" -> 1;
+            default -> 0; // STABLE
+        };
+    }
+
+    private static boolean isWorse(String candidate, String current) {
+        return stabilitySeverity(candidate) > stabilitySeverity(current);
+    }
+
+    private static double safe(Double value, double fallback) {
+        return value != null ? value : fallback;
     }
 
     private static class HabitableZone {

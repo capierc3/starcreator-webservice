@@ -18,6 +18,7 @@ public class ProbabilityReportGenerator {
     private final RingDataCollector ringData = new RingDataCollector();
     private final BeltDataCollector beltData = new BeltDataCollector();
     private final PlanetDataCollector planetData;
+    private final OrbitStabilityCollector stabilityData = new OrbitStabilityCollector();
 
     public ProbabilityReportGenerator(SystemCreator systemCreator, int systemCount) {
         this.systemCreator = systemCreator;
@@ -58,6 +59,8 @@ public class ProbabilityReportGenerator {
             for (Belt belt : system.getBelts()) {
                 beltData.analyzeData(belt, counts);
             }
+
+            stabilityData.analyzeSystem(system);
             timer.lap();
         }
         timer.stop();
@@ -72,12 +75,12 @@ public class ProbabilityReportGenerator {
         }
 
         // Generate HTML report
-        HtmlReportBuilder htmlBuilder = new HtmlReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData);
+        HtmlReportBuilder htmlBuilder = new HtmlReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData, stabilityData);
         htmlBuilder.saveReport(targetFolder);
 
         // Generate JSON report
         try {
-            JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData);
+            JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData, stabilityData);
             jsonBuilder.saveReport(targetFolder);
         } catch (Exception e) {
             System.err.println("Failed to save JSON report: " + e.getMessage());

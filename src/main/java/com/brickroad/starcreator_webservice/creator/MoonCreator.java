@@ -80,9 +80,10 @@ public class MoonCreator {
 
         for (int i = 0; i < distributionResult.moonData.size(); i++) {
             MoonGenerationData moonData = distributionResult.moonData.get(i);
+            Moon previousMoon = moons.isEmpty() ? null : moons.getLast();
             Moon moon = createMoon(planet, primaryStar, i + 1, hillSphereKm,
                     innerRocheLimit, outerRocheLimit,
-                    moonData.moonType, moonData.massEarthMasses);
+                    moonData.moonType, moonData.massEarthMasses, previousMoon);
             moons.add(moon);
         }
 
@@ -104,7 +105,7 @@ public class MoonCreator {
     private Moon createMoon(Planet planet, Star primaryStar, int moonNumber,
                             double hillSphereKm, double innerRocheLimit,
                             double outerRocheLimit, String predeterminedMoonType,
-                            double moonMassEarth) {
+                            double moonMassEarth, Moon previousMoon) {
         Moon moon = new Moon();
 
         moon.setPlanet(planet);
@@ -123,7 +124,7 @@ public class MoonCreator {
         }
 
         generatePhysicalProperties(moon, moonMassEarth);
-        generateOrbitalProperties(moon, planet, hillSphereKm, innerRocheLimit, outerRocheLimit);
+        generateOrbitalProperties(moon, planet, hillSphereKm, innerRocheLimit, outerRocheLimit, previousMoon);
         calculateDerivedProperties(moon, planet, primaryStar);
         calculateTidalEffects(moon, planet);
         determineGeologicalActivity(moon);
@@ -398,7 +399,7 @@ public class MoonCreator {
     // ═══════════════════════════════════════════════════════════════
 
     private void generateOrbitalProperties(Moon moon, Planet planet, double hillSphereKm,
-                                           double innerRocheLimit, double outerRocheLimit) {
+                                           double innerRocheLimit, double outerRocheLimit, Moon previousMoon) {
 
         if ("SHEPHERD".equals(moon.getMoonType())) {
             generateShepherdMoonOrbit(moon, planet, innerRocheLimit, outerRocheLimit);
@@ -441,6 +442,33 @@ public class MoonCreator {
         } else {
             semiMajorAxisKm = RandomUtils.rollRange(minOrbitKm, maxOrbitKm);
         }
+
+        if (previousMoon != null && previousMoon.getSemiMajorAxisKm() != null
+                && previousMoon.getEarthMass() != null && moon.getEarthMass() != null) {
+            double prevSmaKm = previousMoon.getSemiMajorAxisKm();
+            double planetMassKg = planet.getMass();
+            double prevMassKg = previousMoon.getEarthMass() * EARTH_MASS_KG;
+            double moonMassKg = moon.getEarthMass() * EARTH_MASS_KG;
+
+            // Mutual Hill radius in km
+            double mu = (prevMassKg + moonMassKg) / (3.0 * planetMassKg);
+            double mutualHillKm = Math.cbrt(mu) * (prevSmaKm + semiMajorAxisKm) / 2.0;
+
+            // Require 3.46 * 2.0 (Gladman * safety) mutual Hill radii separation
+            double minSeparationKm = 3.46 * 2.0 * mutualHillKm;
+
+            // Also ensure no orbit crossing
+            double prevApoapsis = prevSmaKm * (1.0 + (previousMoon.getEccentricity() != null ? previousMoon.getEccentricity() : 0.0));
+            double minFromCrossing = prevApoapsis + mutualHillKm;
+
+            double minimumSmaKm = Math.max(prevSmaKm + minSeparationKm, minFromCrossing);
+
+            if (semiMajorAxisKm < minimumSmaKm) {
+                semiMajorAxisKm = minimumSmaKm * RandomUtils.rollRange(1.0, 1.15);
+            }
+        }
+
+        moon.setSemiMajorAxisKm(semiMajorAxisKm);
 
         // Avoid ring gaps
         for (Ring ring : planet.getRings()) {
@@ -502,6 +530,9 @@ public class MoonCreator {
                 RandomUtils.rollRange(10, 60) :
                 RandomUtils.rollRange(0, 5);
         moon.setOrbitalInclinationDegrees(inclination);
+        moon.setLongitudeOfAscendingNodeDegrees(RandomUtils.rollRange(0.0, 360.0));
+        moon.setArgumentOfPeriapsisDegrees(RandomUtils.rollRange(0.0, 360.0));
+        moon.setMeanAnomalyDegrees(RandomUtils.rollRange(0.0, 360.0));
 
         double periodSeconds = 2 * Math.PI * Math.sqrt(
                 Math.pow(semiMajorAxisKm * 1000, 3) /
@@ -516,6 +547,9 @@ public class MoonCreator {
             moon.setRotationPeriodHours(periodDays * 24);
         } else {
             moon.setRotationPeriodHours(RandomUtils.rollRange(10.0, 100));
+        }
+        if ("CAPTURED".equals(moon.getFormationType()) && Math.random() < 0.5) {
+            moon.setRotationPeriodHours(-Math.abs(moon.getRotationPeriodHours()));
         }
 
         moon.setAxialTilt(RandomUtils.rollRange(0.0, 25));

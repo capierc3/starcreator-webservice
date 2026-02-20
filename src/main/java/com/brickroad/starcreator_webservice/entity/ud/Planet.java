@@ -2,10 +2,14 @@ package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Getter
+@Setter
 @Entity
 @Table(name = "planet", schema = "ud")
 public class Planet extends CelestialBody {
@@ -30,6 +34,15 @@ public class Planet extends CelestialBody {
 
     @Column(name = "orbital_inclination_degrees")
     private Double orbitalInclinationDegrees;
+
+    @Column(name = "longitude_of_ascending_node_degrees")
+    private Double longitudeOfAscendingNodeDegrees;
+
+    @Column(name = "argument_of_periapsis_degrees")
+    private Double argumentOfPeriapsisDegrees;
+
+    @Column(name = "mean_anomaly_degrees")
+    private Double meanAnomalyDegrees;
 
     @Column(name = "surface_temp_kelvin")
     private Double surfaceTemp;
@@ -72,6 +85,15 @@ public class Planet extends CelestialBody {
 
     @Column(name = "habitable_zone_position")
     private String habitableZonePosition;
+
+    @Column(name = "orbit_stability", length = 20)
+    private String orbitStability;
+
+    @Column(name = "orbit_stability_timescale_my")
+    private Double orbitStabilityTimescaleMy;
+
+    @Column(name = "orbit_crossing_neighbor")
+    private String orbitCrossingNeighbor;
 
     @Column(name = "water_coverage_percent")
     private Double waterCoveragePercent;
@@ -208,153 +230,11 @@ public class Planet extends CelestialBody {
     @JsonManagedReference
     private List<Ring> rings = new ArrayList<>();
 
+
+
     public Planet() {}
 
     // Getters and Setters
-
-    public Double getEarthMass() {
-        return earthMass;
-    }
-
-    public void setEarthMass(Double earthMass) {
-        this.earthMass = earthMass;
-    }
-
-    public Double getEarthRadius() {
-        return earthRadius;
-    }
-
-    public void setEarthRadius(Double earthRadius) {
-        this.earthRadius = earthRadius;
-    }
-
-    public Double getOrbitalPeriodDays() {
-        return orbitalPeriodDays;
-    }
-
-    public void setOrbitalPeriodDays(Double orbitalPeriodDays) {
-        this.orbitalPeriodDays = orbitalPeriodDays;
-    }
-
-    public Double getSemiMajorAxisAU() {
-        return semiMajorAxisAU;
-    }
-
-    public void setSemiMajorAxisAU(Double semiMajorAxisAU) {
-        this.semiMajorAxisAU = semiMajorAxisAU;
-    }
-
-    public Double getEccentricity() {
-        return eccentricity;
-    }
-
-    public void setEccentricity(Double eccentricity) {
-        this.eccentricity = eccentricity;
-    }
-
-    public Double getOrbitalInclinationDegrees() {
-        return orbitalInclinationDegrees;
-    }
-
-    public void setOrbitalInclinationDegrees(Double orbitalInclinationDegrees) {
-        this.orbitalInclinationDegrees = orbitalInclinationDegrees;
-    }
-
-    public Double getSurfaceTemp() {
-        return surfaceTemp;
-    }
-
-    public void setSurfaceTemp(Double surfaceTemp) {
-        this.surfaceTemp = surfaceTemp;
-    }
-
-    public Double getSurfacePressure() {
-        return surfacePressure;
-    }
-
-    public void setSurfacePressure(Double surfacePressure) {
-        this.surfacePressure = surfacePressure;
-    }
-
-    public Double getEscapeVelocity() {
-        return escapeVelocity;
-    }
-
-    public void setEscapeVelocity(Double escapeVelocity) {
-        this.escapeVelocity = escapeVelocity;
-    }
-
-    public Double getSurfaceGravity() {
-        return surfaceGravity;
-    }
-
-    public void setSurfaceGravity(Double surfaceGravity) {
-        this.surfaceGravity = surfaceGravity;
-    }
-
-    public Double getRotationPeriodHours() {
-        return rotationPeriodHours;
-    }
-
-    public void setRotationPeriodHours(Double rotationPeriodHours) {
-        this.rotationPeriodHours = rotationPeriodHours;
-    }
-
-    public Double getAxialTilt() {
-        return axialTilt;
-    }
-
-    public void setAxialTilt(Double axialTilt) {
-        this.axialTilt = axialTilt;
-    }
-
-    public Double getMagneticFieldStrength() {
-        return magneticFieldStrength;
-    }
-
-    public void setMagneticFieldStrength(Double magneticFieldStrength) {
-        this.magneticFieldStrength = magneticFieldStrength;
-    }
-
-    public String getAtmosphereComposition() {
-        return atmosphereComposition;
-    }
-
-    public void setAtmosphereComposition(String atmosphereComposition) {
-        this.atmosphereComposition = atmosphereComposition;
-    }
-
-    public Boolean getHasRings() {
-        return hasRings;
-    }
-
-    public void setHasRings(Boolean hasRings) {
-        this.hasRings = hasRings;
-    }
-
-    public Integer getNumberOfMoons() {
-        return numberOfMoons;
-    }
-
-    public void setNumberOfMoons(Integer numberOfMoons) {
-        this.numberOfMoons = numberOfMoons;
-    }
-
-    public Double getAlbedo() {
-        return albedo;
-    }
-
-    public void setAlbedo(Double albedo) {
-        this.albedo = albedo;
-    }
-
-    public Double getDensity() {
-        return density;
-    }
-
-    public void setDensity(Double density) {
-        this.density = density;
-    }
 
     public Boolean getTidallyLocked() {
         return isTidallyLocked;
@@ -364,215 +244,11 @@ public class Planet extends CelestialBody {
         isTidallyLocked = tidallyLocked;
     }
 
-    public String getHabitableZonePosition() {
-        return habitableZonePosition;
-    }
-
-    public void setHabitableZonePosition(String habitableZonePosition) {
-        this.habitableZonePosition = habitableZonePosition;
-    }
-
-    public Double getWaterCoveragePercent() {
-        return waterCoveragePercent;
-    }
-
-    public void setWaterCoveragePercent(Double waterCoveragePercent) {
-        this.waterCoveragePercent = waterCoveragePercent;
-    }
-
-    public String getCoreType() {
-        return coreType;
-    }
-
-    public void setCoreType(String coreType) {
-        this.coreType = coreType;
-    }
-
-    public String getGeologicalActivity() {
-        return geologicalActivity;
-    }
-
-    public void setGeologicalActivity(String geologicalActivity) {
-        this.geologicalActivity = geologicalActivity;
-    }
-
-    public Double getAgeMY() {
-        return ageMY;
-    }
-
-    public void setAgeMY(Double ageMY) {
-        this.ageMY = ageMY;
-    }
-
-    public Star getParentStar() {
-        return parentStar;
-    }
-
-    public void setParentStar(Star parentStar) {
-        this.parentStar = parentStar;
-    }
-
     public Integer getOrbitalPosition() {
         return getOrbitalOrder();
     }
 
     public void setOrbitalPosition(Integer position) {
         setOrbitalOrder(position);
-    }
-
-    public String getAtmosphereClassification() {
-        return atmosphereClassification;
-    }
-
-    public void setAtmosphereClassification(String atmosphereClassification) {
-        this.atmosphereClassification = atmosphereClassification;
-    }
-
-    public String getInteriorComposition() { return interiorComposition; }
-
-    public void setInteriorComposition(String interiorComposition) {
-        this.interiorComposition = interiorComposition;
-    }
-    public String getEnvelopeComposition() { return envelopeComposition; }
-
-    public void setEnvelopeComposition(String envelopeComposition) {
-        this.envelopeComposition = envelopeComposition;
-    }
-
-    public String getCompositionClassification() {
-        return compositionClassification;
-    }
-
-    public void setCompositionClassification(String compositionClassification) {
-        this.compositionClassification = compositionClassification;
-    }
-
-    public Double getActivityScore() { return activityScore; }
-    public void setActivityScore(Double activityScore) { this.activityScore = activityScore; }
-
-    public Boolean getHasPlateTectonics() { return hasPlateTectonics; }
-    public void setHasPlateTectonics(Boolean hasPlateTectonics) { this.hasPlateTectonics = hasPlateTectonics; }
-
-    public Integer getNumberOfTectonicPlates() { return numberOfTectonicPlates; }
-    public void setNumberOfTectonicPlates(Integer numberOfTectonicPlates) { this.numberOfTectonicPlates = numberOfTectonicPlates; }
-
-    public String getTectonicActivityLevel() { return tectonicActivityLevel; }
-    public void setTectonicActivityLevel(String tectonicActivityLevel) { this.tectonicActivityLevel = tectonicActivityLevel; }
-
-    public Boolean getHasVolcanicActivity() { return hasVolcanicActivity; }
-    public void setHasVolcanicActivity(Boolean hasVolcanicActivity) { this.hasVolcanicActivity = hasVolcanicActivity; }
-
-    public String getVolcanismType() { return volcanismType; }
-    public void setVolcanismType(String volcanismType) { this.volcanismType = volcanismType; }
-
-    public Integer getEstimatedActiveVolcanoes() { return estimatedActiveVolcanoes; }
-    public void setEstimatedActiveVolcanoes(Integer estimatedActiveVolcanoes) { this.estimatedActiveVolcanoes = estimatedActiveVolcanoes; }
-
-    public String getVolcanicIntensity() { return volcanicIntensity; }
-    public void setVolcanicIntensity(String volcanicIntensity) { this.volcanicIntensity = volcanicIntensity; }
-
-    public Double getMountainCoveragePercent() { return mountainCoveragePercent; }
-    public void setMountainCoveragePercent(Double mountainCoveragePercent) { this.mountainCoveragePercent = mountainCoveragePercent; }
-
-    public Double getAverageElevationKm() { return averageElevationKm; }
-    public void setAverageElevationKm(Double averageElevationKm) { this.averageElevationKm = averageElevationKm; }
-
-    public Double getMaxElevationKm() { return maxElevationKm; }
-    public void setMaxElevationKm(Double maxElevationKm) { this.maxElevationKm = maxElevationKm; }
-
-    public Double getMinElevationKm() { return minElevationKm; }
-    public void setMinElevationKm(Double minElevationKm) { this.minElevationKm = minElevationKm; }
-
-    public Double getTerrainRoughness() { return terrainRoughness; }
-    public void setTerrainRoughness(Double terrainRoughness) { this.terrainRoughness = terrainRoughness; }
-
-    public String getCrateringLevel() { return crateringLevel; }
-    public void setCrateringLevel(String crateringLevel) { this.crateringLevel = crateringLevel; }
-
-    public Integer getEstimatedVisibleCraters() { return estimatedVisibleCraters; }
-    public void setEstimatedVisibleCraters(Integer estimatedVisibleCraters) { this.estimatedVisibleCraters = estimatedVisibleCraters; }
-
-    public String getErosionLevel() { return erosionLevel; }
-    public void setErosionLevel(String erosionLevel) { this.erosionLevel = erosionLevel; }
-
-    public String getPrimaryErosionAgent() { return primaryErosionAgent; }
-    public void setPrimaryErosionAgent(String primaryErosionAgent) { this.primaryErosionAgent = primaryErosionAgent; }
-
-    public Boolean getHasGreatStorm() { return hasGreatStorm; }
-    public void setHasGreatStorm(Boolean hasGreatStorm) { this.hasGreatStorm = hasGreatStorm; }
-
-    public Integer getNumberOfMajorStorms() { return numberOfMajorStorms; }
-    public void setNumberOfMajorStorms(Integer numberOfMajorStorms) { this.numberOfMajorStorms = numberOfMajorStorms; }
-
-    public String getAtmosphericConvectionLevel() { return atmosphericConvectionLevel; }
-    public void setAtmosphericConvectionLevel(String atmosphericConvectionLevel) { this.atmosphericConvectionLevel = atmosphericConvectionLevel; }
-
-    public List<PlanetaryTerrainDistribution> getTerrainDistribution() {
-        return terrainDistribution;
-    }
-
-    public void setTerrainDistribution(List<PlanetaryTerrainDistribution> terrainDistribution) {
-        this.terrainDistribution = terrainDistribution;
-    }
-
-    public PlanetaryMagneticField getMagneticField() {
-        return magneticField;
-    }
-
-    public void setMagneticField(PlanetaryMagneticField magneticField) {
-        this.magneticField = magneticField;
-    }
-
-    public String getPlanetType() {
-        return planetType;
-    }
-
-    public void setPlanetType(String planetType) {
-        this.planetType = planetType;
-    }
-
-    public List<Moon> getMoons() {
-        return moons;
-    }
-
-    public void setMoons(List<Moon> moons) {
-        this.moons = moons;
-    }
-
-    public List<Ring> getRings() {
-        return rings;
-    }
-
-    public void setRings(List<Ring> rings) {
-        this.rings = rings;
-    }
-
-    public String getWaterInventory() { return waterInventory; }
-    public void setWaterInventory(String waterInventory) { this.waterInventory = waterInventory; }
-
-    public Double getLiquidWaterCoveragePercent() { return liquidWaterCoveragePercent; }
-    public void setLiquidWaterCoveragePercent(Double liquidWaterCoveragePercent) { this.liquidWaterCoveragePercent = liquidWaterCoveragePercent; }
-
-    public Double getIceCoveragePercent() { return iceCoveragePercent; }
-    public void setIceCoveragePercent(Double iceCoveragePercent) { this.iceCoveragePercent = iceCoveragePercent; }
-
-    public Boolean getHasSubsurfaceWater() { return hasSubsurfaceWater; }
-    public void setHasSubsurfaceWater(Boolean hasSubsurfaceWater) { this.hasSubsurfaceWater = hasSubsurfaceWater; }
-
-    public Double getSubsurfaceWaterDepthKm() { return subsurfaceWaterDepthKm; }
-    public void setSubsurfaceWaterDepthKm(Double subsurfaceWaterDepthKm) { this.subsurfaceWaterDepthKm = subsurfaceWaterDepthKm; }
-
-    public PlanetaryHabitability getHabitability() { return habitability; }
-    public void setHabitability(PlanetaryHabitability habitability) { this.habitability = habitability; }
-
-    public PlanetaryWeather getWeather() { return weather; }
-    public void setWeather(PlanetaryWeather weather) { this.weather = weather; }
-
-    public Integer getAdditionalMoonlets() {
-        return additionalMoonlets;
-    }
-
-    public void setAdditionalMoonlets(Integer additionalMoonlets) {
-        this.additionalMoonlets = additionalMoonlets;
     }
 }
