@@ -227,8 +227,8 @@ public class AtmosphericStructureCalculator {
                 * Math.sqrt(pressureAtm);
 
         // Rotation rate adjustment: slower rotation = sun moves slower across horizon = longer twilight
-        if (planet != null && planet.getRotationPeriodHours() != null && planet.getRotationPeriodHours() > 0) {
-            double rotationFactor = planet.getRotationPeriodHours() / CelestialBodyUtils.EARTH_ROTATION_HOURS;
+        if (planet != null && planet.getRotationPeriodHours() != null && Math.abs(planet.getRotationPeriodHours()) > 0) {
+            double rotationFactor = Math.abs(planet.getRotationPeriodHours()) / CelestialBodyUtils.EARTH_ROTATION_HOURS;
             baseTwilight *= Math.sqrt(rotationFactor); // sqrt to dampen — 4x rotation → 2x twilight
         }
 

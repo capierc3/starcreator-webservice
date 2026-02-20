@@ -55,6 +55,17 @@ public class Moon extends CelestialBody {
     @Column(name = "orbital_inclination_degrees")
     private Double orbitalInclinationDegrees; // Relative to planet's equatorial plane
 
+    // In Moon.java, add after orbitalInclinationDegrees:
+
+    @Column(name = "longitude_of_ascending_node_degrees")
+    private Double longitudeOfAscendingNodeDegrees;
+
+    @Column(name = "argument_of_periapsis_degrees")
+    private Double argumentOfPeriapsisDegrees;
+
+    @Column(name = "mean_anomaly_degrees")
+    private Double meanAnomalyDegrees;
+
     // Tidal properties
     @Column(name = "tidally_locked", nullable = false)
     private Boolean tidallyLocked = true; // Most moons are tidally locked

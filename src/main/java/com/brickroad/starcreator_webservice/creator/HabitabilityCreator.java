@@ -750,7 +750,7 @@ public class HabitabilityCreator {
         }
 
         // Day/night temperature range
-        Double rotation = planet.getRotationPeriodHours();
+        Double rotation = Math.abs(planet.getRotationPeriodHours());
         Double surfaceTemp = planet.getSurfaceTemp();
         double pressure = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 0;
         if (Boolean.TRUE.equals(locked) && surfaceTemp != null) {

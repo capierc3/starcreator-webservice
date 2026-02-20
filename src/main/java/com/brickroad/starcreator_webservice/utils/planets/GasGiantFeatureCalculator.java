@@ -22,7 +22,7 @@ public class GasGiantFeatureCalculator {
             return; // Only for gas giants
         }
 
-        double rotationHours = planet.getRotationPeriodHours() != null ? planet.getRotationPeriodHours() : 10.0;
+        double rotationHours = planet.getRotationPeriodHours() != null ? Math.abs(planet.getRotationPeriodHours()) : 10.0;
         double earthRadius = planet.getEarthRadius() != null ? planet.getEarthRadius() : 11.0;
 
         // Band structure

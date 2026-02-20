@@ -336,6 +336,9 @@ public class PlanetCreator {
         planet.setEccentricity(RandomUtils.rollRange(baseLow, baseHigh));
 
         planet.setOrbitalInclinationDegrees(RandomUtils.rollRange(0.0, 10.0));
+        planet.setLongitudeOfAscendingNodeDegrees(RandomUtils.rollRange(0.0, 360.0));
+        planet.setArgumentOfPeriapsisDegrees(RandomUtils.rollRange(0.0, 360.0));
+        planet.setMeanAnomalyDegrees(RandomUtils.rollRange(0.0, 360.0));
     }
 
     private void populateRotationProperties(Planet planet, PlanetTypeRef type, Star parentStar) {
@@ -377,9 +380,13 @@ public class PlanetCreator {
         } else {
             double tilt = RandomUtils.rollRange(0, 45);
             if (Math.random() < 0.05) {
-                tilt = RandomUtils.rollRange(45, 120);
+                tilt = RandomUtils.rollRange(45, 170);
             }
             planet.setAxialTilt(tilt);
+        }
+
+        if (planet.getAxialTilt() > 90.0) {
+            planet.setRotationPeriodHours(-Math.abs(planet.getRotationPeriodHours()));
         }
     }
 

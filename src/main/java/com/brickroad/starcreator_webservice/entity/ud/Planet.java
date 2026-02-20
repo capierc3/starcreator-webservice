@@ -35,6 +35,15 @@ public class Planet extends CelestialBody {
     @Column(name = "orbital_inclination_degrees")
     private Double orbitalInclinationDegrees;
 
+    @Column(name = "longitude_of_ascending_node_degrees")
+    private Double longitudeOfAscendingNodeDegrees;
+
+    @Column(name = "argument_of_periapsis_degrees")
+    private Double argumentOfPeriapsisDegrees;
+
+    @Column(name = "mean_anomaly_degrees")
+    private Double meanAnomalyDegrees;
+
     @Column(name = "surface_temp_kelvin")
     private Double surfaceTemp;
 

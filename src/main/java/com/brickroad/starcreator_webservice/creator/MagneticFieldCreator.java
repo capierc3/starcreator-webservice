@@ -245,8 +245,8 @@ public class MagneticFieldCreator {
         field.setVariationPattern(PlanetaryMagneticField.VariationPattern.HIGHER_AT_EQUATOR);
 
         int fluxPeriod;
-        if (planet.getRotationPeriodHours() != null && planet.getRotationPeriodHours() < 1000) {
-            fluxPeriod = (int)(planet.getRotationPeriodHours() * RandomUtils.rollRange(0.8, 1.5));
+        if (planet.getRotationPeriodHours() != null && Math.abs(planet.getRotationPeriodHours()) < 1000) {
+            fluxPeriod = (int)(Math.abs(planet.getRotationPeriodHours()) * RandomUtils.rollRange(0.8, 1.5));
         } else {
             fluxPeriod = RandomUtils.rollRange(24, 240);
         }
@@ -299,11 +299,11 @@ public class MagneticFieldCreator {
     }
 
     private double calculateRotationFactor(Planet planet) {
-        if (planet.getRotationPeriodHours() == null || planet.getRotationPeriodHours() <= 0) {
+        if (planet.getRotationPeriodHours() == null || Math.abs(planet.getRotationPeriodHours()) <= 0) {
             return 0.0;
         }
         
-        double rotationHours = planet.getRotationPeriodHours();
+        double rotationHours = Math.abs(planet.getRotationPeriodHours());
         if (rotationHours > 500) {
             return RandomUtils.rollRange(0.0, 0.1); // Essentially no field
         }
@@ -429,7 +429,7 @@ public class MagneticFieldCreator {
             int roll = RandomUtils.rollRange(1, 100);
 
             boolean fastRotation = planet.getRotationPeriodHours() != null &&
-                    planet.getRotationPeriodHours() < 12;
+                    Math.abs(planet.getRotationPeriodHours()) < 12;
 
             if (roll < 40 || fastRotation) {
                 field.setVariationPattern(PlanetaryMagneticField.VariationPattern.HIGHER_AT_BOTH_POLES);
@@ -471,7 +471,7 @@ public class MagneticFieldCreator {
         boolean isGasGiant = planet.getPlanetType() != null &&
                 (planet.getPlanetType().contains("Gas") || planet.getPlanetType().contains("Ice Giant"));
         boolean fastRotation = planet.getRotationPeriodHours() != null &&
-                planet.getRotationPeriodHours() < 10;
+                Math.abs(planet.getRotationPeriodHours()) < 10;
 
         if (veryStrong && !isYoung) {
             field.setTemporalStability(PlanetaryMagneticField.TemporalStability.STABLE);
@@ -479,7 +479,7 @@ public class MagneticFieldCreator {
             field.setTemporalStability(PlanetaryMagneticField.TemporalStability.FLUXING);
 
             int basePeriod = planet.getRotationPeriodHours() != null ?
-                    planet.getRotationPeriodHours().intValue() : 24;
+                    (int) Math.abs(planet.getRotationPeriodHours()) : 24;
             field.setFluxPeriodHours(RandomUtils.rollRange(basePeriod / 2, basePeriod * 10));
 
             double avgField = field.getSurfaceFieldMicroteslasAvg();
@@ -907,7 +907,7 @@ public class MagneticFieldCreator {
         // Ganymede: ~750 nT surface = ~0.015 Earth field
         double rotationFactor = 1.0;
         if (moon.getRotationPeriodHours() != null) {
-            double period = moon.getRotationPeriodHours();
+            double period = Math.abs(moon.getRotationPeriodHours());
             if (period < 24) rotationFactor = 1.2;
             else if (period < 100) rotationFactor = 1.0;
             else if (period < 500) rotationFactor = 0.6;
