@@ -30,6 +30,9 @@ public class MoonCreator {
     private RingCreator ringCreator;
 
     @Autowired
+    private OrbitalCreator orbitalCreator;
+
+    @Autowired
     private MagneticFieldCreator magneticFieldCreator;
 
     @Autowired
@@ -468,12 +471,10 @@ public class MoonCreator {
             }
         }
 
-        moon.setSemiMajorAxisKm(semiMajorAxisKm);
-
         // Avoid ring gaps
-        for (Ring ring : planet.getRings()) {
-            double ringInner = ring.getInnerRadiusKm();
-            double ringOuter = ring.getOuterRadiusKm();
+        for (OrbitalBand band : planet.getBands()) {
+            double ringInner = band.getInnerOrbit().getSemiMajorAxis();
+            double ringOuter = band.getOuterOrbit().getSemiMajorAxis();
             double ringMargin = (ringOuter - ringInner) * 0.1;
 
             if (semiMajorAxisKm >= (ringInner - ringMargin) &&
@@ -485,8 +486,6 @@ public class MoonCreator {
                 }
             }
         }
-
-        moon.setSemiMajorAxisKm(semiMajorAxisKm);
 
         double eccentricity;
         if ("IRREGULAR_CAPTURED".equals(moon.getMoonType())) {
@@ -524,22 +523,14 @@ public class MoonCreator {
             double scatter = RandomUtils.rollRange(0.7, 1.3);
             eccentricity = Math.max(0.0001, baseEcc * scatter);
         }
-        moon.setEccentricity(eccentricity);
-
         double inclination = "IRREGULAR_CAPTURED".equals(moon.getMoonType()) ?
                 RandomUtils.rollRange(10, 60) :
                 RandomUtils.rollRange(0, 5);
-        moon.setOrbitalInclinationDegrees(inclination);
-        moon.setLongitudeOfAscendingNodeDegrees(RandomUtils.rollRange(0.0, 360.0));
-        moon.setArgumentOfPeriapsisDegrees(RandomUtils.rollRange(0.0, 360.0));
-        moon.setMeanAnomalyDegrees(RandomUtils.rollRange(0.0, 360.0));
 
-        double periodSeconds = 2 * Math.PI * Math.sqrt(
-                Math.pow(semiMajorAxisKm * 1000, 3) /
-                        (ConversionFormulas.GRAVITATIONAL_CONSTANT * planet.getMass())
-        );
-        double periodDays = periodSeconds / (24 * 3600);
-        moon.setOrbitalPeriodDays(periodDays);
+        OrbitalElements orbit = orbitalCreator.createMoonOrbit(semiMajorAxisKm, planet.getMass(), eccentricity, inclination);
+        moon.setOrbit(orbit);
+
+        double periodDays = orbit.getOrbitalPeriodDays();
 
         moon.setTidallyLocked(!("IRREGULAR_CAPTURED".equals(moon.getMoonType()) && RandomUtils.rollRange(0.0, 1.0) < 0.7));
 
@@ -567,13 +558,7 @@ public class MoonCreator {
         double moonRocheLimit = 2.46 * moonRadiusKm * Math.cbrt(moonDensity / debrisDensity);
         moon.setRocheLimitKm(moonRocheLimit);
 
-        if (semiMajorAxisKm < rocheLimit * 1.2) {
-            moon.setOrbitStability("UNSTABLE");
-        } else if (semiMajorAxisKm > hillSphereKm * 0.4) {
-            moon.setOrbitStability("MARGINALLY_STABLE");
-        } else {
-            moon.setOrbitStability("STABLE");
-        }
+        orbitalCreator.classifyMoonStability(moon.getOrbit(), semiMajorAxisKm, rocheLimit, hillSphereKm);
     }
 
     private void generateShepherdMoonOrbit(Moon moon, Planet planet,
@@ -583,17 +568,17 @@ public class MoonCreator {
         double maxOrbit = planetRadiusKm * 5.0;
 
         double semiMajorAxisKm;
-        if (planet.getRings() != null && !planet.getRings().isEmpty()) {
-            Ring targetRing = planet.getRings().getFirst();
-            for (Ring ring : planet.getRings()) {
-                if (ring.getHasShepherdMoons() != null && ring.getHasShepherdMoons()) {
-                    targetRing = ring;
+        if (planet.getBands() != null && !planet.getBands().isEmpty()) {
+            OrbitalBand targetBand = planet.getBands().getFirst();
+            for (OrbitalBand band : planet.getBands()) {
+                if (band.getHasShepherdMoons() != null && band.getHasShepherdMoons()) {
+                    targetBand = band;
                     break;
                 }
             }
 
-            double innerEdge = targetRing.getInnerRadiusKm();
-            double outerEdge = targetRing.getOuterRadiusKm();
+            double innerEdge = targetBand.getInnerOrbit().getSemiMajorAxis();
+            double outerEdge = targetBand.getOuterOrbit().getSemiMajorAxis();
             double ringWidth = outerEdge - innerEdge;
 
             if (RandomUtils.rollRange(0.0, 1.0) < 0.5) {
@@ -607,20 +592,13 @@ public class MoonCreator {
             semiMajorAxisKm = RandomUtils.rollRange(minOrbit, maxOrbit);
         }
 
-        moon.setSemiMajorAxisKm(semiMajorAxisKm);
-
         double eccentricity = RandomUtils.rollRange(0.0001, 0.01);
-        moon.setEccentricity(eccentricity);
-
         double inclination = RandomUtils.rollRange(0.0, 2.0);
-        moon.setOrbitalInclinationDegrees(inclination);
 
-        double periodSeconds = 2 * Math.PI * Math.sqrt(
-                Math.pow(semiMajorAxisKm * 1000, 3) /
-                        (ConversionFormulas.GRAVITATIONAL_CONSTANT * planet.getMass())
-        );
-        double periodDays = periodSeconds / (24 * 3600);
-        moon.setOrbitalPeriodDays(periodDays);
+        OrbitalElements orbit = orbitalCreator.createMoonOrbit(semiMajorAxisKm, planet.getMass(), eccentricity, inclination);
+        moon.setOrbit(orbit);
+
+        double periodDays = orbit.getOrbitalPeriodDays();
 
         moon.setTidallyLocked(true);
         moon.setRotationPeriodHours(periodDays * 24);
@@ -637,11 +615,7 @@ public class MoonCreator {
         double planetRocheLimit = "ICY".equals(moon.getCompositionType()) ?
                 outerRocheLimit : innerRocheLimit;
 
-        if (moon.getSemiMajorAxisKm() < planetRocheLimit * 1.2) {
-            moon.setOrbitStability("UNSTABLE");
-        } else {
-            moon.setOrbitStability("STABLE");
-        }
+        orbitalCreator.classifyMoonStability(moon.getOrbit(), semiMajorAxisKm, planetRocheLimit, Double.MAX_VALUE);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1222,10 +1196,10 @@ public class MoonCreator {
     // ═══════════════════════════════════════════════════════════════
 
     private void createAndAttachRings(Planet planet, RingCreator.RingSystemData ringPlan, double ringMassEarth) {
-        List<Ring> rings = ringCreator.createRings(planet, ringPlan, ringMassEarth);
+        List<OrbitalBand> rings = ringCreator.createRings(planet, ringPlan, ringMassEarth);
 
         if (!rings.isEmpty()) {
-            planet.setRings(rings);
+            planet.setBands(rings);
             planet.setHasRings(true);
 
             ringCreator.linkShepherdMoons(planet);

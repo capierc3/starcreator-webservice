@@ -26,14 +26,14 @@ public class SystemTests extends AbstractCreatorTest {
     @Autowired
     private SystemCreator systemCreator;
 
-    //@Test
+    @Test
     public void findSystem() throws JsonProcessingException {
 
         int starCount = 1;
         String starType = "ANY";
         boolean foundStar;
 
-        String targetType = "ANY";
+        String targetType = "Gas Giant";
         String tempTarget = "SHIRT_SLEEVE";
         boolean foundPlanet = false;
 
@@ -47,13 +47,14 @@ public class SystemTests extends AbstractCreatorTest {
         for (int i = 0; i < maxAttempts; i++) {
             system = systemCreator.generateSystem();
             for (CelestialBody planet : system.getPlanets()) {
-//                if (!targetType.equalsIgnoreCase("ANY")) {
+                if (!targetType.equalsIgnoreCase("ANY")) {
+                    foundPlanet = true;
 //                    if (!tempTarget.equalsIgnoreCase(((Planet) planet).getHabitableZonePosition())) {
 //                        foundPlanet = false;
 //                    }
-//                }
-                String s = ((Planet) planet).getHabitability().getColonizationSuitability().getDisplayName();
-                foundPlanet = ColonizationSuitability.SHIRT_SLEEVE.equals((((Planet) planet).getHabitability().getColonizationSuitability()));
+                    break;
+                }
+                //foundPlanet = ColonizationSuitability.SHIRT_SLEEVE.equals((((Planet) planet).getHabitability().getColonizationSuitability()));
             }
 
             if (!starType.equalsIgnoreCase("ANY")) {

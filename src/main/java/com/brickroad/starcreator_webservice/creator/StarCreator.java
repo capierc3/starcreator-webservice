@@ -95,7 +95,7 @@ public class StarCreator {
         star.setRotationDays(calculateRotationPeriod(solarMass, star.getAgeMY()));
 
         star.setIsVariable(isStarVariable(type));
-        if (star.isVariable()) {
+        if (Boolean.TRUE.equals(star.getIsVariable())) {
             star.setVariabilityPeriod(RandomUtils.rollRange(0.1, 100));
         }
 

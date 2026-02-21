@@ -3,21 +3,15 @@ package com.brickroad.starcreator_webservice.controller;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
-import com.brickroad.starcreator_webservice.request.PlanetRequest;
-import com.brickroad.starcreator_webservice.request.StarRequest;
-import com.brickroad.starcreator_webservice.request.StarSystemRequest;
 import com.brickroad.starcreator_webservice.service.CreationService;
-import com.brickroad.starcreator_webservice.service.FactionService;
 import com.brickroad.starcreator_webservice.utils.visualization.OrbitalAnalysisHtmlGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.commons.io.IOUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,69 +23,88 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/v1")
+@Tag(name = "Generation", description = "Endpoints for generating random celestial bodies and star systems")
 public class CreationController {
 
     private final CreationService creationService;
+    private final ObjectMapper objectMapper;
 
-    @Autowired
-    public CreationController(CreationService creationService, FactionService factionService) {
+    public CreationController(CreationService creationService, ObjectMapper objectMapper) {
         this.creationService = creationService;
+        this.objectMapper = objectMapper;
     }
 
-    @Operation(summary = "Welcome Text", description = "Welcome text to help direct users", tags = {"help"})
-    @ApiResponse(responseCode = "200", description = "Welcome")
+    @Operation(
+        summary = "API welcome",
+        description = "Returns a welcome message with API usage information"
+    )
+    @ApiResponse(responseCode = "200", description = "Welcome text",
+        content = @Content(mediaType = "text/plain"))
     @GetMapping("/")
     String home() throws IOException {
-        return IOUtils.toString(Objects.requireNonNull(ClassLoader.getSystemResourceAsStream("static/welcome.txt")),StandardCharsets.UTF_8);
+        return IOUtils.toString(
+            Objects.requireNonNull(ClassLoader.getSystemResourceAsStream("static/welcome.txt")),
+            StandardCharsets.UTF_8
+        );
     }
 
-    @Operation(summary = "Generate planet", description = "Generates a random planet based on name and type", tags = {"Planet Creation"})
-    @ApiResponse(responseCode = "200", description = "Planet Generated", content = {@Content(mediaType = "application/json",schema = @Schema(implementation = Planet.class))})
+    @Operation(
+        summary = "Generate a random planet",
+        description = "Generates a single random planet with full physical, atmospheric, geological, and compositional properties. "
+            + "The planet is not placed in any star system."
+    )
+    @ApiResponse(responseCode = "200", description = "Planet generated successfully",
+        content = @Content(mediaType = "application/json", schema = @Schema(implementation = Planet.class)))
     @GetMapping("/planet")
-    public ResponseEntity<Planet> createPlanet(@RequestBody(required = false) PlanetRequest planetRequest) {
+    public ResponseEntity<Planet> createPlanet() {
         return ResponseEntity.ok(creationService.createPlanet());
     }
 
-    @Operation(summary = "Generate star", description = "Generates a random star based on type", tags = {"Star Creation"})
-    @ApiResponse(responseCode = "200", description = "Star Generated", content = {@Content(mediaType = "application/json",schema = @Schema(implementation = Star.class))})
+    @Operation(
+        summary = "Generate a random star",
+        description = "Generates a single random star with full physical, activity, and evolutionary properties. "
+            + "Star type is selected by weighted random from the reference data."
+    )
+    @ApiResponse(responseCode = "200", description = "Star generated successfully",
+        content = @Content(mediaType = "application/json", schema = @Schema(implementation = Star.class)))
     @GetMapping("/star")
-    public ResponseEntity<Star> createStar(@RequestBody StarRequest starRequest) {
-        return ResponseEntity.ok(creationService.createStar(starRequest));
+    public ResponseEntity<Star> createStar() {
+        return ResponseEntity.ok(creationService.createStar());
     }
 
-    @Operation(summary = "Generate Solar System", description = "Generates a random solar system", tags = {"Star Creation"})
-    @ApiResponse(responseCode = "200", description = "System Generated", content = {@Content(mediaType = "application/json",schema = @Schema(implementation = StarSystem.class))})
+    @Operation(
+        summary = "Generate a random star system",
+        description = "Generates a complete star system including stars, planets with moons and rings, asteroid belts, "
+            + "and a system classification with scout report. Systems can be single, binary, or trinary star configurations."
+    )
+    @ApiResponse(responseCode = "200", description = "Star system generated successfully",
+        content = @Content(mediaType = "application/json", schema = @Schema(implementation = StarSystem.class)))
     @GetMapping("/solarsystem")
-    public ResponseEntity<StarSystem> createSolarSystem(@RequestBody(required = false) StarSystemRequest systemRequest) {
-        return ResponseEntity.ok(creationService.createStarSystem(systemRequest));
+    public ResponseEntity<StarSystem> createSolarSystem() {
+        return ResponseEntity.ok(creationService.createStarSystem());
     }
 
-    @Operation(summary = "Generate Solar System with Orbital Analysis",
-            description = "Generates a random solar system, saves system JSON and orbital analysis HTML to target folder, and returns the HTML",
-            tags = {"Star Creation"})
+    @Operation(
+        summary = "Generate a star system with orbital analysis visualization",
+        description = "Generates a random star system and returns an HTML page with an interactive orbital simulation. "
+            + "Also saves the system JSON and HTML to the target/orbital-analysis/ folder."
+    )
     @ApiResponse(responseCode = "200", description = "HTML orbital analysis generated",
-            content = {@Content(mediaType = "text/html")})
+        content = @Content(mediaType = "text/html"))
     @GetMapping(value = "/solarsystem/orbital-analysis", produces = "text/html")
-    public ResponseEntity<String> createSolarSystemWithOrbitalAnalysis(
-            @RequestBody(required = false) StarSystemRequest systemRequest) {
+    public ResponseEntity<String> createSolarSystemWithOrbitalAnalysis() {
 
-        StarSystem system = creationService.createStarSystem(systemRequest);
+        StarSystem system = creationService.createStarSystem();
         String html = OrbitalAnalysisHtmlGenerator.generate(system);
 
-        // Save both files to target folder
+        // Save both files to target folder for local development use
         try {
             File targetFolder = new File("target/orbital-analysis/");
             if (!targetFolder.exists()) {
                 targetFolder.mkdirs();
             }
-
-            // Save system JSON
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new JavaTimeModule());
-            mapper.enable(SerializationFeature.INDENT_OUTPUT);
-            mapper.writeValue(new File(targetFolder, "system.json"), system);
-
-            // Save orbital analysis HTML
+            objectMapper.writerWithDefaultPrettyPrinter()
+                .writeValue(new File(targetFolder, "system.json"), system);
             try (FileWriter writer = new FileWriter(new File(targetFolder, "system_orbital.html"))) {
                 writer.write(html);
             }
@@ -101,8 +114,4 @@ public class CreationController {
 
         return ResponseEntity.ok(html);
     }
-
-
-
-
 }

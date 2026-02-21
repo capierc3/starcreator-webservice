@@ -5,7 +5,7 @@ import com.brickroad.starcreator_webservice.entity.ud.Person;
 import com.brickroad.starcreator_webservice.repository.FactionRepo;
 import com.brickroad.starcreator_webservice.repository.GovernmentTypeRepo;
 import com.brickroad.starcreator_webservice.utils.prompts.Prompt;
-import com.brickroad.starcreator_webservice.request.StarSystemRequest;
+
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.tarot.TarotSpread;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +39,7 @@ public class PromptService {
         prompt.setCharacters(characters);
         prompt.setMainFaction(factionRepo.getRandomFaction());
         prompt.setSecondaryFaction(factionRepo.getRandomFaction());
-        prompt.setSystem(creationService.createStarSystem(new StarSystemRequest()));
+        prompt.setSystem(creationService.createStarSystem());
         if (!prompt.getSystem().getPlanets().isEmpty()) {
             int randPlanetIdx = RandomUtils.rollRange(0,prompt.getSystem().getPlanets().size() - 1);
             prompt.setPlanet(prompt.getSystem().getPlanets().stream().skip(randPlanetIdx).findFirst().orElse(null));

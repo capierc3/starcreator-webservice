@@ -3,6 +3,7 @@ package com.brickroad.starcreator_webservice.worldBuilder;
 import com.brickroad.starcreator_webservice.creator.BeltCreator;
 import com.brickroad.starcreator_webservice.creator.SystemCreator;
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Test;
@@ -41,41 +42,41 @@ public class BeltTests extends AbstractCreatorTest {
             StarSystem system = systemCreator.generateSystem();
             assertNotNull(system, "System should not be null");
 
-            List<Belt> belts = system.getBelts();
-            if (belts != null && !belts.isEmpty()) {
+            List<OrbitalBand> bands = system.getBands();
+            if (bands != null && !bands.isEmpty()) {
                 systemsWithBelts++;
 
-                for (Belt belt : belts) {
-                    assertNotNull(belt.getBeltType(), "Belt type should not be null");
-                    assertNotNull(belt.getInnerRadiusAu(), "Inner radius should not be null");
-                    assertNotNull(belt.getOuterRadiusAu(), "Outer radius should not be null");
-                    assertTrue(belt.getOuterRadiusAu() > belt.getInnerRadiusAu(),
+                for (OrbitalBand band : bands) {
+                    assertNotNull(band.getBeltType(), "Belt type should not be null");
+                    assertNotNull(band.getInnerOrbit(), "Inner orbit should not be null");
+                    assertNotNull(band.getOuterOrbit(), "Outer orbit should not be null");
+                    assertTrue(band.getOuterOrbit().getSemiMajorAxis() > band.getInnerOrbit().getSemiMajorAxis(),
                             "Outer radius should be greater than inner radius");
 
-                    String code = belt.getBeltType().getCode();
+                    String code = band.getBeltType().getCode();
                     switch (code) {
                         case "INNER_ROCKY":
                             totalInnerBelts++;
                             break;
                         case "KUIPER":
                             totalKuiperBelts++;
-                            totalDwarfPlanetsInBelts += belt.getDwarfPlanets().size();
+                            totalDwarfPlanetsInBelts += band.getDwarfPlanets().size();
                             break;
                         case "SCATTERED_DISK":
                             totalScatteredDisks++;
                             break;
                     }
 
-                    totalAsteroids += belt.getNotableAsteroids().size();
+                    totalAsteroids += band.getNotableAsteroids().size();
 
                     // Validate asteroids
-                    for (Asteroid asteroid : belt.getNotableAsteroids()) {
+                    for (Asteroid asteroid : band.getNotableAsteroids()) {
                         assertNotNull(asteroid.getName(), "Asteroid name should not be null");
                         assertNotNull(asteroid.getAsteroidType(), "Asteroid type should not be null");
                         assertNotNull(asteroid.getSemiMajorAxisAu(), "Asteroid SMA should not be null");
-                        assertTrue(asteroid.getSemiMajorAxisAu() >= belt.getInnerRadiusAu() * 0.8,
+                        assertTrue(asteroid.getSemiMajorAxisAu() >= band.getInnerOrbit().getSemiMajorAxis() * 0.8,
                                 "Asteroid should be within belt bounds (inner)");
-                        assertTrue(asteroid.getSemiMajorAxisAu() <= belt.getOuterRadiusAu() * 1.2,
+                        assertTrue(asteroid.getSemiMajorAxisAu() <= band.getOuterOrbit().getSemiMajorAxis() * 1.2,
                                 "Asteroid should be within belt bounds (outer)");
 
                         if (asteroid.getMass() != null) {
@@ -88,14 +89,14 @@ public class BeltTests extends AbstractCreatorTest {
 
         System.out.println("=== Belt Generation Statistics ===");
         System.out.println("Systems generated: " + SYSTEM_COUNT);
-        System.out.println("Systems with belts: " + systemsWithBelts + " (" + 
+        System.out.println("Systems with belts: " + systemsWithBelts + " (" +
                 (systemsWithBelts * 100.0 / SYSTEM_COUNT) + "%)");
         System.out.println("Inner asteroid belts: " + totalInnerBelts);
         System.out.println("Kuiper belts: " + totalKuiperBelts);
         System.out.println("Scattered disks: " + totalScatteredDisks);
         System.out.println("Total notable asteroids: " + totalAsteroids);
         System.out.println("Dwarf planets in Kuiper belts: " + totalDwarfPlanetsInBelts);
-        System.out.println("Average asteroids per belt: " + 
+        System.out.println("Average asteroids per belt: " +
                 (totalAsteroids / (double) Math.max(1, totalInnerBelts + totalKuiperBelts + totalScatteredDisks)));
     }
 
@@ -107,12 +108,12 @@ public class BeltTests extends AbstractCreatorTest {
         for (int i = 0; i < maxAttempts; i++) {
             StarSystem system = systemCreator.generateSystem();
 
-            if (system.getBelts() != null && !system.getBelts().isEmpty()) {
+            if (system.getBands() != null && !system.getBands().isEmpty()) {
                 // Look for a system with both inner and Kuiper belt
-                boolean hasInner = system.getBelts().stream()
-                        .anyMatch(b -> "INNER_ROCKY".equals(b.getBeltType().getCode()));
-                boolean hasKuiper = system.getBelts().stream()
-                        .anyMatch(b -> "KUIPER".equals(b.getBeltType().getCode()));
+                boolean hasInner = system.getBands().stream()
+                        .anyMatch(b -> b.getBeltType() != null && "INNER_ROCKY".equals(b.getBeltType().getCode()));
+                boolean hasKuiper = system.getBands().stream()
+                        .anyMatch(b -> b.getBeltType() != null && "KUIPER".equals(b.getBeltType().getCode()));
 
                 if (hasInner && hasKuiper && system.getBinaryConfiguration().equals(BinaryConfiguration.P_TYPE)) {
                     foundSystem = system;
@@ -138,35 +139,35 @@ public class BeltTests extends AbstractCreatorTest {
         for (int i = 0; i < 50; i++) {
             StarSystem system = systemCreator.generateSystem();
 
-            if (system.getBelts() == null) continue;
+            if (system.getBands() == null) continue;
 
-            for (Belt belt : system.getBelts()) {
+            for (OrbitalBand band : system.getBands()) {
                 // Belt should have reasonable mass
-                if (belt.getTotalMassEarthMasses() != null) {
-                    assertTrue(belt.getTotalMassEarthMasses() > 0, 
+                if (band.getTotalMassEarthMasses() != null) {
+                    assertTrue(band.getTotalMassEarthMasses() > 0,
                             "Belt mass should be positive");
-                    assertTrue(belt.getTotalMassEarthMasses() < 1.0, 
+                    assertTrue(band.getTotalMassEarthMasses() < 1.0,
                             "Belt mass should be less than 1 Earth mass");
                 }
 
                 // Eccentricity should be reasonable
-                if (belt.getAverageEccentricity() != null) {
-                    assertTrue(belt.getAverageEccentricity() >= 0 && 
-                               belt.getAverageEccentricity() < 1,
+                if (band.getAverageEccentricity() != null) {
+                    assertTrue(band.getAverageEccentricity() >= 0 &&
+                               band.getAverageEccentricity() < 1,
                             "Eccentricity should be between 0 and 1");
                 }
 
                 // Check asteroids don't overlap with planets
-                for (Asteroid asteroid : belt.getNotableAsteroids()) {
-                    for (CelestialBody body : system.getBodies()) {
+                for (Asteroid asteroid : band.getNotableAsteroids()) {
+                    for (CelestialBody body : system.getPlanets()) {
                         if (body instanceof Planet) {
                             Planet planet = (Planet) body;
-                            if (planet.getSemiMajorAxisAU() != null && 
+                            if (planet.getSemiMajorAxisAU() != null &&
                                 asteroid.getSemiMajorAxisAu() != null) {
                                 // Asteroids shouldn't be at exact same orbit as planets
-                                double diff = Math.abs(planet.getSemiMajorAxisAU() - 
+                                double diff = Math.abs(planet.getSemiMajorAxisAU() -
                                                       asteroid.getSemiMajorAxisAu());
-                                assertTrue(diff > 0.01 || 
+                                assertTrue(diff > 0.01 ||
                                           "Dwarf Planet".equals(planet.getPlanetType()),
                                         "Asteroid shouldn't share exact orbit with major planet");
                             }
@@ -187,10 +188,10 @@ public class BeltTests extends AbstractCreatorTest {
         for (int i = 0; i < 1000; i++) {
             StarSystem system = systemCreator.generateSystem();
 
-            if (system.getBelts() == null) continue;
+            if (system.getBands() == null) continue;
 
-            for (Belt belt : system.getBelts()) {
-                for (Asteroid asteroid : belt.getNotableAsteroids()) {
+            for (OrbitalBand band : system.getBands()) {
+                for (Asteroid asteroid : band.getNotableAsteroids()) {
                     String typeName = asteroid.getAsteroidType().getName();
                     typeCount.merge(typeName, 1, Integer::sum);
                     ref.totalAsteroids++;
@@ -202,7 +203,7 @@ public class BeltTests extends AbstractCreatorTest {
         System.out.println("Total asteroids: " + ref.totalAsteroids);
         typeCount.entrySet().stream()
                 .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-                .forEach(e -> System.out.printf("%s: %d (%.1f%%)\n", 
+                .forEach(e -> System.out.printf("%s: %d (%.1f%%)\n",
                         e.getKey(), e.getValue(), e.getValue() * 100.0 / ref.totalAsteroids));
     }
 }

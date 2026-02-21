@@ -18,7 +18,7 @@ public class ProbabilityReportApiTest {
     //                                              0   1     2       3       4
     private static final int SYSTEM_AMOUNT = RANGES[2];
 
-    //@Test
+    @Test
     public void runProbabilityReportGenerator() {
         ProbabilityReportGenerator generator = new ProbabilityReportGenerator(systemCreator, SYSTEM_AMOUNT);
         generator.generate();

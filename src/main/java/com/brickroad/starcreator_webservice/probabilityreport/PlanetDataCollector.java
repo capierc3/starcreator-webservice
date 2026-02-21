@@ -224,9 +224,14 @@ public class PlanetDataCollector {
             moonDataCollector.analyzeData(moon);
         }
 
-        counts.incrementRingCount(planet.getRings().size());
-        for (Ring ring : planet.getRings()) {
-            ringDataCollector.analyzeData(ring);
+        long ringCount = planet.getBands().stream()
+                .filter(b -> b.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.RING)
+                .count();
+        counts.incrementRingCount((int) ringCount);
+        for (OrbitalBand band : planet.getBands()) {
+            if (band.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.RING) {
+                ringDataCollector.analyzeData(band);
+            }
         }
 
         analyzeWaterData(planet);

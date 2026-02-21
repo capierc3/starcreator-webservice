@@ -2,6 +2,8 @@ package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.entity.ref.RingTemplateRef;
+import com.brickroad.starcreator_webservice.enums.BandCategory;
+import com.brickroad.starcreator_webservice.enums.DistanceUnit;
 import com.brickroad.starcreator_webservice.repository.RingTemplateRefRepository;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,9 @@ public class RingCreator {
 
     @Autowired
     private RingTemplateRefRepository ringTemplateRefRepository;
+
+    @Autowired
+    private OrbitalCreator orbitalCreator;
 
     private static final double EARTH_MASS_KG = 5.972e24;
 
@@ -55,9 +60,9 @@ public class RingCreator {
         return new RingSystemData(true, ringMassBudget, selectedTemplate, shepherdMoons);
     }
 
-    public List<Ring> createRings(Planet planet, RingSystemData ringPlan,
-                                  double assignedRingMass) {
-        List<Ring> rings = new ArrayList<>();
+    public List<OrbitalBand> createRings(Planet planet, RingSystemData ringPlan,
+                                          double assignedRingMass) {
+        List<OrbitalBand> rings = new ArrayList<>();
         if (!ringPlan.shouldHaveRings || ringPlan.selectedTemplate == null) {
             return rings;
         }
@@ -164,21 +169,30 @@ public class RingCreator {
         return 2.46 * planetRadius * densityRatio;
     }
 
-    private List<Ring> generateRingsFromTemplate(Planet planet, RingTemplateRef template,
-                                                 double rocheLimit, double totalRingMassEarth) {
-        List<Ring> rings = new ArrayList<>();
+    private List<OrbitalBand> generateRingsFromTemplate(Planet planet, RingTemplateRef template,
+                                                         double rocheLimit, double totalRingMassEarth) {
+        List<OrbitalBand> rings = new ArrayList<>();
 
         int numRings = determineNumberOfRings(template);
         double totalRingMassKg = totalRingMassEarth * EARTH_MASS_KG;
         List<Double> ringMasses = distributeRingMass(totalRingMassKg, numRings);
+        double planetMassKg = planet.getEarthMass() * EARTH_MASS_KG;
 
         for (int i = 0; i < numRings; i++) {
-            Ring ring = new Ring();
+            OrbitalBand ring = new OrbitalBand();
             ring.setPlanet(planet);
-            ring.setRingType(template.getRingType());
+            ring.setBandCategory(BandCategory.RING);
+            ring.setBandType(template.getRingType());
 
             double planetRadiusKm = planet.getRadius();
-            generateRingRadii(ring, template, planetRadiusKm, rocheLimit, i, numRings);
+            double[] radii = calculateRingRadii(template, planetRadiusKm, rocheLimit, i, numRings);
+            double innerEdge = radii[0];
+            double outerEdge = radii[1];
+
+            ring.setInnerOrbit(orbitalCreator.createBandEdgeOrbit(
+                    innerEdge, DistanceUnit.KM, planetMassKg, 0.001, 0.5, "Ring inner edge"));
+            ring.setOuterOrbit(orbitalCreator.createBandEdgeOrbit(
+                    outerEdge, DistanceUnit.KM, planetMassKg, 0.001, 0.5, "Ring outer edge"));
 
             ring.setThicknessKm(RandomUtils.rollRange(
                     template.getThicknessMinKm(),
@@ -194,7 +208,7 @@ public class RingCreator {
             ring.setParticleSizeMaxM(template.getParticleSizeMaxM());
 
             ring.setCompositionType(template.getCompositionType());
-            ring.setComposition(template.getCompositionDescription());
+            ring.setPrimaryComposition(template.getCompositionDescription());
             ring.setColor(template.getColor());
 
             ring.setAlbedo(RandomUtils.rollRange(
@@ -214,7 +228,7 @@ public class RingCreator {
             ring.setOriginType(template.getOriginType());
 
             ring.setEstimatedAgeMY(calculateRingAge(planet, template));
-            ring.setMassKg(ringMasses.get(i));
+            ring.setTotalMassKg(ringMasses.get(i));
 
             ring.setFormationDescription(generateFormationDescription(template));
 
@@ -250,20 +264,22 @@ public class RingCreator {
     }
 
     public void linkShepherdMoons(Planet planet) {
-        List<Ring> rings = planet.getRings();
+        List<OrbitalBand> rings = planet.getBands().stream()
+                .filter(b -> b.getBandCategory() == BandCategory.RING)
+                .collect(Collectors.toList());
         List<Moon> moons = planet.getMoons();
 
-        if (rings == null || rings.isEmpty() || moons == null || moons.isEmpty()) {
+        if (rings.isEmpty() || moons == null || moons.isEmpty()) {
             return;
         }
 
-        for (Ring ring : rings) {
+        for (OrbitalBand ring : rings) {
             if (!ring.getHasShepherdMoons()) {
                 continue;
             }
 
-            double ringInner = ring.getInnerRadiusKm();
-            double ringOuter = ring.getOuterRadiusKm();
+            double ringInner = ring.getInnerOrbit().getSemiMajorAxis();
+            double ringOuter = ring.getOuterOrbit().getSemiMajorAxis();
             double ringWidth = ringOuter - ringInner;
 
             double searchMargin = Math.max(
@@ -309,8 +325,8 @@ public class RingCreator {
         };
     }
 
-    private void generateRingRadii(Ring ring, RingTemplateRef template, double planetRadiusKm,
-                                   double rocheLimit, int ringIndex, int totalRings) {
+    private double[] calculateRingRadii(RingTemplateRef template, double planetRadiusKm,
+                                         double rocheLimit, int ringIndex, int totalRings) {
         // Calculate available space for rings
         double minRadius = Math.max(
                 template.getInnerRadiusMinPlanetRadii() * planetRadiusKm,
@@ -318,17 +334,17 @@ public class RingCreator {
         );
         double maxRadius = template.getOuterRadiusMaxPlanetRadii() * planetRadiusKm;
 
+        double innerEdge;
+        double outerEdge;
+
         // Distribute rings across available space
         if (totalRings == 1) {
             // Single ring - use full range
-            double innerEdge = RandomUtils.rollRange(minRadius, minRadius + (maxRadius - minRadius) * 0.3);
-            double outerEdge = RandomUtils.rollRange(
+            innerEdge = RandomUtils.rollRange(minRadius, minRadius + (maxRadius - minRadius) * 0.3);
+            outerEdge = RandomUtils.rollRange(
                     innerEdge + planetRadiusKm * 0.5,  // Ensure outer > inner
                     maxRadius
             );
-
-            ring.setInnerRadiusKm(innerEdge);
-            ring.setOuterRadiusKm(outerEdge);
         } else {
             // Multiple rings - divide space
             // Rings are indexed from 0 (innermost) to totalRings-1 (outermost)
@@ -338,12 +354,12 @@ public class RingCreator {
 
             // Generate ring boundaries within this segment
             // Inner edge: in first 30% of segment
-            double innerEdge = RandomUtils.rollRange(segmentStart, segmentStart + segmentSize * 0.3);
+            innerEdge = RandomUtils.rollRange(segmentStart, segmentStart + segmentSize * 0.3);
 
             // Outer edge: between inner edge and segment end
             // Ensure minimum width of 10% of segment
             double minOuterEdge = innerEdge + segmentSize * 0.1;
-            double outerEdge = RandomUtils.rollRange(
+            outerEdge = RandomUtils.rollRange(
                     minOuterEdge,
                     segmentEnd
             );
@@ -354,13 +370,13 @@ public class RingCreator {
 
             //TODO Remove this if statement! outer should never be smaller than inner
             if (outerEdge <= innerEdge) {
-                ring.setInnerRadiusKm(outerEdge);
-                ring.setOuterRadiusKm(innerEdge);
-            } else {
-                ring.setInnerRadiusKm(innerEdge);
-                ring.setOuterRadiusKm(outerEdge);
+                double temp = innerEdge;
+                innerEdge = outerEdge;
+                outerEdge = temp;
             }
         }
+
+        return new double[]{innerEdge, outerEdge};
     }
 
     private String generateGapDescription() {

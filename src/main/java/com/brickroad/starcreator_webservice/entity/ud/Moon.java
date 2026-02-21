@@ -1,209 +1,208 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
 @Table(name = "moon", schema = "ud")
-@Data
-@EqualsAndHashCode(callSuper = true)
-@ToString(callSuper = true)
+@Getter
+@Setter
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "A natural satellite orbiting a planet")
 public class Moon extends CelestialBody {
 
-    // Parent relationship
+    // ── Parent Relationship ──
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "planet_id", nullable = false)
     @JsonBackReference
     private Planet planet;
 
-    // Moon classification
+    // ── Classification ──
+
     @Column(name = "moon_type", length = 50, nullable = false)
-    private String moonType; // Regular, Irregular, Captured, Shepherd, etc.
+    @Schema(description = "Moon classification type", example = "REGULAR_LARGE")
+    private String moonType;
 
     @Column(name = "formation_type", length = 50)
-    private String formationType; // CO_FORMED, CAPTURED, COLLISION_DEBRIS
+    @Schema(description = "How the moon formed", example = "CO_FORMED")
+    private String formationType;
 
-    // Physical properties
+    @Column(name = "age_my")
+    @Schema(description = "Age in millions of years")
+    private Double ageMY;
+
+    // ── Physical Properties ──
+
     @Column(name = "earth_mass")
+    @Schema(description = "Mass in Earth masses", example = "0.012")
     private Double earthMass;
 
     @Column(name = "earth_radius")
+    @Schema(description = "Radius in Earth radii", example = "0.27")
     private Double earthRadius;
 
     @Column(name = "density")
-    private Double density; // g/cm³
-
-    @Column(name = "composition_type", length = 50)
-    private String compositionType; // ICY, ROCKY, MIXED
+    @Schema(description = "Bulk density in g/cm\u00b3", example = "3.34")
+    private Double density;
 
     @Column(name = "albedo")
+    @Schema(description = "Surface albedo", example = "0.12")
     private Double albedo;
 
-    // Orbital properties (relative to parent planet)
-    @Column(name = "semi_major_axis_km")
-    private Double semiMajorAxisKm; // Distance from planet center
+    @Column(name = "composition_type", length = 50)
+    @Schema(description = "Primary composition type", example = "ROCKY")
+    private String compositionType;
 
-    @Column(name = "orbital_period_days", nullable = false)
-    private Double orbitalPeriodDays;
-
-    @Column(name = "eccentricity")
-    private Double eccentricity;
-
-    @Column(name = "orbital_inclination_degrees")
-    private Double orbitalInclinationDegrees; // Relative to planet's equatorial plane
-
-    // In Moon.java, add after orbitalInclinationDegrees:
-
-    @Column(name = "longitude_of_ascending_node_degrees")
-    private Double longitudeOfAscendingNodeDegrees;
-
-    @Column(name = "argument_of_periapsis_degrees")
-    private Double argumentOfPeriapsisDegrees;
-
-    @Column(name = "mean_anomaly_degrees")
-    private Double meanAnomalyDegrees;
-
-    // Tidal properties
-    @Column(name = "tidally_locked", nullable = false)
-    private Boolean tidallyLocked = true; // Most moons are tidally locked
-
-    @Column(name = "tidal_heating_level", length = 20)
-    private String tidalHeatingLevel; // NONE, LOW, MODERATE, HIGH, EXTREME
-
-    @Column(name = "tidal_heating_watt_per_m2")
-    private Double tidalHeatingWattPerM2;
-
-    // Rotation
-    @Column(name = "rotation_period_hours")
-    private Double rotationPeriodHours;
-
-    @Column(name = "axial_tilt")
-    private Double axialTilt; // Degrees
-
-    // Surface properties
-    @Column(name = "surface_temp")
-    private Double surfaceTemp; // Kelvin
-
-    @Column(name = "surface_gravity")
-    private Double surfaceGravity; // m/s²
-
-    @Column(name = "escape_velocity")
-    private Double escapeVelocity; // km/s
-
-    // Geological properties
-    @Column(name = "geological_activity", length = 50)
-    private String geologicalActivity; // NONE, LOW, MODERATE, HIGH
-
-    @Column(name = "has_cryovolcanism", nullable = false)
-    private Boolean hasCryovolcanism = false;
-
-    @Column(name = "has_subsurface_ocean", nullable = false)
-    private Boolean hasSubsurfaceOcean = false;
-
-    @Column(name = "ocean_depth_km")
-    private Double oceanDepthKm;
-
-    @Column(name = "ice_shell_thickness_km")
-    private Double iceShellThicknessKm;
+    // ── Orbital Properties ──
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "atmosphere_id")
-    private Atmosphere atmosphere;
+    @JoinColumn(name = "orbital_elements_id")
+    @Schema(description = "Keplerian orbital elements for this moon's orbit around its planet")
+    private OrbitalElements orbit;
 
-    @Column(name = "has_atmosphere", nullable = false)
-    private Boolean hasAtmosphere = false;
-
-    @Column(name = "surface_pressure")
-    private Double surfacePressure;
-
-    @Column(name = "atmosphere_composition", length = 500)
-    private String atmosphereComposition;
-
-    // Surface features
-    @Column(name = "cratering_level", length = 30)
-    private String crateringLevel; // MINIMAL, LIGHT, MODERATE, HEAVY, EXTREME
-
-    @Column(name = "estimated_visible_craters")
-    private Integer estimatedVisibleCraters;
-
-    @Column(name = "surface_features", columnDefinition = "TEXT")
-    private String surfaceFeatures; // JSON or comma-separated
-
-    // Ring interaction (for shepherd moons)
-    @Column(name = "is_shepherd_moon", nullable = false)
-    private Boolean isShepherdMoon = false;
-
-    @Column(name = "shepherds_ring_name", length = 50)
-    private String shepherdsRingName;
-
-    // Stability constraints
     @Column(name = "hill_sphere_radius_km")
+    @Schema(description = "Hill sphere radius in km")
     private Double hillSphereRadiusKm;
 
     @Column(name = "roche_limit_km")
+    @Schema(description = "Roche limit distance in km")
     private Double rocheLimitKm;
 
-    @Column(name = "orbit_stability", length = 20)
-    private String orbitStability; // STABLE, MARGINALLY_STABLE, UNSTABLE
+    // ── Rotation & Tidal ──
 
-    // Age
-    @Column(name = "age_my")
-    private Double ageMY;
+    @Column(name = "tidally_locked", nullable = false)
+    @JsonIgnore
+    private Boolean tidallyLocked = true;
 
-    // Detailed composition (like planets)
-    @Column(name = "interior_composition", length = 500)
-    private String interiorComposition;
+    @Column(name = "rotation_period_hours")
+    @Schema(description = "Rotation period in hours", example = "655.7")
+    private Double rotationPeriodHours;
 
-    @Column(name = "envelope_composition", length = 500)
-    private String envelopeComposition;
+    @Column(name = "axial_tilt")
+    @Schema(description = "Axial tilt in degrees", example = "6.7")
+    private Double axialTilt;
 
-    @Column(name = "composition_classification", length = 50)
-    private String compositionClassification;
+    @Column(name = "tidal_heating_level", length = 20)
+    @Schema(description = "Tidal heating intensity", example = "MODERATE")
+    private String tidalHeatingLevel;
 
-    @Column(name = "mountain_coverage_percent")
-    private Double mountainCoveragePercent;
+    @Column(name = "tidal_heating_watt_per_m2")
+    @Schema(description = "Tidal heating flux in W/m\u00b2")
+    private Double tidalHeatingWattPerM2;
 
-    @Column(name = "average_elevation_km")
-    private Double averageElevationKm;
+    // ── Surface ──
 
-    @Column(name = "max_elevation_km")
-    private Double maxElevationKm;
+    @Column(name = "surface_temp")
+    @Schema(description = "Surface temperature in Kelvin", example = "110")
+    private Double surfaceTemp;
 
-    @Column(name = "min_elevation_km")
-    private Double minElevationKm;
+    @Column(name = "surface_gravity")
+    @Schema(description = "Surface gravity in m/s\u00b2", example = "1.62")
+    private Double surfaceGravity;
 
-    @Column(name = "terrain_roughness")
-    private Double terrainRoughness;
+    @Column(name = "escape_velocity")
+    @Schema(description = "Escape velocity in km/s", example = "2.38")
+    private Double escapeVelocity;
 
-    @Column(name = "erosion_level", length = 30)
-    private String erosionLevel;
+    @Column(name = "cratering_level", length = 30)
+    @Schema(description = "Impact cratering level", example = "HEAVY")
+    private String crateringLevel;
 
-    @Column(name = "primary_erosion_agent", length = 50)
-    private String primaryErosionAgent;
+    @Column(name = "estimated_visible_craters")
+    @Schema(description = "Estimated number of major visible craters")
+    private Integer estimatedVisibleCraters;
+
+    @Column(name = "surface_features", columnDefinition = "TEXT")
+    @Schema(description = "Notable surface features")
+    private String surfaceFeatures;
+
+    // ── Geology ──
+
+    @Column(name = "geological_activity", length = 50)
+    @Schema(description = "Geological activity level", example = "LOW")
+    private String geologicalActivity;
+
+    @Column(name = "has_cryovolcanism", nullable = false)
+    @Schema(description = "Whether the moon has cryovolcanic activity")
+    private Boolean hasCryovolcanism = false;
 
     @Column(name = "volcanism_type", length = 50)
+    @Schema(description = "Primary volcanism type")
     private String volcanismType;
 
     @Column(name = "volcanic_intensity", length = 30)
+    @Schema(description = "Volcanic activity intensity")
     private String volcanicIntensity;
 
     @Column(name = "estimated_active_volcanoes")
+    @Schema(description = "Estimated number of active volcanoes")
     private Integer estimatedActiveVolcanoes;
 
+    // ── Terrain ──
+
+    @Column(name = "mountain_coverage_percent")
+    @Schema(description = "Mountain coverage percentage")
+    private Double mountainCoveragePercent;
+
+    @Column(name = "average_elevation_km")
+    @Schema(description = "Average surface elevation in km")
+    private Double averageElevationKm;
+
+    @Column(name = "max_elevation_km")
+    @Schema(description = "Maximum elevation in km")
+    private Double maxElevationKm;
+
+    @Column(name = "min_elevation_km")
+    @Schema(description = "Minimum elevation in km")
+    private Double minElevationKm;
+
+    @Column(name = "terrain_roughness")
+    @Schema(description = "Terrain roughness index")
+    private Double terrainRoughness;
+
+    @Column(name = "erosion_level", length = 30)
+    @Schema(description = "Surface erosion level")
+    private String erosionLevel;
+
+    @Column(name = "primary_erosion_agent", length = 50)
+    @Schema(description = "Primary erosion agent")
+    private String primaryErosionAgent;
+
+    // ── Water & Ocean ──
+
+    @Column(name = "has_subsurface_ocean", nullable = false)
+    @Schema(description = "Whether the moon has a subsurface liquid water ocean")
+    private Boolean hasSubsurfaceOcean = false;
+
+    @Column(name = "ocean_depth_km")
+    @Schema(description = "Depth of subsurface ocean in km")
+    private Double oceanDepthKm;
+
+    @Column(name = "ice_shell_thickness_km")
+    @Schema(description = "Thickness of ice shell above subsurface ocean in km")
+    private Double iceShellThicknessKm;
+
     @Column(name = "water_inventory", length = 30)
+    @Schema(description = "Relative water inventory")
     private String waterInventory;
 
+    @Column(name = "water_coverage_percent")
+    @Schema(description = "Water coverage percentage")
+    private Double waterCoveragePercent;
+
     @Column(name = "liquid_water_coverage_percent")
+    @Schema(description = "Liquid water coverage percentage")
     private Double liquidWaterCoveragePercent;
 
     @Column(name = "ice_coverage_percent")
+    @Schema(description = "Ice coverage percentage")
     private Double iceCoveragePercent;
-
-    @Column(name = "water_coverage_percent")
-    private Double waterCoveragePercent;
 
     @Column(name = "has_subsurface_water")
     private Boolean hasSubsurfaceWater = false;
@@ -211,18 +210,108 @@ public class Moon extends CelestialBody {
     @Column(name = "subsurface_water_depth_km")
     private Double subsurfaceWaterDepthKm;
 
+    // ── Atmosphere ──
+
+    @Column(name = "has_atmosphere", nullable = false)
+    @Schema(description = "Whether the moon has a significant atmosphere")
+    private Boolean hasAtmosphere = false;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "atmosphere_id")
+    @Schema(description = "Detailed atmosphere data")
+    private Atmosphere atmosphere;
+
+    @Column(name = "surface_pressure")
+    @Schema(description = "Surface atmospheric pressure in atm")
+    private Double surfacePressure;
+
+    @Column(name = "atmosphere_composition", length = 500)
+    @Schema(description = "Atmosphere composition summary")
+    private String atmosphereComposition;
+
+    // ── Composition ──
+
+    @Column(name = "interior_composition", length = 500)
+    @Schema(description = "Interior composition breakdown")
+    private String interiorComposition;
+
+    @Column(name = "envelope_composition", length = 500)
+    @Schema(description = "Surface/envelope composition breakdown")
+    private String envelopeComposition;
+
+    @Column(name = "composition_classification", length = 50)
+    @Schema(description = "Composition classification")
+    private String compositionClassification;
+
+    // ── Ring Interaction ──
+
+    @Column(name = "is_shepherd_moon", nullable = false)
+    @JsonIgnore
+    private Boolean isShepherdMoon = false;
+
+    @Column(name = "shepherds_ring_name", length = 50)
+    @Schema(description = "Name of the ring this moon shepherds, if applicable")
+    private String shepherdsRingName;
+
+    // ── Computed Properties (not persisted) ──
+
     @Transient
     @JsonProperty("magneticField")
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "Magnetic field properties")
     private PlanetaryMagneticField magneticField;
 
     @Transient
     @JsonProperty("habitability")
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "Habitability assessment")
     private PlanetaryHabitability habitability;
 
     @Transient
     @JsonProperty("weather")
-    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "Weather and climate data")
     private PlanetaryWeather weather;
+
+    // ── JSON Accessors ──
+
+    @JsonProperty("tidallyLocked")
+    @Schema(description = "Whether the moon is tidally locked to its planet", example = "true")
+    public Boolean getTidallyLocked() {
+        return tidallyLocked;
+    }
+
+    public void setTidallyLocked(Boolean tidallyLocked) {
+        this.tidallyLocked = tidallyLocked;
+    }
+
+    @JsonProperty("shepherdMoon")
+    @Schema(description = "Whether this moon acts as a shepherd for a ring")
+    public Boolean getShepherdMoon() {
+        return isShepherdMoon;
+    }
+
+    // ── Orbital Convenience Getters (delegate to orbit object) ──
+
+    @JsonIgnore
+    public Double getSemiMajorAxisKm() {
+        return orbit != null ? orbit.getSemiMajorAxis() : null;
+    }
+
+    @JsonIgnore
+    public Double getOrbitalPeriodDays() {
+        return orbit != null ? orbit.getOrbitalPeriodDays() : null;
+    }
+
+    @JsonIgnore
+    public Double getEccentricity() {
+        return orbit != null ? orbit.getEccentricity() : null;
+    }
+
+    @JsonIgnore
+    public Double getOrbitalInclinationDegrees() {
+        return orbit != null ? orbit.getInclinationDegrees() : null;
+    }
+
+    @JsonIgnore
+    public String getOrbitStability() {
+        return orbit != null ? orbit.getOrbitStability() : null;
+    }
 }

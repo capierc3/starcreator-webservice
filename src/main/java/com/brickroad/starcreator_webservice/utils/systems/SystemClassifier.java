@@ -79,7 +79,7 @@ public class SystemClassifier {
         inv.isMultiStar = inv.starCount > 1;
 
         // Planets
-        for (CelestialBody body : system.getBodies()) {
+        for (CelestialBody body : system.getPlanets()) {
             if (!(body instanceof Planet planet)) continue;
 
             inv.totalPlanets++;
@@ -166,7 +166,7 @@ public class SystemClassifier {
             }
 
             // Rings
-            if (planet.getRings() != null && !planet.getRings().isEmpty()) {
+            if (planet.getBands() != null && !planet.getBands().isEmpty()) {
                 inv.ringedPlanetCount++;
             }
 
@@ -176,8 +176,8 @@ public class SystemClassifier {
         }
 
         // Belts
-        if (system.getBelts() != null) {
-            for (Belt belt : system.getBelts()) {
+        if (system.getBands() != null) {
+            for (OrbitalBand belt : system.getBands()) {
                 inv.beltCount++;
                 String beltType = belt.getBeltType() != null ? belt.getBeltType().getName() : "";
                 String beltTypeLower = beltType.toLowerCase();

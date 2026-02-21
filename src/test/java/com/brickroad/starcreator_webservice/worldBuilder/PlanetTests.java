@@ -138,7 +138,7 @@ public class PlanetTests extends AbstractCreatorTest {
             StarSystem system = systemCreator.generateSystem();
             for (CelestialBody planet : system.getPlanets()) {
                 Planet capturedPlanet = (Planet) planet;
-                if (!capturedPlanet.getRings().isEmpty()) capturedPlanets.add(capturedPlanet);
+                if (!capturedPlanet.getBands().isEmpty()) capturedPlanets.add(capturedPlanet);
             }
             if (i % 100 == 0) System.out.println("Systems created " + (i));
         }
@@ -148,7 +148,7 @@ public class PlanetTests extends AbstractCreatorTest {
         System.out.println("------------------------------------------------------------");
         Map<Integer, Integer> ringCounts = new HashMap<>();
         for (Planet planet : capturedPlanets) {
-            ringCounts.put(planet.getRings().size(), ringCounts.getOrDefault(planet.getRings().size(), 0) + 1);
+            ringCounts.put(planet.getBands().size(), ringCounts.getOrDefault(planet.getBands().size(), 0) + 1);
         }
         for (int ringCount : ringCounts.keySet()) {
             System.out.println("Rings " + ringCount + ": " + ringCounts.get(ringCount) + " (" + (ringCounts.get(ringCount) * 100.0) / capturedPlanets.size() + "%)");

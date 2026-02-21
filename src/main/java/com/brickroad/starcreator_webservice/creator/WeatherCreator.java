@@ -147,13 +147,15 @@ public class WeatherCreator {
         proxy.setRotationPeriodHours(moon.getRotationPeriodHours());
         proxy.setAxialTilt(moon.getAxialTilt());
         proxy.setTidallyLocked(moon.getTidallyLocked());
-        proxy.setEccentricity(moon.getEccentricity());
 
-        // Use parent planet's orbital distance for stellar flux calculations
+        // Build a proxy orbit for weather calculations
+        OrbitalElements proxyOrbit = new OrbitalElements();
+        proxyOrbit.setEccentricity(moon.getEccentricity());
         if (parentPlanet != null) {
-            proxy.setSemiMajorAxisAU(parentPlanet.getSemiMajorAxisAU());
-            proxy.setOrbitalPeriodDays(parentPlanet.getOrbitalPeriodDays());
+            proxyOrbit.setSemiMajorAxis(parentPlanet.getSemiMajorAxisAU());
+            proxyOrbit.setOrbitalPeriodDays(parentPlanet.getOrbitalPeriodDays());
         }
+        proxy.setOrbit(proxyOrbit);
 
         // Surface water/ice properties
         proxy.setWaterCoveragePercent(moon.getWaterCoveragePercent());

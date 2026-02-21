@@ -55,9 +55,9 @@ public class ProbabilityReportGenerator {
                 planetData.analyzeData((Planet) planet, counts);
             }
 
-            counts.incrementBeltCount(system.getBelts().size());
-            for (Belt belt : system.getBelts()) {
-                beltData.analyzeData(belt, counts);
+            counts.incrementBeltCount(system.getBands().size());
+            for (OrbitalBand band : system.getBands()) {
+                beltData.analyzeData(band, counts);
             }
 
             stabilityData.analyzeSystem(system);

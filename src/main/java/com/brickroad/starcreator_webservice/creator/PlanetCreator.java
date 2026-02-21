@@ -55,6 +55,9 @@ public class PlanetCreator {
     @Autowired
     private StarTypeRefRepository starTypeRefRepository;
 
+    @Autowired
+    private OrbitalCreator orbitalCreator;
+
     private List<StarTypeRef> cachedStarTypes;
 
     private List<PlanetTypeRef> cachedPlanetTypes;
@@ -96,8 +99,7 @@ public class PlanetCreator {
         if (parentStar != null) {
             populateOrbitalParameters(planet, parentStar, distanceAU, orbitalPosition, previousPlanet);
         } else {
-            planet.setSemiMajorAxisAU(distanceAU);
-            planet.setOrbitalPeriodDays(calculateOrbitalPeriod(distanceAU, 1.0));
+            planet.setOrbit(orbitalCreator.createPlanetOrbit(distanceAU, 1.0, 0.0, 0.0));
         }
 
         populatePlanet(planet, type, earthMass, earthRadius, parentStar);
@@ -218,11 +220,13 @@ public class PlanetCreator {
         planet.setSurfaceGravity(calculateSurfaceGravity(planet.getMass(), planet.getRadius()));
         planet.setEscapeVelocity(calculateEscapeVelocity(planet.getMass(), planet.getRadius()));
 
-        if (planet.getEccentricity() == null) {
-            planet.setEccentricity(RandomUtils.rollRange(0.0, 0.1));
-        }
-        if (planet.getOrbitalInclinationDegrees() == null) {
-            planet.setOrbitalInclinationDegrees(RandomUtils.rollRange(0.0, 15.0));
+        if (planet.getOrbit() != null) {
+            if (planet.getEccentricity() == null) {
+                planet.getOrbit().setEccentricity(RandomUtils.rollRange(0.0, 0.1));
+            }
+            if (planet.getOrbitalInclinationDegrees() == null) {
+                planet.getOrbit().setInclinationDegrees(RandomUtils.rollRange(0.0, 15.0));
+            }
         }
 
         populateRotationProperties(planet, type, parentStar);
@@ -280,10 +284,6 @@ public class PlanetCreator {
                                            int position, Planet previousPlanet) {
         planet.setParentStar(star);
         planet.setOrbitalPosition(position);
-        planet.setSemiMajorAxisAU(distanceAU);
-
-        double orbitalPeriod = calculateOrbitalPeriod(distanceAU, star.getSolarMass());
-        planet.setOrbitalPeriodDays(orbitalPeriod);
 
         // --- Eccentricity: constrained by neighbor clearance ---
         double maxEcc = 0.15; // universal ceiling
@@ -333,12 +333,11 @@ public class PlanetCreator {
             baseHigh = Math.min(baseHigh, 0.04);
         }
 
-        planet.setEccentricity(RandomUtils.rollRange(baseLow, baseHigh));
+        double eccentricity = RandomUtils.rollRange(baseLow, baseHigh);
+        double inclination = RandomUtils.rollRange(0.0, 10.0);
 
-        planet.setOrbitalInclinationDegrees(RandomUtils.rollRange(0.0, 10.0));
-        planet.setLongitudeOfAscendingNodeDegrees(RandomUtils.rollRange(0.0, 360.0));
-        planet.setArgumentOfPeriapsisDegrees(RandomUtils.rollRange(0.0, 360.0));
-        planet.setMeanAnomalyDegrees(RandomUtils.rollRange(0.0, 360.0));
+        OrbitalElements orbit = orbitalCreator.createPlanetOrbit(distanceAU, star.getSolarMass(), eccentricity, inclination);
+        planet.setOrbit(orbit);
     }
 
     private void populateRotationProperties(Planet planet, PlanetTypeRef type, Star parentStar) {
@@ -542,14 +541,6 @@ public class PlanetCreator {
         double radiusM = radiusKm * 1000;
         double velocityMS = Math.sqrt((2 * GRAVITATIONAL_CONSTANT * massKg) / radiusM);
         return velocityMS / 1000.0;
-    }
-
-    private double calculateOrbitalPeriod(double semiMajorAxisAU, double starMassSolar) {
-        // Kepler's Third Law: T^2 = (4π^2 / GM) * a^3
-        // Simplified for solar masses and AU: T (years) = sqrt(a^3 / M)
-
-        double periodYears = Math.sqrt(Math.pow(semiMajorAxisAU, 3) / starMassSolar);
-        return periodYears * 365.25; // Convert to days
     }
 
     private double calculateFrostLine(Star star) {
@@ -854,7 +845,7 @@ public class PlanetCreator {
         if (planets.size() < 2 || parentStar == null) {
             // Single planet or orphan — always stable
             if (planets.size() == 1) {
-                planets.getFirst().setOrbitStability("STABLE");
+                orbitalCreator.setStability(planets.getFirst().getOrbit(), "STABLE", null, null);
             }
             return;
         }
@@ -903,9 +894,7 @@ public class PlanetCreator {
                 }
             }
 
-            planet.setOrbitStability(worstClassification);
-            planet.setOrbitStabilityTimescaleMy(worstTimescale);
-            planet.setOrbitCrossingNeighbor(
+            orbitalCreator.setStability(planet.getOrbit(), worstClassification, worstTimescale,
                     "STABLE".equals(worstClassification) ? null : worstNeighbor);
         }
     }

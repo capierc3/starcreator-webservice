@@ -67,8 +67,8 @@ public class SystemCreator {
         List<CelestialBody> planets = generatePlanetsForSystem(system, stars, config);
         system.setPlanets(planets);
 
-        List<Belt> belts = beltCreator.createBelts(system, primary);
-        system.setBelts(belts);
+        List<OrbitalBand> bands = beltCreator.createBelts(system, primary);
+        system.setBands(bands);
 
         SystemClassification classification = systemClassifier.classify(system);
         system.setClassification(classification);
@@ -77,7 +77,7 @@ public class SystemCreator {
         system.setName(sector.getName() + "-" + Integer.toString(RandomUtils.rollRange(0,46_655), Character.MAX_RADIX).toUpperCase());
         assignStarNames(stars, system.getName());
         assignPlanetNames(planets);
-        assignBeltNames(system.getBelts(), system.getName());
+        assignBandNames(system.getBands(), system.getName());
 
         return system;
     }
@@ -108,8 +108,8 @@ public class SystemCreator {
                     for (int i = 0; i < planet.getMoons().size(); i++) {
                         planet.getMoons().get(i).setName(planet.getName() + " " + numberToRoman((i + 1)));
                     }
-                    for (int i = 0; i < planet.getRings().size(); i++) {
-                        planet.getRings().get(i).setName(planet.getName() + " Ring " + (char) ('A' + i));
+                    for (int i = 0; i < planet.getBands().size(); i++) {
+                        planet.getBands().get(i).setName(planet.getName() + " Ring " + (char) ('A' + i));
                     }
                 } else {
                     planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
@@ -118,23 +118,25 @@ public class SystemCreator {
         }
     }
 
-    private void assignBeltNames(List<Belt> belts, String systemName) {
-        for (Belt belt : belts) {
-            belt.setName(switch (belt.getBeltType().getCode()) {
-                case "INNER_ROCKY" -> systemName + " IB-01";
-                case "OUTER_ROCKY" -> systemName + " OB-01";
-                case "KUIPER" -> systemName + " KB-01";
-                case "SCATTERED_DISK" -> systemName + " SD-01";
-                default -> "UB-01";
-            });
-            generateAsteroidNames(belt);
+    private void assignBandNames(List<OrbitalBand> bands, String systemName) {
+        for (OrbitalBand band : bands) {
+            if (band.getBeltType() != null) {
+                band.setName(switch (band.getBeltType().getCode()) {
+                    case "INNER_ROCKY" -> systemName + " IB-01";
+                    case "OUTER_ROCKY" -> systemName + " OB-01";
+                    case "KUIPER" -> systemName + " KB-01";
+                    case "SCATTERED_DISK" -> systemName + " SD-01";
+                    default -> "UB-01";
+                });
+            }
+            generateAsteroidNames(band);
         }
     }
 
-    private void generateAsteroidNames(Belt belt) {
-        String baseName = belt.getName();
-        for (int i = 0; i < belt.getNotableAsteroids().size(); i++) {
-            belt.getNotableAsteroids().get(i).setName(baseName + " AST-" + String.format("%04d", i + 1));
+    private void generateAsteroidNames(OrbitalBand band) {
+        String baseName = band.getName();
+        for (int i = 0; i < band.getNotableAsteroids().size(); i++) {
+            band.getNotableAsteroids().get(i).setName(baseName + " AST-" + String.format("%04d", i + 1));
         }
     }
 

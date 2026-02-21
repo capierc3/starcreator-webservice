@@ -6,9 +6,6 @@ import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.creator.StarCreator;
-import com.brickroad.starcreator_webservice.request.StarRequest;
-import com.brickroad.starcreator_webservice.request.StarSystemRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,20 +13,21 @@ import java.util.List;
 @Service
 public class CreationService {
 
-    @Autowired
-    private StarCreator starCreator;
+    private final StarCreator starCreator;
+    private final SystemCreator systemCreator;
+    private final PlanetCreator planetCreator;
 
-    @Autowired
-    private SystemCreator systemCreator;
+    public CreationService(StarCreator starCreator, SystemCreator systemCreator, PlanetCreator planetCreator) {
+        this.starCreator = starCreator;
+        this.systemCreator = systemCreator;
+        this.planetCreator = planetCreator;
+    }
 
-    @Autowired
-    private PlanetCreator planetCreator;
-
-    public Star createStar(StarRequest input) {
+    public Star createStar() {
         return starCreator.generateStar();
     }
 
-    public StarSystem createStarSystem(StarSystemRequest systemRequest) {
+    public StarSystem createStarSystem() {
         return systemCreator.generateSystem();
     }
 
@@ -40,5 +38,4 @@ public class CreationService {
     public List<Planet> createPlanetsForStar(Star star) {
         return planetCreator.generatePlanetarySystem(star);
     }
-
 }
