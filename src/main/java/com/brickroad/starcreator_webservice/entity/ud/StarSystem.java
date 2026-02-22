@@ -48,11 +48,10 @@ public class StarSystem {
     @Schema(description = "Stars in this system")
     private Set<Star> stars = new HashSet<>();
 
-    @OneToMany(mappedBy = "system", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @Transient
     @JsonProperty("planets")
     @Schema(description = "Planets orbiting within this system")
-    private List<CelestialBody> planets = new ArrayList<>();
+    private List<Planet> planets = new ArrayList<>();
 
     @OneToMany(mappedBy = "starSystem", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference("system-bands")
@@ -143,7 +142,7 @@ public class StarSystem {
 
     // ── Convenience methods ──
 
-    public void setPlanets(List<CelestialBody> planets) {
+    public void setPlanets(List<Planet> planets) {
         this.planets = planets;
     }
 

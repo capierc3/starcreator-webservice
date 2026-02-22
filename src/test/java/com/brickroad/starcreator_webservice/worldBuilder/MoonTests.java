@@ -1,7 +1,6 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
 import com.brickroad.starcreator_webservice.creator.SystemCreator;
-import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
 import com.brickroad.starcreator_webservice.entity.ud.Moon;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
@@ -40,9 +39,9 @@ public class MoonTests extends AbstractCreatorTest {
             System.out.println("System Created... Getting Moons");
             System.out.println("-------------------------------");
             Planet biggestMoonSystem = null;
-            for (CelestialBody planet : system.getPlanets()) {
-                if (biggestMoonSystem == null || biggestMoonSystem.getMoons().size() < ((Planet) planet).getMoons().size()) {
-                    biggestMoonSystem = (Planet) planet;
+            for (Planet planet : system.getPlanets()) {
+                if (biggestMoonSystem == null || biggestMoonSystem.getMoons().size() < planet.getMoons().size()) {
+                    biggestMoonSystem = planet;
                 }
             }
 
@@ -74,9 +73,9 @@ public class MoonTests extends AbstractCreatorTest {
             StarSystem system = systemCreator.generateSystem();
             assertNotNull(system, "Failed to generate matching system");
 
-            for (CelestialBody body : system.getPlanets()) {
-                moonCount += ((Planet) body).getMoons().size();
-                for (Moon moon : ((Planet) body).getMoons()) {
+            for (Planet planet : system.getPlanets()) {
+                moonCount += planet.getMoons().size();
+                for (Moon moon : planet.getMoons()) {
                     switch (moon.getGeologicalActivity()) {
                         case "LOW":
                             lowCount++;

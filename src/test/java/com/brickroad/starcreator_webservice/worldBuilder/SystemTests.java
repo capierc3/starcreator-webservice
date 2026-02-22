@@ -46,7 +46,7 @@ public class SystemTests extends AbstractCreatorTest {
 
         for (int i = 0; i < maxAttempts; i++) {
             system = systemCreator.generateSystem();
-            for (CelestialBody planet : system.getPlanets()) {
+            for (Planet planet : system.getPlanets()) {
                 if (!targetType.equalsIgnoreCase("ANY")) {
                     foundPlanet = true;
 //                    if (!tempTarget.equalsIgnoreCase(((Planet) planet).getHabitableZonePosition())) {

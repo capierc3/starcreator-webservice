@@ -1,11 +1,16 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
 
 @Setter
 @Getter
@@ -13,7 +18,22 @@ import lombok.Setter;
 @Table(name = "star", schema = "ud")
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "A star within a star system")
-public class Star extends CelestialBody {
+public class Star {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonIgnore
+    private Long id;
+
+    @Schema(description = "Designation of this star", example = "SCS-V01-8RQ A")
+    private String name;
+
+    // ── System Relationship ──
+
+    @ManyToOne
+    @JoinColumn(name = "system_id")
+    @JsonBackReference
+    private StarSystem system;
 
     // ── Identity & Classification ──
 
@@ -37,19 +57,21 @@ public class Star extends CelestialBody {
         TERTIARY
     }
 
-    // ── Physical Properties ──
+    // ── Physical Properties (extracted to PhysicalProperties entity) ──
 
-    @Schema(description = "Mass in solar masses (1.0 = Sun)", example = "0.37")
-    private double solarMass;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "physical_properties_id")
+    @Schema(description = "Physical properties including mass, radius, luminosity, and temperature")
+    private PhysicalProperties physicalProperties;
 
-    @Schema(description = "Radius in solar radii (1.0 = Sun)", example = "0.51")
-    private double solarRadius;
+    // ── Orbital Elements (for multi-star systems) ──
 
-    @Schema(description = "Luminosity in solar luminosities (1.0 = Sun)", example = "0.031")
-    private double solarLuminosity;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "orbital_elements_id")
+    @Schema(description = "Orbital elements for this star in a multi-star system")
+    private OrbitalElements orbit;
 
-    @Schema(description = "Surface temperature in Kelvin", example = "2931")
-    private double surfaceTemp;
+    // ── Composition ──
 
     @Schema(description = "Metallicity [Fe/H] relative to Sun (0.0 = solar)", example = "-0.44")
     private Double metallicity;
@@ -172,6 +194,89 @@ public class Star extends CelestialBody {
     @Schema(description = "X-ray luminosity classification", example = "MODERATE")
     private String xrayLuminosityClass;
 
+    // ── Metadata ──
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    @Schema(description = "Timestamp when this star was generated")
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "modified_at")
+    @Schema(description = "Timestamp when this star was last modified")
+    private LocalDateTime modifiedAt;
+
+    // ── Physical Properties Convenience Getters/Setters ──
+
+    private PhysicalProperties ensurePhysicalProperties() {
+        if (physicalProperties == null) physicalProperties = new PhysicalProperties();
+        return physicalProperties;
+    }
+
+    @JsonIgnore
+    public double getMass() {
+        return physicalProperties != null ? physicalProperties.getMass() : 0;
+    }
+    public void setMass(double mass) { ensurePhysicalProperties().setMass(mass); }
+
+    @JsonIgnore
+    public double getRadius() {
+        return physicalProperties != null ? physicalProperties.getRadius() : 0;
+    }
+    public void setRadius(double radius) { ensurePhysicalProperties().setRadius(radius); }
+
+    @JsonIgnore
+    public double getCircumference() {
+        return physicalProperties != null ? physicalProperties.getCircumference() : 0;
+    }
+    public void setCircumference(double circumference) { ensurePhysicalProperties().setCircumference(circumference); }
+
+    @JsonIgnore
+    public double getSolarMass() {
+        return physicalProperties != null && physicalProperties.getSolarMass() != null ? physicalProperties.getSolarMass() : 0;
+    }
+    public void setSolarMass(double solarMass) { ensurePhysicalProperties().setSolarMass(solarMass); }
+
+    @JsonIgnore
+    public double getSolarRadius() {
+        return physicalProperties != null && physicalProperties.getSolarRadius() != null ? physicalProperties.getSolarRadius() : 0;
+    }
+    public void setSolarRadius(double solarRadius) { ensurePhysicalProperties().setSolarRadius(solarRadius); }
+
+    @JsonIgnore
+    public double getSolarLuminosity() {
+        return physicalProperties != null && physicalProperties.getSolarLuminosity() != null ? physicalProperties.getSolarLuminosity() : 0;
+    }
+    public void setSolarLuminosity(double solarLuminosity) { ensurePhysicalProperties().setSolarLuminosity(solarLuminosity); }
+
+    @JsonIgnore
+    public double getSurfaceTemp() {
+        return physicalProperties != null && physicalProperties.getSurfaceTemp() != null ? physicalProperties.getSurfaceTemp() : 0;
+    }
+    public void setSurfaceTemp(double surfaceTemp) { ensurePhysicalProperties().setSurfaceTemp(surfaceTemp); }
+
+    // ── Orbital Convenience Getters/Setters ──
+
+    @JsonIgnore
+    public Double getDistanceFromStar() {
+        return orbit != null ? orbit.getDistanceFromParent() : null;
+    }
+
+    public void setDistanceFromStar(Double distance) {
+        if (orbit == null) orbit = new OrbitalElements();
+        orbit.setDistanceFromParent(distance);
+    }
+
+    @JsonIgnore
+    public Integer getOrbitalOrder() {
+        return orbit != null ? orbit.getOrbitalOrder() : null;
+    }
+
+    public void setOrbitalOrder(Integer orbitalOrder) {
+        if (orbit == null) orbit = new OrbitalElements();
+        orbit.setOrbitalOrder(orbitalOrder);
+    }
+
     // ── Derived Properties (not persisted) ──
 
     /**
@@ -181,15 +286,15 @@ public class Star extends CelestialBody {
      */
     @JsonIgnore
     public Star getCompanionStar() {
-        if (getSystem() == null || getSystem().getStars() == null) {
+        if (system == null || system.getStars() == null) {
             return null;
         }
         if (starRole == StarRole.SECONDARY) {
-            return getSystem().getStars().stream()
+            return system.getStars().stream()
                     .filter(star -> star.getStarRole() == StarRole.PRIMARY)
                     .findFirst().orElse(null);
         } else {
-            return getSystem().getStars().stream()
+            return system.getStars().stream()
                     .filter(star -> star.getStarRole() == StarRole.SECONDARY)
                     .findFirst().orElse(null);
         }

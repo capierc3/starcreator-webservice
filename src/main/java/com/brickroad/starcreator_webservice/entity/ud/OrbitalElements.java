@@ -28,7 +28,7 @@ public class OrbitalElements {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Schema(description = "Unique identifier")
+    @JsonIgnore
     private Long id;
 
     // ── Core Keplerian Elements ──
@@ -79,6 +79,16 @@ public class OrbitalElements {
     @Column(name = "orbit_crossing_neighbor", length = 100)
     @Schema(description = "Name of the neighboring body involved in orbital instability, if any")
     private String orbitCrossingNeighbor;
+
+    // ── Parent Distance & Order ──
+
+    @Column(name = "distance_from_parent")
+    @Schema(description = "Distance from parent body (planet→star in AU, moon→planet in km, star→barycenter in AU)")
+    private Double distanceFromParent;
+
+    @Column(name = "orbital_order")
+    @Schema(description = "Position in orbital sequence (1 = innermost)")
+    private Integer orbitalOrder;
 
     // ── Metadata ──
 

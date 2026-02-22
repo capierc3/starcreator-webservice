@@ -513,6 +513,7 @@ public class MoonCreator {
                 RandomUtils.rollRange(0, 5);
 
         OrbitalElements orbit = orbitalCreator.createMoonOrbit(semiMajorAxisKm, planet.getMass(), eccentricity, inclination);
+        orbit.setDistanceFromParent(semiMajorAxisKm);
         moon.setOrbit(orbit);
 
         double periodDays = orbit.getOrbitalPeriodDays();
@@ -581,6 +582,7 @@ public class MoonCreator {
         double inclination = RandomUtils.rollRange(0.0, 2.0);
 
         OrbitalElements orbit = orbitalCreator.createMoonOrbit(semiMajorAxisKm, planet.getMass(), eccentricity, inclination);
+        orbit.setDistanceFromParent(semiMajorAxisKm);
         moon.setOrbit(orbit);
 
         double periodDays = orbit.getOrbitalPeriodDays();

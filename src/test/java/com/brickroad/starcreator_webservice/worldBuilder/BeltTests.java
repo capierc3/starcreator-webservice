@@ -159,18 +159,15 @@ public class BeltTests extends AbstractCreatorTest {
 
                 // Check asteroids don't overlap with planets
                 for (Asteroid asteroid : band.getNotableAsteroids()) {
-                    for (CelestialBody body : system.getPlanets()) {
-                        if (body instanceof Planet) {
-                            Planet planet = (Planet) body;
-                            if (planet.getSemiMajorAxisAU() != null &&
-                                asteroid.getSemiMajorAxisAu() != null) {
-                                // Asteroids shouldn't be at exact same orbit as planets
-                                double diff = Math.abs(planet.getSemiMajorAxisAU() -
-                                                      asteroid.getSemiMajorAxisAu());
-                                assertTrue(diff > 0.01 ||
-                                          "Dwarf Planet".equals(planet.getPlanetType()),
-                                        "Asteroid shouldn't share exact orbit with major planet");
-                            }
+                    for (Planet planet : system.getPlanets()) {
+                        if (planet.getSemiMajorAxisAU() != null &&
+                            asteroid.getSemiMajorAxisAu() != null) {
+                            // Asteroids shouldn't be at exact same orbit as planets
+                            double diff = Math.abs(planet.getSemiMajorAxisAU() -
+                                                  asteroid.getSemiMajorAxisAu());
+                            assertTrue(diff > 0.01 ||
+                                      "Dwarf Planet".equals(planet.getPlanetType()),
+                                    "Asteroid shouldn't share exact orbit with major planet");
                         }
                     }
                 }

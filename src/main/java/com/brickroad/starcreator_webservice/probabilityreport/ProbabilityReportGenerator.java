@@ -51,8 +51,8 @@ public class ProbabilityReportGenerator {
             }
 
             counts.incrementPlanetCount(system.getPlanets().size());
-            for (CelestialBody planet : system.getPlanets()) {
-                planetData.analyzeData((Planet) planet, counts);
+            for (Planet planet : system.getPlanets()) {
+                planetData.analyzeData(planet, counts);
             }
 
             counts.incrementBeltCount(system.getBands().size());

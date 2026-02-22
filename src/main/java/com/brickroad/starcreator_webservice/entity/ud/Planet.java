@@ -5,7 +5,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,10 +18,9 @@ import java.util.List;
 @Table(name = "planet", schema = "ud")
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({
-    "name", "planetType", "habitableZonePosition",
+    "planetType", "habitableZonePosition",
     "ageMY", "parentStar",
-    "earthMass", "earthRadius", "density", "surfaceGravity", "escapeVelocity", "albedo",
-    "distanceFromStar", "orbitalOrder", "orbit",
+    "physicalProperties", "orbit",
     "rotationPeriodHours", "axialTilt", "tidallyLocked",
     "atmosphere",
     "coreType", "interiorComposition", "envelopeComposition", "compositionClassification",
@@ -29,7 +31,18 @@ import java.util.List;
     "createdAt", "modifiedAt"
 })
 @Schema(description = "A planet orbiting a star within a star system")
-public class Planet extends CelestialBody {
+public class Planet {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonIgnore
+    private Long id;
+
+    // ── Name (transient — deferred to a future naming update) ──
+
+    @Transient
+    @JsonIgnore
+    private String name;
 
     // ── Identity & Classification ──
 
@@ -52,31 +65,12 @@ public class Planet extends CelestialBody {
     @Schema(description = "Position relative to the habitable zone", example = "habitable")
     private String habitableZonePosition;
 
-    // ── Physical Properties ──
+    // ── Physical Properties (extracted to PhysicalProperties entity) ──
 
-    @Column(name = "earth_mass")
-    @Schema(description = "Mass in Earth masses (1.0 = Earth)", example = "1.2")
-    private Double earthMass;
-
-    @Column(name = "earth_radius")
-    @Schema(description = "Radius in Earth radii (1.0 = Earth)", example = "1.1")
-    private Double earthRadius;
-
-    @Column(name = "density_g_cm3")
-    @Schema(description = "Bulk density in g/cm\u00b3", example = "5.51")
-    private Double density;
-
-    @Column(name = "surface_gravity_g")
-    @Schema(description = "Surface gravity in g (1.0 = Earth)", example = "0.98")
-    private Double surfaceGravity;
-
-    @Column(name = "escape_velocity_km_s")
-    @Schema(description = "Escape velocity in km/s", example = "11.2")
-    private Double escapeVelocity;
-
-    @Column(name = "albedo")
-    @Schema(description = "Bond albedo (fraction of energy reflected)", example = "0.30")
-    private Double albedo;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "physical_properties_id")
+    @Schema(description = "Physical properties including mass, radius, density, and gravity")
+    private PhysicalProperties physicalProperties;
 
     // ── Orbital Properties ──
 
@@ -98,13 +92,6 @@ public class Planet extends CelestialBody {
     @Column(name = "is_tidally_locked")
     @JsonIgnore
     private Boolean isTidallyLocked;
-
-    // ── Surface & Temperature ──
-
-    @Column(name = "surface_temp_kelvin")
-    @Schema(description = "Equilibrium surface temperature in Kelvin", example = "288")
-    @JsonIgnore
-    private Double surfaceTemp;
 
     // ── Atmosphere (extracted to Atmosphere entity) ──
 
@@ -159,8 +146,6 @@ public class Planet extends CelestialBody {
     @Schema(description = "Atmospheric convection intensity", example = "VIGOROUS")
     private String atmosphericConvectionLevel;
 
-    // ── Magnetic Field ──
-
     // ── Moons & Bands ──
 
     @Column(name = "additional_moonlets")
@@ -184,7 +169,7 @@ public class Planet extends CelestialBody {
     @Schema(description = "Magnetic field properties")
     private PlanetaryMagneticField magneticField;
 
-    // ── Computed Properties (not persisted) ──
+    // ── Habitability & Climate ──
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "habitability_id")
@@ -195,6 +180,18 @@ public class Planet extends CelestialBody {
     @JoinColumn(name = "climate_id")
     @Schema(description = "Climate and atmospheric conditions")
     private PlanetaryClimate climate;
+
+    // ── Metadata ──
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    @Schema(description = "Timestamp when this planet was generated")
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "modified_at")
+    @Schema(description = "Timestamp when this planet was last modified")
+    private LocalDateTime modifiedAt;
 
     // ── JSON Accessors ──
 
@@ -208,17 +205,112 @@ public class Planet extends CelestialBody {
         isTidallyLocked = tidallyLocked;
     }
 
+    // ── System Convenience (navigate through parentStar) ──
+
+    @JsonIgnore
+    public StarSystem getSystem() {
+        return parentStar != null ? parentStar.getSystem() : null;
+    }
+
+    // ── Physical Properties Convenience Getters/Setters ──
+    // Delegate to physicalProperties, auto-creating if needed for setters.
+
+    private PhysicalProperties ensurePhysicalProperties() {
+        if (physicalProperties == null) physicalProperties = new PhysicalProperties();
+        return physicalProperties;
+    }
+
+    @JsonIgnore
+    public double getMass() {
+        return physicalProperties != null ? physicalProperties.getMass() : 0;
+    }
+    public void setMass(double mass) { ensurePhysicalProperties().setMass(mass); }
+
+    @JsonIgnore
+    public double getRadius() {
+        return physicalProperties != null ? physicalProperties.getRadius() : 0;
+    }
+    public void setRadius(double radius) { ensurePhysicalProperties().setRadius(radius); }
+
+    @JsonIgnore
+    public double getCircumference() {
+        return physicalProperties != null ? physicalProperties.getCircumference() : 0;
+    }
+    public void setCircumference(double circumference) { ensurePhysicalProperties().setCircumference(circumference); }
+
+    @JsonIgnore
+    public Double getEarthMass() {
+        return physicalProperties != null ? physicalProperties.getEarthMass() : null;
+    }
+    public void setEarthMass(Double earthMass) { ensurePhysicalProperties().setEarthMass(earthMass); }
+
+    @JsonIgnore
+    public Double getEarthRadius() {
+        return physicalProperties != null ? physicalProperties.getEarthRadius() : null;
+    }
+    public void setEarthRadius(Double earthRadius) { ensurePhysicalProperties().setEarthRadius(earthRadius); }
+
+    @JsonIgnore
+    public Double getDensity() {
+        return physicalProperties != null ? physicalProperties.getDensity() : null;
+    }
+    public void setDensity(Double density) { ensurePhysicalProperties().setDensity(density); }
+
+    @JsonIgnore
+    public Double getSurfaceGravity() {
+        return physicalProperties != null ? physicalProperties.getSurfaceGravity() : null;
+    }
+    public void setSurfaceGravity(Double surfaceGravity) { ensurePhysicalProperties().setSurfaceGravity(surfaceGravity); }
+
+    @JsonIgnore
+    public Double getEscapeVelocity() {
+        return physicalProperties != null ? physicalProperties.getEscapeVelocity() : null;
+    }
+    public void setEscapeVelocity(Double escapeVelocity) { ensurePhysicalProperties().setEscapeVelocity(escapeVelocity); }
+
+    @JsonIgnore
+    public Double getAlbedo() {
+        return physicalProperties != null ? physicalProperties.getAlbedo() : null;
+    }
+    public void setAlbedo(Double albedo) { ensurePhysicalProperties().setAlbedo(albedo); }
+
+    @JsonIgnore
+    public Double getSurfaceTemp() {
+        return physicalProperties != null ? physicalProperties.getSurfaceTemp() : null;
+    }
+    public void setSurfaceTemp(Double surfaceTemp) { ensurePhysicalProperties().setSurfaceTemp(surfaceTemp); }
+
+    // ── Orbital Convenience Getters (delegate to orbit object) ──
+
     @JsonIgnore
     public Integer getOrbitalPosition() {
-        return getOrbitalOrder();
+        return orbit != null ? orbit.getOrbitalOrder() : null;
     }
 
     public void setOrbitalPosition(Integer position) {
-        setOrbitalOrder(position);
+        if (orbit == null) orbit = new OrbitalElements();
+        orbit.setOrbitalOrder(position);
     }
 
-    // ── Orbital Convenience Getters (delegate to orbit object) ──
-    // These reduce churn in existing code that reads orbital properties directly.
+    @JsonIgnore
+    public Integer getOrbitalOrder() {
+        return orbit != null ? orbit.getOrbitalOrder() : null;
+    }
+
+    public void setOrbitalOrder(Integer orbitalOrder) {
+        if (orbit == null) orbit = new OrbitalElements();
+        orbit.setOrbitalOrder(orbitalOrder);
+    }
+
+    @JsonIgnore
+    public Double getDistanceFromStar() {
+        return orbit != null ? orbit.getDistanceFromParent() : null;
+    }
+
+    public void setDistanceFromStar(Double distance) {
+        if (orbit == null) orbit = new OrbitalElements();
+        orbit.setDistanceFromParent(distance);
+    }
 
     @JsonIgnore
     public Double getSemiMajorAxisAU() {

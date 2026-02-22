@@ -336,6 +336,8 @@ public class PlanetCreator {
         double inclination = RandomUtils.rollRange(0.0, 10.0);
 
         OrbitalElements orbit = orbitalCreator.createPlanetOrbit(distanceAU, star.getSolarMass(), eccentricity, inclination);
+        orbit.setDistanceFromParent(distanceAU);
+        orbit.setOrbitalOrder(position);
         planet.setOrbit(orbit);
     }
 

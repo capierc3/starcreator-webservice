@@ -64,7 +64,7 @@ public class SystemCreator {
 
         calculateHabitableZone(system, stars, config);
 
-        List<CelestialBody> planets = generatePlanetsForSystem(system, stars, config);
+        List<Planet> planets = generatePlanetsForSystem(system, stars, config);
         system.setPlanets(planets);
 
         List<OrbitalBand> bands = beltCreator.createBelts(system, primary);
@@ -97,23 +97,22 @@ public class SystemCreator {
         }
     }
 
-    private void assignPlanetNames(List<CelestialBody> planets) {
-        for (CelestialBody body : planets) {
-            if (body instanceof Planet planet) {
-                Star parentStar = planet.getParentStar();
-                String planetName = planetPOSString(planet.getOrbitalPosition());
+    private void assignPlanetNames(List<Planet> planets) {
+        for (Planet planet : planets) {
+            Star parentStar = planet.getParentStar();
 
-                if (parentStar != null && parentStar.getName() != null) {
-                    planet.setName(parentStar.getName() + " " + planetName);
-                    for (int i = 0; i < planet.getMoons().size(); i++) {
-                        planet.getMoons().get(i).setName(planet.getName() + " " + numberToRoman((i + 1)));
-                    }
-                    for (int i = 0; i < planet.getBands().size(); i++) {
-                        planet.getBands().get(i).setName(planet.getName() + " Ring " + (char) ('A' + i));
-                    }
-                } else {
-                    planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
+            if (parentStar != null && parentStar.getName() != null) {
+                Integer pos = planet.getOrbitalPosition();
+                String planetName = pos != null ? planetPOSString(pos) : "x";
+                planet.setName(parentStar.getName() + " " + planetName);
+                for (int i = 0; i < planet.getMoons().size(); i++) {
+                    planet.getMoons().get(i).setName(planet.getName() + " " + numberToRoman((i + 1)));
                 }
+                for (int i = 0; i < planet.getBands().size(); i++) {
+                    planet.getBands().get(i).setName(planet.getName() + " Ring " + (char) ('A' + i));
+                }
+            } else {
+                planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
             }
         }
     }
@@ -304,8 +303,8 @@ public class SystemCreator {
         }
     }
 
-    private List<CelestialBody> generatePlanetsForSystem(StarSystem system, Set<Star> stars, BinaryConfiguration config) {
-        List<CelestialBody> allPlanets = new ArrayList<>();
+    private List<Planet> generatePlanetsForSystem(StarSystem system, Set<Star> stars, BinaryConfiguration config) {
+        List<Planet> allPlanets = new ArrayList<>();
 
         switch (config) {
             case SINGLE:

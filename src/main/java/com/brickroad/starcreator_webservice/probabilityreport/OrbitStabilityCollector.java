@@ -247,9 +247,8 @@ public class OrbitStabilityCollector {
         Map<Star, List<Planet>> result = new LinkedHashMap<>();
         if (system.getPlanets() == null) return result;
 
-        for (CelestialBody body : system.getPlanets()) {
-            if (body instanceof Planet planet
-                    && planet.getParentStar() != null
+        for (Planet planet : system.getPlanets()) {
+            if (planet.getParentStar() != null
                     && planet.getSemiMajorAxisAU() != null) {
                 result.computeIfAbsent(planet.getParentStar(), k -> new ArrayList<>()).add(planet);
             }

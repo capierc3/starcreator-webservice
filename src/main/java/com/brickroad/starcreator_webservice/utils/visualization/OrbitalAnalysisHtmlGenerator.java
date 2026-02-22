@@ -61,13 +61,11 @@ public class OrbitalAnalysisHtmlGenerator {
         // Group planets by parent star name
         Map<String, List<Planet>> planetsByStarName = new LinkedHashMap<>();
         if (system.getPlanets() != null) {
-            for (CelestialBody body : system.getPlanets()) {
-                if (body instanceof Planet planet) {
-                    String parentName = planet.getParentStar() != null
-                            ? planet.getParentStar().getName()
-                            : (starsByName.isEmpty() ? "Unknown" : starsByName.keySet().iterator().next());
-                    planetsByStarName.computeIfAbsent(parentName, k -> new ArrayList<>()).add(planet);
-                }
+            for (Planet planet : system.getPlanets()) {
+                String parentName = planet.getParentStar() != null
+                        ? planet.getParentStar().getName()
+                        : (starsByName.isEmpty() ? "Unknown" : starsByName.keySet().iterator().next());
+                planetsByStarName.computeIfAbsent(parentName, k -> new ArrayList<>()).add(planet);
             }
         }
 

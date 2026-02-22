@@ -79,9 +79,7 @@ public class SystemClassifier {
         inv.isMultiStar = inv.starCount > 1;
 
         // Planets
-        for (CelestialBody body : system.getPlanets()) {
-            if (!(body instanceof Planet planet)) continue;
-
+        for (Planet planet : system.getPlanets()) {
             inv.totalPlanets++;
             String pType = planet.getPlanetType() != null ? planet.getPlanetType() : "";
             inv.planetTypes.add(pType);
