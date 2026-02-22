@@ -256,7 +256,8 @@ public class PlanetCreator {
 
         planet.setCoreType(type.getTypicalCoreType());
         populateCompositionProperties(planet);
-        geologyCreator.populateGeologicalProperties(planet);
+        TerrainProperties terrain = geologyCreator.createPlanetTerrain(planet);
+        planet.setTerrain(terrain);
 
         PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet, parentStar);
         planet.setMagneticField(magneticField);

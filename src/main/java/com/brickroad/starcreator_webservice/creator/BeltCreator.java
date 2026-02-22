@@ -29,6 +29,9 @@ public class BeltCreator {
     @Autowired
     private OrbitalCreator orbitalCreator;
 
+    @Autowired
+    private GeologyCreator geologyCreator;
+
     private List<BeltTypeRef> cachedBeltTypes;
     private List<AsteroidTypeRef> cachedAsteroidTypes;
 
@@ -573,12 +576,14 @@ public class BeltCreator {
         double escapeVelocity = Math.sqrt(2 * GRAVITATIONAL_CONSTANT * massKg / (radiusKm * 1000)) / 1000.0;
         asteroid.setEscapeVelocity(escapeVelocity);
 
-        asteroid.setSurfaceFeatures(type.getTypicalSurfaceFeatures());
-        asteroid.setCrateringLevel(selectCrateringLevel());
-        asteroid.setHasRegolith(diameterKm > 1.0);
-        if (Boolean.TRUE.equals(asteroid.getHasRegolith())) {
-            asteroid.setRegolithDepthM(RandomUtils.rollRange(0.1, Math.min(100, diameterKm * 0.1)));
-        }
+        String surfaceFeatures = type.getTypicalSurfaceFeatures();
+        String crateringLevel = selectCrateringLevel();
+        boolean hasRegolith = diameterKm > 1.0;
+        Double regolithDepthM = hasRegolith
+                ? RandomUtils.rollRange(0.1, Math.min(100, diameterKm * 0.1))
+                : null;
+        TerrainProperties terrain = geologyCreator.createAsteroidTerrain(surfaceFeatures, crateringLevel, hasRegolith, regolithDepthM);
+        asteroid.setTerrain(terrain);
 
         asteroid.setComposition(type.getPrimaryComposition());
 

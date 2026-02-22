@@ -149,86 +149,12 @@ public class Planet extends CelestialBody {
     @Schema(description = "Depth to subsurface water layer in km")
     private Double subsurfaceWaterDepthKm;
 
-    // ── Geology ──
+    // ── Terrain (extracted to TerrainProperties) ──
 
-    @Column(name = "geological_activity")
-    @Schema(description = "Overall geological activity level", example = "ACTIVE")
-    private String geologicalActivity;
-
-    @Column(name = "activity_score")
-    @Schema(description = "Numerical geological activity score")
-    private Double activityScore;
-
-    @Column(name = "has_plate_tectonics")
-    @Schema(description = "Whether the planet has active plate tectonics")
-    private Boolean hasPlateTectonics;
-
-    @Column(name = "number_of_tectonic_plates")
-    @Schema(description = "Number of major tectonic plates")
-    private Integer numberOfTectonicPlates;
-
-    @Column(name = "tectonic_activity_level", length = 50)
-    @Schema(description = "Tectonic activity classification", example = "MODERATE")
-    private String tectonicActivityLevel;
-
-    @Column(name = "has_volcanic_activity")
-    @Schema(description = "Whether the planet has active volcanism")
-    private Boolean hasVolcanicActivity;
-
-    @Column(name = "volcanism_type", length = 50)
-    @Schema(description = "Primary type of volcanism", example = "SILICATE")
-    private String volcanismType;
-
-    @Column(name = "estimated_active_volcanoes")
-    @Schema(description = "Estimated number of active volcanoes")
-    private Integer estimatedActiveVolcanoes;
-
-    @Column(name = "volcanic_intensity", length = 50)
-    @Schema(description = "Volcanic activity intensity", example = "MODERATE")
-    private String volcanicIntensity;
-
-    // ── Terrain ──
-
-    @Column(name = "mountain_coverage_percent")
-    @Schema(description = "Percentage of surface covered by mountains")
-    private Double mountainCoveragePercent;
-
-    @Column(name = "average_elevation_km")
-    @Schema(description = "Average surface elevation in km")
-    private Double averageElevationKm;
-
-    @Column(name = "max_elevation_km")
-    @Schema(description = "Maximum surface elevation in km")
-    private Double maxElevationKm;
-
-    @Column(name = "min_elevation_km")
-    @Schema(description = "Minimum surface elevation (deepest point) in km")
-    private Double minElevationKm;
-
-    @Column(name = "terrain_roughness")
-    @Schema(description = "Terrain roughness index")
-    private Double terrainRoughness;
-
-    @Column(name = "cratering_level", length = 50)
-    @Schema(description = "Impact cratering level", example = "MODERATE")
-    private String crateringLevel;
-
-    @Column(name = "estimated_visible_craters")
-    @Schema(description = "Estimated number of major visible impact craters")
-    private Integer estimatedVisibleCraters;
-
-    @Column(name = "erosion_level", length = 50)
-    @Schema(description = "Surface erosion level", example = "HIGH")
-    private String erosionLevel;
-
-    @Column(name = "primary_erosion_agent", length = 50)
-    @Schema(description = "Primary agent of surface erosion", example = "WATER")
-    private String primaryErosionAgent;
-
-    @OneToMany(mappedBy = "planet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JsonManagedReference
-    @Schema(description = "Terrain type distribution across the surface")
-    private List<PlanetaryTerrainDistribution> terrainDistribution = new ArrayList<>();
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "terrain_id")
+    @Schema(description = "Terrain, geology, and surface morphology data")
+    private TerrainProperties terrain;
 
     // ── Storms ──
 
@@ -348,5 +274,102 @@ public class Planet extends CelestialBody {
     @JsonIgnore
     public String getOrbitCrossingNeighbor() {
         return orbit != null ? orbit.getOrbitCrossingNeighbor() : null;
+    }
+
+    // ── Terrain Convenience Getters (delegate to terrain object) ──
+
+    @JsonIgnore
+    public String getGeologicalActivity() {
+        return terrain != null ? terrain.getGeologicalActivity() : null;
+    }
+
+    @JsonIgnore
+    public Double getActivityScore() {
+        return terrain != null ? terrain.getActivityScore() : null;
+    }
+
+    @JsonIgnore
+    public Boolean getHasPlateTectonics() {
+        return terrain != null ? terrain.getHasPlateTectonics() : null;
+    }
+
+    @JsonIgnore
+    public Integer getNumberOfTectonicPlates() {
+        return terrain != null ? terrain.getNumberOfTectonicPlates() : null;
+    }
+
+    @JsonIgnore
+    public String getTectonicActivityLevel() {
+        return terrain != null ? terrain.getTectonicActivityLevel() : null;
+    }
+
+    @JsonIgnore
+    public Boolean getHasVolcanicActivity() {
+        return terrain != null ? terrain.getHasVolcanicActivity() : null;
+    }
+
+    @JsonIgnore
+    public String getVolcanismType() {
+        return terrain != null ? terrain.getVolcanismType() : null;
+    }
+
+    @JsonIgnore
+    public Integer getEstimatedActiveVolcanoes() {
+        return terrain != null ? terrain.getEstimatedActiveVolcanoes() : null;
+    }
+
+    @JsonIgnore
+    public String getVolcanicIntensity() {
+        return terrain != null ? terrain.getVolcanicIntensity() : null;
+    }
+
+    @JsonIgnore
+    public Double getMountainCoveragePercent() {
+        return terrain != null ? terrain.getMountainCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Double getAverageElevationKm() {
+        return terrain != null ? terrain.getAverageElevationKm() : null;
+    }
+
+    @JsonIgnore
+    public Double getMaxElevationKm() {
+        return terrain != null ? terrain.getMaxElevationKm() : null;
+    }
+
+    @JsonIgnore
+    public Double getMinElevationKm() {
+        return terrain != null ? terrain.getMinElevationKm() : null;
+    }
+
+    @JsonIgnore
+    public Double getTerrainRoughness() {
+        return terrain != null ? terrain.getTerrainRoughness() : null;
+    }
+
+    @JsonIgnore
+    public String getCrateringLevel() {
+        return terrain != null ? terrain.getCrateringLevel() : null;
+    }
+
+    @JsonIgnore
+    public Integer getEstimatedVisibleCraters() {
+        return terrain != null ? terrain.getEstimatedVisibleCraters() : null;
+    }
+
+    @JsonIgnore
+    public String getErosionLevel() {
+        return terrain != null ? terrain.getErosionLevel() : null;
+    }
+
+    @JsonIgnore
+    public String getPrimaryErosionAgent() {
+        return terrain != null ? terrain.getPrimaryErosionAgent() : null;
+    }
+
+    @JsonIgnore
+    public List<TerrainDistribution> getTerrainDistribution() {
+        return terrain != null ? terrain.getTerrainDistribution() : new ArrayList<>();
     }
 }

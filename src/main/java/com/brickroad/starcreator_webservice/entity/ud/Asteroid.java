@@ -111,21 +111,12 @@ public class Asteroid {
     @Schema(description = "Escape velocity in km/s", example = "0.51")
     private Double escapeVelocity;
 
-    @Column(name = "surface_features")
-    @Schema(description = "Notable surface features")
-    private String surfaceFeatures;
+    // ── Terrain (extracted to TerrainProperties) ──
 
-    @Column(name = "cratering_level")
-    @Schema(description = "Impact cratering level", example = "HEAVY")
-    private String crateringLevel;
-
-    @Column(name = "has_regolith")
-    @Schema(description = "Whether the surface has a regolith layer")
-    private Boolean hasRegolith;
-
-    @Column(name = "regolith_depth_m")
-    @Schema(description = "Regolith depth in meters")
-    private Double regolithDepthM;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "terrain_id")
+    @Schema(description = "Terrain and surface morphology data")
+    private TerrainProperties terrain;
 
     // ── Composition ──
 
@@ -195,5 +186,27 @@ public class Asteroid {
     @JsonIgnore
     public Double getOrbitalPeriodDays() {
         return orbit != null ? orbit.getOrbitalPeriodDays() : null;
+    }
+
+    // ── Terrain Convenience Getters (delegate to terrain object) ──
+
+    @JsonIgnore
+    public String getSurfaceFeatures() {
+        return terrain != null ? terrain.getSurfaceFeatures() : null;
+    }
+
+    @JsonIgnore
+    public String getCrateringLevel() {
+        return terrain != null ? terrain.getCrateringLevel() : null;
+    }
+
+    @JsonIgnore
+    public Boolean getHasRegolith() {
+        return terrain != null ? terrain.getHasRegolith() : null;
+    }
+
+    @JsonIgnore
+    public Double getRegolithDepthM() {
+        return terrain != null ? terrain.getRegolithDepthM() : null;
     }
 }

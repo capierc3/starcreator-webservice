@@ -110,69 +110,12 @@ public class Moon extends CelestialBody {
     @Schema(description = "Escape velocity in km/s", example = "2.38")
     private Double escapeVelocity;
 
-    @Column(name = "cratering_level", length = 30)
-    @Schema(description = "Impact cratering level", example = "HEAVY")
-    private String crateringLevel;
+    // ── Terrain (extracted to TerrainProperties) ──
 
-    @Column(name = "estimated_visible_craters")
-    @Schema(description = "Estimated number of major visible craters")
-    private Integer estimatedVisibleCraters;
-
-    @Column(name = "surface_features", columnDefinition = "TEXT")
-    @Schema(description = "Notable surface features")
-    private String surfaceFeatures;
-
-    // ── Geology ──
-
-    @Column(name = "geological_activity", length = 50)
-    @Schema(description = "Geological activity level", example = "LOW")
-    private String geologicalActivity;
-
-    @Column(name = "has_cryovolcanism", nullable = false)
-    @Schema(description = "Whether the moon has cryovolcanic activity")
-    private Boolean hasCryovolcanism = false;
-
-    @Column(name = "volcanism_type", length = 50)
-    @Schema(description = "Primary volcanism type")
-    private String volcanismType;
-
-    @Column(name = "volcanic_intensity", length = 30)
-    @Schema(description = "Volcanic activity intensity")
-    private String volcanicIntensity;
-
-    @Column(name = "estimated_active_volcanoes")
-    @Schema(description = "Estimated number of active volcanoes")
-    private Integer estimatedActiveVolcanoes;
-
-    // ── Terrain ──
-
-    @Column(name = "mountain_coverage_percent")
-    @Schema(description = "Mountain coverage percentage")
-    private Double mountainCoveragePercent;
-
-    @Column(name = "average_elevation_km")
-    @Schema(description = "Average surface elevation in km")
-    private Double averageElevationKm;
-
-    @Column(name = "max_elevation_km")
-    @Schema(description = "Maximum elevation in km")
-    private Double maxElevationKm;
-
-    @Column(name = "min_elevation_km")
-    @Schema(description = "Minimum elevation in km")
-    private Double minElevationKm;
-
-    @Column(name = "terrain_roughness")
-    @Schema(description = "Terrain roughness index")
-    private Double terrainRoughness;
-
-    @Column(name = "erosion_level", length = 30)
-    @Schema(description = "Surface erosion level")
-    private String erosionLevel;
-
-    @Column(name = "primary_erosion_agent", length = 50)
-    @Schema(description = "Primary erosion agent")
-    private String primaryErosionAgent;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "terrain_id")
+    @Schema(description = "Terrain, geology, and surface morphology data")
+    private TerrainProperties terrain;
 
     // ── Water & Ocean ──
 
@@ -313,5 +256,82 @@ public class Moon extends CelestialBody {
     @JsonIgnore
     public String getOrbitStability() {
         return orbit != null ? orbit.getOrbitStability() : null;
+    }
+
+    // ── Terrain Convenience Getters (delegate to terrain object) ──
+
+    @JsonIgnore
+    public String getCrateringLevel() {
+        return terrain != null ? terrain.getCrateringLevel() : null;
+    }
+
+    @JsonIgnore
+    public Integer getEstimatedVisibleCraters() {
+        return terrain != null ? terrain.getEstimatedVisibleCraters() : null;
+    }
+
+    @JsonIgnore
+    public String getSurfaceFeatures() {
+        return terrain != null ? terrain.getSurfaceFeatures() : null;
+    }
+
+    @JsonIgnore
+    public String getGeologicalActivity() {
+        return terrain != null ? terrain.getGeologicalActivity() : null;
+    }
+
+    @JsonIgnore
+    public Boolean getHasCryovolcanism() {
+        return terrain != null ? terrain.getHasCryovolcanism() : null;
+    }
+
+    @JsonIgnore
+    public String getVolcanismType() {
+        return terrain != null ? terrain.getVolcanismType() : null;
+    }
+
+    @JsonIgnore
+    public String getVolcanicIntensity() {
+        return terrain != null ? terrain.getVolcanicIntensity() : null;
+    }
+
+    @JsonIgnore
+    public Integer getEstimatedActiveVolcanoes() {
+        return terrain != null ? terrain.getEstimatedActiveVolcanoes() : null;
+    }
+
+    @JsonIgnore
+    public Double getMountainCoveragePercent() {
+        return terrain != null ? terrain.getMountainCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Double getAverageElevationKm() {
+        return terrain != null ? terrain.getAverageElevationKm() : null;
+    }
+
+    @JsonIgnore
+    public Double getMaxElevationKm() {
+        return terrain != null ? terrain.getMaxElevationKm() : null;
+    }
+
+    @JsonIgnore
+    public Double getMinElevationKm() {
+        return terrain != null ? terrain.getMinElevationKm() : null;
+    }
+
+    @JsonIgnore
+    public Double getTerrainRoughness() {
+        return terrain != null ? terrain.getTerrainRoughness() : null;
+    }
+
+    @JsonIgnore
+    public String getErosionLevel() {
+        return terrain != null ? terrain.getErosionLevel() : null;
+    }
+
+    @JsonIgnore
+    public String getPrimaryErosionAgent() {
+        return terrain != null ? terrain.getPrimaryErosionAgent() : null;
     }
 }

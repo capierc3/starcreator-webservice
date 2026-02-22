@@ -66,7 +66,8 @@ public class OrbitalBand {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "belt_type_id")
-    @Schema(description = "Belt type reference data (belts only)")
+    @JsonIgnore
+    @Schema(hidden = true, description = "Belt type reference data (belts only) — internal use during generation")
     private BeltTypeRef beltType;
 
     // ── Orbital Boundaries ──

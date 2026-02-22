@@ -13,19 +13,18 @@ import java.time.LocalDateTime;
 @Setter
 @Getter
 @Entity
-@Table(name = "planet_terrain_distribution", schema = "ud")
-public class PlanetaryTerrainDistribution {
+@Table(name = "terrain_distribution", schema = "ud")
+public class TerrainDistribution {
 
-    // Getters and Setters
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @JsonIgnore
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "planet_id", nullable = false)
-    @JsonBackReference
-    private Planet planet;
+    @JoinColumn(name = "terrain_properties_id", nullable = false)
+    @JsonBackReference("terrain-distribution")
+    private TerrainProperties terrain;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "terrain_type_id", nullable = false)
@@ -50,11 +49,11 @@ public class PlanetaryTerrainDistribution {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    public PlanetaryTerrainDistribution() {
+    public TerrainDistribution() {
         this.createdAt = LocalDateTime.now();
     }
 
-    public PlanetaryTerrainDistribution(TerrainTypeRef terrainType, Double coveragePercent) {
+    public TerrainDistribution(TerrainTypeRef terrainType, Double coveragePercent) {
         this.terrainType = terrainType;
         this.coveragePercent = coveragePercent;
         this.createdAt = LocalDateTime.now();

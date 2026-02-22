@@ -130,7 +130,13 @@ public class MoonCreator {
         generateOrbitalProperties(moon, planet, hillSphereKm, innerRocheLimit, outerRocheLimit, previousMoon);
         calculateDerivedProperties(moon, planet, primaryStar);
         calculateTidalEffects(moon, planet);
-        determineGeologicalActivity(moon);
+        Object[] geoResult = determineGeologicalActivity(moon);
+        String geologicalActivity = (String) geoResult[0];
+        Boolean hasCryovolcanism = (Boolean) geoResult[1];
+
+        TerrainProperties terrain = geologyCreator.createMoonTerrain(moon, geologicalActivity, hasCryovolcanism);
+        moon.setTerrain(terrain);
+
         generateAtmosphere(moon);
 
         PlanetaryComposition composition = generateMoonComposition(moon);
@@ -141,7 +147,6 @@ public class MoonCreator {
         }
 
         determineSubsurfaceOcean(moon);
-        geologyCreator.generateMoonGeology(moon);
 
         double moonMass = moon.getEarthMass() != null ? moon.getEarthMass() : 0;
         if (moonMass >= 0.0005) {
@@ -787,7 +792,11 @@ public class MoonCreator {
         return baseK2Q;
     }
 
-    private void determineGeologicalActivity(Moon moon) {
+    /**
+     * Determines geological activity level and cryovolcanism, returning them as a two-element array.
+     * [0] = geologicalActivity (String), [1] = hasCryovolcanism (Boolean)
+     */
+    private Object[] determineGeologicalActivity(Moon moon) {
         Double tidalHeatingWattPerM2 = moon.getTidalHeatingWattPerM2();
 
         boolean hasSignificantTidalHeating = tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.5;
@@ -800,20 +809,25 @@ public class MoonCreator {
             activityScore += (Math.log10(tidalHeatingWattPerM2) + 3) * 3;
         }
 
+        String geologicalActivity;
+        Boolean hasCryovolcanism = false;
+
         if (activityScore > 10) {
-            moon.setGeologicalActivity("HIGH");
-            moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()));
+            geologicalActivity = "HIGH";
+            hasCryovolcanism = "ICY".equals(moon.getCompositionType());
         } else if (activityScore > 7.5) {
-            moon.setGeologicalActivity("MODERATE");
-            moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()) && RandomUtils.rollRange(0.0, 1.0) < 0.6);
+            geologicalActivity = "MODERATE";
+            hasCryovolcanism = "ICY".equals(moon.getCompositionType()) && RandomUtils.rollRange(0.0, 1.0) < 0.6;
         } else if (activityScore > 3) {
-            moon.setGeologicalActivity("LOW");
+            geologicalActivity = "LOW";
             if ("ICY".equals(moon.getCompositionType()) && tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.8) {
-                moon.setHasCryovolcanism(RandomUtils.rollRange(0.0, 1.0) < 0.3);
+                hasCryovolcanism = RandomUtils.rollRange(0.0, 1.0) < 0.3;
             }
         } else {
-            moon.setGeologicalActivity("NONE");
+            geologicalActivity = "NONE";
         }
+
+        return new Object[]{ geologicalActivity, hasCryovolcanism };
     }
 
     // ═══════════════════════════════════════════════════════════════

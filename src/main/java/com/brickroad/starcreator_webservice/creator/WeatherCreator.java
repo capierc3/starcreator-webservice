@@ -162,8 +162,10 @@ public class WeatherCreator {
         proxy.setLiquidWaterCoveragePercent(moon.getLiquidWaterCoveragePercent());
         proxy.setIceCoveragePercent(moon.getIceCoveragePercent());
 
-        // Erosion data (used by StormCalculator for dust storms)
-        proxy.setErosionLevel(moon.getErosionLevel());
+        // Terrain data (used by StormCalculator for dust storms, etc.)
+        TerrainProperties proxyTerrain = new TerrainProperties();
+        proxyTerrain.setErosionLevel(moon.getErosionLevel());
+        proxy.setTerrain(proxyTerrain);
 
         // Storm data — moons don't have these planet-level fields
         proxy.setHasGreatStorm(false);
