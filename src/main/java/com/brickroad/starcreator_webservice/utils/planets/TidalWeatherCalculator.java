@@ -21,7 +21,7 @@ public class TidalWeatherCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet, Star parentStar, StarSystem system) {
+    public void calculate(PlanetaryClimate weather, Planet planet, Star parentStar, StarSystem system) {
         String atmClass = planet.getAtmosphereClassification();
         double planetMassKg = (planet.getEarthMass() != null ? planet.getEarthMass() : 1.0) * EARTH_MASS_KG;
         double planetRadiusKm = (planet.getEarthRadius() != null ? planet.getEarthRadius() : 1.0) * EARTH_RADIUS_KM;
@@ -50,7 +50,7 @@ public class TidalWeatherCalculator {
     // MOON TIDES
     // ================================================================
 
-    private void calculateMoonTides(PlanetaryWeather weather, List<Moon> moons,
+    private void calculateMoonTides(PlanetaryClimate weather, List<Moon> moons,
                                      double planetMassKg, double planetRadiusKm) {
         // Tidal force ∝ M_moon × R_planet / d³
         // Compare to Earth-Moon system to get relative tidal range
@@ -102,7 +102,7 @@ public class TidalWeatherCalculator {
     // ATMOSPHERIC TIDES
     // ================================================================
 
-    private void calculateAtmosphericTides(PlanetaryWeather weather, Planet planet,
+    private void calculateAtmosphericTides(PlanetaryClimate weather, Planet planet,
                                             List<Moon> moons, Star parentStar) {
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
         boolean tidallyLocked = Boolean.TRUE.equals(planet.getTidallyLocked());
@@ -148,7 +148,7 @@ public class TidalWeatherCalculator {
     // BINARY STAR HEATING
     // ================================================================
 
-    private void calculateBinaryHeating(PlanetaryWeather weather, Planet planet,
+    private void calculateBinaryHeating(PlanetaryClimate weather, Planet planet,
                                          Star parentStar, StarSystem system) {
         if (system == null) return;
 
@@ -193,7 +193,7 @@ public class TidalWeatherCalculator {
     // MOON-PERSPECTIVE TIDAL EFFECTS
     // ================================================================
 
-    public void calculateForMoon(PlanetaryWeather weather, Moon moon, Planet parentPlanet,
+    public void calculateForMoon(PlanetaryClimate weather, Moon moon, Planet parentPlanet,
                                   Star parentStar, List<Moon> siblingMoons) {
         String atmClass = moon.getAtmosphere() != null ? moon.getAtmosphere().getClassification() : null;
         if (atmClass == null || "NONE".equals(atmClass)) return;
@@ -215,7 +215,7 @@ public class TidalWeatherCalculator {
         calculateMoonAtmosphericTides(weather, moon, parentPlanet, parentStar);
     }
 
-    private void calculateParentPlanetTides(PlanetaryWeather weather, Moon moon,
+    private void calculateParentPlanetTides(PlanetaryClimate weather, Moon moon,
                                             Planet parentPlanet, double moonRadiusKm) {
         double planetMassKg = (parentPlanet.getEarthMass() != null ? parentPlanet.getEarthMass() : 1.0) * EARTH_MASS_KG;
         double moonMassKg = (moon.getEarthMass() != null ? moon.getEarthMass() : 0.001) * EARTH_MASS_KG;
@@ -266,7 +266,7 @@ public class TidalWeatherCalculator {
         }
     }
 
-    private void addSiblingMoonTides(PlanetaryWeather weather, Moon targetMoon,
+    private void addSiblingMoonTides(PlanetaryClimate weather, Moon targetMoon,
                                      List<Moon> siblingMoons, double targetMoonRadiusKm) {
         double existingRange = weather.getTidalRangeMeters() != null ? weather.getTidalRangeMeters() : 0.0;
         double targetMoonMassKg = (targetMoon.getEarthMass() != null ? targetMoon.getEarthMass() : 0.001) * EARTH_MASS_KG;
@@ -304,7 +304,7 @@ public class TidalWeatherCalculator {
         }
     }
 
-    private void calculateMoonAtmosphericTides(PlanetaryWeather weather, Moon moon,
+    private void calculateMoonAtmosphericTides(PlanetaryClimate weather, Moon moon,
                                                 Planet parentPlanet, Star parentStar) {
         double pressureAtm = moon.getSurfacePressure() != null ? moon.getSurfacePressure() : 0.0;
         boolean tidallyLocked = Boolean.TRUE.equals(moon.getTidallyLocked());

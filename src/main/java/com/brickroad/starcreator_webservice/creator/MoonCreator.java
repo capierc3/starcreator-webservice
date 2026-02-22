@@ -42,7 +42,7 @@ public class MoonCreator {
     private HabitabilityCreator habitabilityCreator;
 
     @Autowired
-    private WeatherCreator weatherCreator;
+    private ClimateCreator climateCreator;
 
     private static final double EARTH_MASS_KG = 5.972e24;
     private static final double EARTH_RADIUS_KM = 6371.0;
@@ -92,7 +92,7 @@ public class MoonCreator {
 
         // Generate weather for all moons AFTER all moons are created,
         // so sibling moons are available for tidal and sky appearance calculations.
-        generateMoonWeather(moons, planet, primaryStar);
+        generateMoonClimate(moons, planet, primaryStar);
 
         int moonlets = calculateAdditionalMoonlets(planet) + distributionResult.redirectedToMoonlets;
         planet.setAdditionalMoonlets(moonlets);
@@ -172,16 +172,16 @@ public class MoonCreator {
     //  Weather (post-creation pass)
     // ═══════════════════════════════════════════════════════════════
 
-    private void generateMoonWeather(List<Moon> moons, Planet planet, Star primaryStar) {
+    private void generateMoonClimate(List<Moon> moons, Planet planet, Star primaryStar) {
         if (moons == null || moons.isEmpty()) return;
 
         StarSystem system = primaryStar != null ? primaryStar.getSystem() : null;
 
         for (Moon moon : moons) {
             if (Boolean.TRUE.equals(moon.getHasAtmosphere())) {
-                PlanetaryWeather moonWeather = weatherCreator.generateMoonWeather(
+                PlanetaryClimate moonClimate = climateCreator.generateMoonClimate(
                         moon, planet, primaryStar, system, moons);
-                moon.setWeather(moonWeather);
+                moon.setClimate(moonClimate);
             }
         }
     }

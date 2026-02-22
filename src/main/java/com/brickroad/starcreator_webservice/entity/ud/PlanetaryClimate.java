@@ -1,9 +1,13 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -12,26 +16,15 @@ import java.util.List;
 @Setter
 @Getter
 @Entity
-@Table(name = "planetary_weather", schema = "ud")
-public class PlanetaryWeather {
+@Table(name = "planetary_climate", schema = "ud")
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Climate and atmospheric conditions for a planet or moon")
+public class PlanetaryClimate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonIgnore
     private Long id;
-
-    @Column(name = "planet_id", unique = true)
-    private Long planetId;
-
-    @Transient
-    @JsonIgnore
-    private Planet planet;
-
-    @Column(name = "moon_id")
-    private Long moonId;
-
-    @Transient
-    @JsonIgnore
-    private Moon moon;
 
     // ================================================================
     // ATMOSPHERIC STRUCTURE
@@ -199,7 +192,7 @@ public class PlanetaryWeather {
     private String survivalTimeDescription;
 
     // ================================================================
-    // WEATHER SUMMARY
+    // CLIMATE SUMMARY
     // ================================================================
     @Column(name = "weather_summary", length = 1000)
     private String weatherSummary;
@@ -208,55 +201,54 @@ public class PlanetaryWeather {
     private String weatherSeverity;
 
     // ================================================================
-    // CHILD COLLECTIONS (transient — managed separately for persistence)
+    // CHILD COLLECTIONS
     // ================================================================
-    @Transient
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
     private List<ClimateZone> climateZones = new ArrayList<>();
 
-    @Transient
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
+    @OrderBy("layerOrder ASC")
     private List<CloudLayer> cloudLayers = new ArrayList<>();
 
-    @Transient
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
     private List<PrecipitationType> precipitationTypes = new ArrayList<>();
 
-    @Transient
-    private List<ExtremeWeatherEvent> extremeWeatherEvents = new ArrayList<>();
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
+    private List<ExtremeClimateEvent> extremeClimateEvents = new ArrayList<>();
 
-    @Transient
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
     private List<MoonSkyAppearance> moonSkyAppearances = new ArrayList<>();
 
-    @Transient
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
     private List<EclipseData> eclipseData = new ArrayList<>();
 
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
+    private List<ClimateHazard> climateHazards = new ArrayList<>();
+
+    // ================================================================
+    // TRANSIENT FLAGS
+    // ================================================================
     @Transient
-    private List<WeatherHazard> weatherHazards = new ArrayList<>();
+    @JsonIgnore
+    private boolean isMoonClimate = false;
 
     // ================================================================
     // METADATA
     // ================================================================
-    @Column(name = "created_at")
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    @JsonIgnore
     private LocalDateTime createdAt;
 
+    @UpdateTimestamp
     @Column(name = "modified_at")
+    @JsonIgnore
     private LocalDateTime modifiedAt;
-
-    // ================================================================
-    // CONSTRUCTORS
-    // ================================================================
-    public PlanetaryWeather() {
-        this.createdAt = LocalDateTime.now();
-        this.modifiedAt = LocalDateTime.now();
-    }
-
-    // ================================================================
-    // PERSISTENCE HELPER
-    // ================================================================
-    public void preparePersistence() {
-        if (this.planet != null && this.planet.getId() != null) {
-            this.planetId = this.planet.getId();
-        }
-        if (this.moon != null && this.moon.getId() != null) {
-            this.moonId = this.moon.getId();
-        }
-    }
 }

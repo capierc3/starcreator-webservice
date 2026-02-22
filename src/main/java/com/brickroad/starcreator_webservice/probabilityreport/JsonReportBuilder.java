@@ -55,7 +55,7 @@ public class JsonReportBuilder {
         report.put("moons", buildMoonData());
         report.put("rings", buildRingData());
         report.put("belts", buildBeltData());
-        report.put("weather", buildWeatherData());
+        report.put("climate", buildClimateData());
         report.put("orbitalStability", buildOrbitalStabilityData());
         return report;
     }
@@ -313,23 +313,23 @@ public class JsonReportBuilder {
         hab.put("tidalContribution", moonData.getMoonTidalContribution());
         moons.put("habitability", hab);
 
-        // Weather
-        Map<String, Object> weather = new LinkedHashMap<>();
-        weather.put("moonsWithWeather", moonData.getMoonsWithWeather());
-        weather.put("moonsWithPrecipitation", moonData.getMoonsWithPrecipitation());
-        weather.put("moonsWithLightning", moonData.getMoonsWithLightning());
-        weather.put("moonsWithParentPlanetVisible", moonData.getMoonsWithParentPlanetVisible());
-        weather.put("moonsWithPlanetaryEclipses", moonData.getMoonsWithPlanetaryEclipses());
-        weather.put("moonExtremeEventTotal", moonData.getMoonExtremeEventTotal());
-        weather.put("skyColors", moonData.getMoonWeatherSkyColor());
-        weather.put("cloudCoverage", moonData.getMoonWeatherCloudClass());
-        weather.put("windIntensity", moonData.getMoonWeatherWindIntensity());
-        weather.put("severity", moonData.getMoonWeatherSeverity());
-        weather.put("exposureRating", moonData.getMoonWeatherExposure());
-        if (!moonData.getMoonWeatherTidalRangeBins().isEmpty()) {
-            weather.put("tidalRangeBins", moonData.getMoonWeatherTidalRangeBins());
+        // Climate
+        Map<String, Object> climate = new LinkedHashMap<>();
+        climate.put("moonsWithClimate", moonData.getMoonsWithClimate());
+        climate.put("moonsWithPrecipitation", moonData.getMoonsWithPrecipitation());
+        climate.put("moonsWithLightning", moonData.getMoonsWithLightning());
+        climate.put("moonsWithParentPlanetVisible", moonData.getMoonsWithParentPlanetVisible());
+        climate.put("moonsWithPlanetaryEclipses", moonData.getMoonsWithPlanetaryEclipses());
+        climate.put("moonExtremeEventTotal", moonData.getMoonExtremeEventTotal());
+        climate.put("skyColors", moonData.getMoonClimateSkyColor());
+        climate.put("cloudCoverage", moonData.getMoonClimateCloudClass());
+        climate.put("windIntensity", moonData.getMoonClimateWindIntensity());
+        climate.put("severity", moonData.getMoonClimateSeverity());
+        climate.put("exposureRating", moonData.getMoonClimateExposure());
+        if (!moonData.getMoonClimateTidalRangeBins().isEmpty()) {
+            climate.put("tidalRangeBins", moonData.getMoonClimateTidalRangeBins());
         }
-        moons.put("weather", weather);
+        moons.put("climate", climate);
 
         return moons;
     }
@@ -353,15 +353,15 @@ public class JsonReportBuilder {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Weather
+    //  Climate
     // ═══════════════════════════════════════════════════════════════
 
-    private Map<String, Object> buildWeatherData() {
-        Map<String, Object> weather = new LinkedHashMap<>();
-        weather.put("all", buildWeatherBucket(planetData.getWeatherAll()));
-        weather.put("surface", buildWeatherBucket(planetData.getWeatherSurface()));
-        weather.put("gasIce", buildWeatherBucket(planetData.getWeatherGas()));
-        return weather;
+    private Map<String, Object> buildClimateData() {
+        Map<String, Object> climate = new LinkedHashMap<>();
+        climate.put("all", buildWeatherBucket(planetData.getClimateAll()));
+        climate.put("surface", buildWeatherBucket(planetData.getClimateSurface()));
+        climate.put("gasIce", buildWeatherBucket(planetData.getClimateGas()));
+        return climate;
     }
 
     private Map<String, Object> buildWeatherBucket(PlanetDataCollector.WeatherBucket b) {

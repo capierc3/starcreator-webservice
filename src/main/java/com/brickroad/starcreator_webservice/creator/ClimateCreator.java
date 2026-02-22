@@ -11,7 +11,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Service
-public class WeatherCreator {
+public class ClimateCreator {
 
     @Autowired
     private AtmosphericStructureCalculator atmosphericStructureCalculator;
@@ -35,52 +35,51 @@ public class WeatherCreator {
     private SkyAppearanceCalculator skyAppearanceCalculator;
 
     @Autowired
-    private WeatherNarrativeGenerator weatherNarrativeGenerator;
+    private ClimateNarrativeGenerator climateNarrativeGenerator;
 
     @Autowired
     private GasGiantFeatureCalculator gasGiantFeatureCalculator;
 
-    public PlanetaryWeather generateWeather(Planet planet, Star parentStar, StarSystem system) {
+    public PlanetaryClimate generateClimate(Planet planet, Star parentStar, StarSystem system) {
 
         String atmClass = planet.getAtmosphereClassification();
         if (atmClass == null || "NONE".equals(atmClass)) {
             return null;
         }
 
-        PlanetaryWeather weather = new PlanetaryWeather();
-        weather.setPlanet(planet);
+        PlanetaryClimate climate = new PlanetaryClimate();
 
         // Phase 2: Atmospheric Structure
-        atmosphericStructureCalculator.calculate(weather, planet, parentStar);
+        atmosphericStructureCalculator.calculate(climate, planet, parentStar);
 
         // Phase 3: Temperature & Climate
-        temperatureClimateCalculator.calculate(weather, planet, parentStar, system);
+        temperatureClimateCalculator.calculate(climate, planet, parentStar, system);
 
         // Phase 4: Wind & Circulation
-        windCirculationCalculator.calculate(weather, planet);
+        windCirculationCalculator.calculate(climate, planet);
 
         // Phase 5: Clouds & Precipitation
-        cloudPrecipitationCalculator.calculate(weather, planet);
+        cloudPrecipitationCalculator.calculate(climate, planet);
 
         // Phase 6: Storms
-        stormCalculator.calculate(weather, planet);
+        stormCalculator.calculate(climate, planet);
 
         // Phase 7: Tidal & Visual
-        tidalWeatherCalculator.calculate(weather, planet, parentStar, system);
-        skyAppearanceCalculator.calculate(weather, planet, parentStar, system);
+        tidalWeatherCalculator.calculate(climate, planet, parentStar, system);
+        skyAppearanceCalculator.calculate(climate, planet, parentStar, system);
 
         // Phase 9: Gas Giant Specialization (before narrative so narrative can use the data)
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
-            gasGiantFeatureCalculator.calculate(weather, planet, parentStar);
+            gasGiantFeatureCalculator.calculate(climate, planet, parentStar);
         }
 
         // Phase 8: Narrative (last — uses all prior data)
-        weatherNarrativeGenerator.generate(weather, planet, parentStar);
+        climateNarrativeGenerator.generate(climate, planet, parentStar);
 
-        return weather;
+        return climate;
     }
 
-    public PlanetaryWeather generateMoonWeather(Moon moon, Planet parentPlanet, Star parentStar,
+    public PlanetaryClimate generateMoonClimate(Moon moon, Planet parentPlanet, Star parentStar,
                                                 StarSystem system, List<Moon> siblingMoons) {
         if (!Boolean.TRUE.equals(moon.getHasAtmosphere())) {
             return null;
@@ -96,36 +95,36 @@ public class WeatherCreator {
             return null;
         }
 
-        PlanetaryWeather weather = new PlanetaryWeather();
-        weather.setMoon(moon);
+        PlanetaryClimate climate = new PlanetaryClimate();
+        climate.setMoonClimate(true);
 
         // Build a proxy Planet from moon data so existing calculators work unchanged.
         // This avoids duplicating every calculator with moon-specific methods.
         Planet proxy = buildMoonProxy(moon, parentPlanet, atmClass);
 
         // Phase 2: Atmospheric Structure (has dedicated moon method)
-        atmosphericStructureCalculator.calculateForMoon(weather, moon, parentStar);
+        atmosphericStructureCalculator.calculateForMoon(climate, moon, parentStar);
 
         // Phase 3: Temperature & Climate
-        temperatureClimateCalculator.calculate(weather, proxy, parentStar, system);
+        temperatureClimateCalculator.calculate(climate, proxy, parentStar, system);
 
         // Phase 4: Wind & Circulation
-        windCirculationCalculator.calculate(weather, proxy);
+        windCirculationCalculator.calculate(climate, proxy);
 
         // Phase 5: Clouds & Precipitation
-        cloudPrecipitationCalculator.calculate(weather, proxy);
+        cloudPrecipitationCalculator.calculate(climate, proxy);
 
         // Phase 6: Storms (moons generally have limited storm activity, but the calculator handles thin atmospheres)
-        stormCalculator.calculate(weather, proxy);
+        stormCalculator.calculate(climate, proxy);
 
         // Phase 7: Tidal & Visual — parent planet and sibling moons affect this moon
-        tidalWeatherCalculator.calculateForMoon(weather, moon, parentPlanet, parentStar, siblingMoons);
-        skyAppearanceCalculator.calculateForMoon(weather, moon, parentPlanet, parentStar, system, siblingMoons);
+        tidalWeatherCalculator.calculateForMoon(climate, moon, parentPlanet, parentStar, siblingMoons);
+        skyAppearanceCalculator.calculateForMoon(climate, moon, parentPlanet, parentStar, system, siblingMoons);
 
         // Phase 8: Narrative (last — uses all prior data)
-        weatherNarrativeGenerator.generate(weather, proxy, parentStar);
+        climateNarrativeGenerator.generate(climate, proxy, parentStar);
 
-        return weather;
+        return climate;
     }
 
     private Planet buildMoonProxy(Moon moon, Planet parentPlanet, String atmClass) {

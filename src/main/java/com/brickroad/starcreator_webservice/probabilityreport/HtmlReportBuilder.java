@@ -100,9 +100,9 @@ public class HtmlReportBuilder {
         tocLink(w, "Geology (Rocky/Surface Planets)");
         tocLink(w, "Water System (Rocky/Surface Planets Only)");
         tocLink(w, "Planetary Habitability");
-        tocLink(w, "Planetary Weather");
-        tocLink(w, "Surface Planet Weather");
-        tocLink(w, "Gas / Ice Giant Weather");
+        tocLink(w, "Planetary Climate");
+        tocLink(w, "Surface Planet Climate");
+        tocLink(w, "Gas / Ice Giant Climate");
         tocLink(w, "Moon Types");
         tocLink(w, "Ring Types");
         tocLink(w, "Belt Types");
@@ -255,7 +255,7 @@ public class HtmlReportBuilder {
         printAtmosphereHtml(w);
         printGeologyHtml(w);
         printWaterAndHabHtml(w);
-        printWeatherHtml(w);
+        printClimateHtml(w);
     }
 
     private void printPlanetPerTypeBreakdown(PrintWriter w) {
@@ -527,16 +527,16 @@ public class HtmlReportBuilder {
         endCollapsible(w);
     }
 
-    private void printWeatherHtml(PrintWriter w) {
-        PlanetDataCollector.WeatherBucket all = planetData.getWeatherAll();
-        PlanetDataCollector.WeatherBucket surface = planetData.getWeatherSurface();
-        PlanetDataCollector.WeatherBucket gas = planetData.getWeatherGas();
+    private void printClimateHtml(PrintWriter w) {
+        PlanetDataCollector.WeatherBucket all = planetData.getClimateAll();
+        PlanetDataCollector.WeatherBucket surface = planetData.getClimateSurface();
+        PlanetDataCollector.WeatherBucket gas = planetData.getClimateGas();
 
         w.println("<hr>");
-        beginCollapsible(w, "Planetary Weather", 2);
+        beginCollapsible(w, "Planetary Climate", 2);
 
         if (all.getCount() == 0) {
-            w.println("<p>No planets with weather data.</p>");
+            w.println("<p>No planets with climate data.</p>");
             endCollapsible(w);
             return;
         }
@@ -551,16 +551,16 @@ public class HtmlReportBuilder {
         w.println("</div>");
 
         if (surface.getCount() > 0) {
-            printWeatherBucketHtml(w, surface, "Surface Planet Weather");
+            printClimateBucketHtml(w, surface, "Surface Planet Climate");
         }
         if (gas.getCount() > 0) {
-            printWeatherBucketHtml(w, gas, "Gas / Ice Giant Weather");
+            printClimateBucketHtml(w, gas, "Gas / Ice Giant Climate");
         }
 
         endCollapsible(w);
     }
 
-    private void printWeatherBucketHtml(PrintWriter w, PlanetDataCollector.WeatherBucket b, String title) {
+    private void printClimateBucketHtml(PrintWriter w, PlanetDataCollector.WeatherBucket b, String title) {
         w.println("<hr>");
         beginCollapsible(w, title, 3);
 
@@ -601,7 +601,7 @@ public class HtmlReportBuilder {
             printSortedTable(w, b.getLightningType(), b.getWithLightning(), "Type");
         }
 
-        printSubSection(w, "Weather Severity");
+        printSubSection(w, "Climate Severity");
         printSortedTable(w, b.getSeverity(), b.getCount(), "Severity");
 
         printSubSection(w, "Outdoor Exposure Rating");
@@ -683,8 +683,8 @@ public class HtmlReportBuilder {
         printSortedTable(w, moonData.getMoonRadiationBeltDose(), moonData.getMoonHabCount(), "Radiation Belt Surface Dose");
         printSortedTable(w, moonData.getMoonTidalContribution(), moonData.getMoonHabCount(), "Tidal Heating Contribution");
 
-        // Moon Weather
-        printMoonWeatherHtml(w);
+        // Moon Climate
+        printMoonClimateHtml(w);
 
         endCollapsible(w); // close detailed analysis
         endCollapsible(w); // close Moon Types
@@ -711,32 +711,32 @@ public class HtmlReportBuilder {
         w.println("</tbody></table>");
     }
 
-    private void printMoonWeatherHtml(PrintWriter w) {
-        w.println("<h4>Moon Weather</h4>");
-        w.println("<p>Moons with weather data: " + fmt(moonData.getMoonsWithWeather()) + " of " + fmt(counts.getMoonCount())
-                + " total (" + pct(moonData.getMoonsWithWeather(), counts.getMoonCount()) + "%)</p>");
-        if (moonData.getMoonsWithWeather() == 0) return;
+    private void printMoonClimateHtml(PrintWriter w) {
+        w.println("<h4>Moon Climate</h4>");
+        w.println("<p>Moons with climate data: " + fmt(moonData.getMoonsWithClimate()) + " of " + fmt(counts.getMoonCount())
+                + " total (" + pct(moonData.getMoonsWithClimate(), counts.getMoonCount()) + "%)</p>");
+        if (moonData.getMoonsWithClimate() == 0) return;
 
         w.println("<p>With precipitation: " + fmt(moonData.getMoonsWithPrecipitation())
-                + " (" + pct(moonData.getMoonsWithPrecipitation(), moonData.getMoonsWithWeather()) + "%)</p>");
+                + " (" + pct(moonData.getMoonsWithPrecipitation(), moonData.getMoonsWithClimate()) + "%)</p>");
         w.println("<p>With lightning: " + fmt(moonData.getMoonsWithLightning())
-                + " (" + pct(moonData.getMoonsWithLightning(), moonData.getMoonsWithWeather()) + "%)</p>");
+                + " (" + pct(moonData.getMoonsWithLightning(), moonData.getMoonsWithClimate()) + "%)</p>");
         w.println("<p>With parent planet visible in sky: " + fmt(moonData.getMoonsWithParentPlanetVisible())
-                + " (" + pct(moonData.getMoonsWithParentPlanetVisible(), moonData.getMoonsWithWeather()) + "%)</p>");
+                + " (" + pct(moonData.getMoonsWithParentPlanetVisible(), moonData.getMoonsWithClimate()) + "%)</p>");
         w.println("<p>With planetary eclipses: " + fmt(moonData.getMoonsWithPlanetaryEclipses())
-                + " (" + pct(moonData.getMoonsWithPlanetaryEclipses(), moonData.getMoonsWithWeather()) + "%)</p>");
-        w.println("<p>Total extreme weather events: " + fmt(moonData.getMoonExtremeEventTotal())
-                + " (avg " + String.format("%.1f", moonData.getMoonExtremeEventTotal() * 1.0 / moonData.getMoonsWithWeather()) + "/moon)</p>");
+                + " (" + pct(moonData.getMoonsWithPlanetaryEclipses(), moonData.getMoonsWithClimate()) + "%)</p>");
+        w.println("<p>Total extreme climate events: " + fmt(moonData.getMoonExtremeEventTotal())
+                + " (avg " + String.format("%.1f", moonData.getMoonExtremeEventTotal() * 1.0 / moonData.getMoonsWithClimate()) + "/moon)</p>");
 
-        printSortedTable(w, moonData.getMoonWeatherSkyColor(), moonData.getMoonsWithWeather(), "Sky Color");
-        printSortedTable(w, moonData.getMoonWeatherCloudClass(), moonData.getMoonsWithWeather(), "Cloud Coverage");
-        printSortedTable(w, moonData.getMoonWeatherWindIntensity(), moonData.getMoonsWithWeather(), "Wind Intensity");
-        printSortedTable(w, moonData.getMoonWeatherSeverity(), moonData.getMoonsWithWeather(), "Weather Severity");
-        printSortedTable(w, moonData.getMoonWeatherExposure(), moonData.getMoonsWithWeather(), "Exposure Rating");
+        printSortedTable(w, moonData.getMoonClimateSkyColor(), moonData.getMoonsWithClimate(), "Sky Color");
+        printSortedTable(w, moonData.getMoonClimateCloudClass(), moonData.getMoonsWithClimate(), "Cloud Coverage");
+        printSortedTable(w, moonData.getMoonClimateWindIntensity(), moonData.getMoonsWithClimate(), "Wind Intensity");
+        printSortedTable(w, moonData.getMoonClimateSeverity(), moonData.getMoonsWithClimate(), "Climate Severity");
+        printSortedTable(w, moonData.getMoonClimateExposure(), moonData.getMoonsWithClimate(), "Exposure Rating");
 
-        if (!moonData.getMoonWeatherTidalRangeBins().isEmpty()) {
+        if (!moonData.getMoonClimateTidalRangeBins().isEmpty()) {
             w.println("<h4>Moon Tidal Range (from Parent Planet + Siblings)</h4>");
-            printSortedTableByKey(w, moonData.getMoonWeatherTidalRangeBins(), moonData.getMoonsWithWeather(), "Tidal Range");
+            printSortedTableByKey(w, moonData.getMoonClimateTidalRangeBins(), moonData.getMoonsWithClimate(), "Tidal Range");
         }
     }
 

@@ -26,7 +26,7 @@ public class CloudPrecipitationCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet) {
+    public void calculate(PlanetaryClimate weather, Planet planet) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -164,7 +164,7 @@ public class CloudPrecipitationCalculator {
     // CLOUD COVERAGE
     // ================================================================
 
-    private void calculateCloudCoverage(PlanetaryWeather weather, String atmClass,
+    private void calculateCloudCoverage(PlanetaryClimate weather, String atmClass,
                                          double surfaceTemp, double pressureAtm,
                                          double waterPercent, double liquidWaterPercent,
                                          double icePercent, boolean tidallyLocked, double meanWindMs) {
@@ -298,7 +298,7 @@ public class CloudPrecipitationCalculator {
     // PRIMARY CLOUD COMPOSITION
     // ================================================================
 
-    private void setPrimaryCloudComposition(PlanetaryWeather weather, List<CloudLayer> cloudLayers) {
+    private void setPrimaryCloudComposition(PlanetaryClimate weather, List<CloudLayer> cloudLayers) {
         if (cloudLayers.isEmpty()) {
             weather.setPrimaryCloudComposition("NONE");
             return;
@@ -456,7 +456,7 @@ public class CloudPrecipitationCalculator {
     // PRECIPITATION SUMMARY
     // ================================================================
 
-    private void calculatePrecipitationSummary(PlanetaryWeather weather, List<PrecipitationType> precipTypes,
+    private void calculatePrecipitationSummary(PlanetaryClimate weather, List<PrecipitationType> precipTypes,
                                                 String atmClass, double pressureAtm,
                                                 double liquidWaterPercent, double waterPercent,
                                                 double surfaceTemp) {

@@ -12,7 +12,7 @@ public class WindCirculationCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet) {
+    public void calculate(PlanetaryClimate weather, Planet planet) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -49,7 +49,7 @@ public class WindCirculationCalculator {
     // STANDARD ROCKY WORLD CIRCULATION
     // ================================================================
 
-    private void calculateRockyCirculation(PlanetaryWeather weather, double rotationHours,
+    private void calculateRockyCirculation(PlanetaryClimate weather, double rotationHours,
                                            double earthRadius, double pressureAtm,
                                            double surfaceGravity, double scaleHeightKm,
                                            double tempGradient, double surfaceTemp, String atmClass) {
@@ -116,7 +116,7 @@ public class WindCirculationCalculator {
     // GAS GIANT CIRCULATION
     // ================================================================
 
-    private void calculateGasGiantCirculation(PlanetaryWeather weather, double rotationHours,
+    private void calculateGasGiantCirculation(PlanetaryClimate weather, double rotationHours,
                                               double earthRadius, double tempGradient, String atmClass) {
         // Gas giants: very fast rotation → many alternating bands
         // Jupiter (9.9h): ~15 bands visible. Saturn (10.7h): ~10 bands. Neptune (16h): ~6.
@@ -158,7 +158,7 @@ public class WindCirculationCalculator {
     // TIDALLY LOCKED CIRCULATION
     // ================================================================
 
-    private void calculateTidallyLockedCirculation(PlanetaryWeather weather,
+    private void calculateTidallyLockedCirculation(PlanetaryClimate weather,
                                                    double pressureAtm, double tempGradient) {
         // Tidally locked: single massive substellar-to-antistellar circulation
         // Hot air rises at substellar point, flows to nightside, descends, returns at surface
@@ -199,7 +199,7 @@ public class WindCirculationCalculator {
     // SURFACE WIND SPEEDS (rocky worlds)
     // ================================================================
 
-    private void calculateSurfaceWinds(PlanetaryWeather weather, double pressureAtm,
+    private void calculateSurfaceWinds(PlanetaryClimate weather, double pressureAtm,
                                        double rotationHours, double tempGradient,
                                        double surfaceGravity, double surfaceTemp, String atmClass) {
         // Surface wind speed model:
@@ -258,7 +258,7 @@ public class WindCirculationCalculator {
     // SUPER-ROTATION CHECK (rocky worlds)
     // ================================================================
 
-    private void checkSuperRotation(PlanetaryWeather weather, double rotationHours,
+    private void checkSuperRotation(PlanetaryClimate weather, double rotationHours,
                                     double pressureAtm, double surfaceTemp) {
         // Super-rotation requires:
         // 1. Slow rotation (>100 hours — Venus: 5832h, but onset around 100-200h)

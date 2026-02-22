@@ -100,6 +100,7 @@ public class Moon extends CelestialBody {
 
     @Column(name = "surface_temp")
     @Schema(description = "Surface temperature in Kelvin", example = "110")
+    @JsonIgnore
     private Double surfaceTemp;
 
     @Column(name = "surface_gravity")
@@ -169,10 +170,10 @@ public class Moon extends CelestialBody {
     @Schema(description = "Habitability assessment")
     private PlanetaryHabitability habitability;
 
-    @Transient
-    @JsonProperty("weather")
-    @Schema(description = "Weather and climate data")
-    private PlanetaryWeather weather;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
+    @Schema(description = "Climate and atmospheric conditions")
+    private PlanetaryClimate climate;
 
     // ── JSON Accessors ──
 

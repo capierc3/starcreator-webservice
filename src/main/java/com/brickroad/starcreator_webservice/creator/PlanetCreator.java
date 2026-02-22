@@ -49,7 +49,7 @@ public class PlanetCreator {
     private HabitabilityCreator habitabilityCreator;
 
     @Autowired
-    private WeatherCreator weatherCreator;
+    private ClimateCreator climateCreator;
 
     @Autowired
     private StarTypeRefRepository starTypeRefRepository;
@@ -270,10 +270,10 @@ public class PlanetCreator {
         PlanetaryHabitability habitability = habitabilityCreator.assess(planet, parentStar);
         planet.setHabitability(habitability);
 
-        // Weather generation (after habitability, magnetic field, and moons are populated)
+        // Climate generation (after habitability, magnetic field, and moons are populated)
         StarSystem system = parentStar != null ? parentStar.getSystem() : null;
-        PlanetaryWeather weather = weatherCreator.generateWeather(planet, parentStar, system);
-        planet.setWeather(weather);
+        PlanetaryClimate climate = climateCreator.generateClimate(planet, parentStar, system);
+        planet.setClimate(climate);
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());

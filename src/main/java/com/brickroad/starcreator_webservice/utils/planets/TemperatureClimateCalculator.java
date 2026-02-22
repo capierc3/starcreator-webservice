@@ -16,7 +16,7 @@ public class TemperatureClimateCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet, Star parentStar, StarSystem system) {
+    public void calculate(PlanetaryClimate weather, Planet planet, Star parentStar, StarSystem system) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -222,7 +222,7 @@ public class TemperatureClimateCalculator {
     // LATITUDINAL TEMPERATURES
     // ================================================================
 
-    private void calculateLatitudinalTemperatures(PlanetaryWeather weather, double surfaceTemp,
+    private void calculateLatitudinalTemperatures(PlanetaryClimate weather, double surfaceTemp,
                                                   double axialTilt, double dayNightRange, String atmClass) {
 
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
@@ -251,7 +251,7 @@ public class TemperatureClimateCalculator {
     // CLIMATE ZONES
     // ================================================================
 
-    private List<ClimateZone> generateClimateZones(PlanetaryWeather weather, Planet planet,
+    private List<ClimateZone> generateClimateZones(PlanetaryClimate weather, Planet planet,
                                                    boolean tidallyLocked, String atmClass) {
         List<ClimateZone> zones = new ArrayList<>();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;

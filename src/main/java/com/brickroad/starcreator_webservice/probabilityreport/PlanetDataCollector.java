@@ -59,10 +59,10 @@ public class PlanetDataCollector {
     private int physicalPropsCount = 0;
     private int planetsWithGeology = 0;
 
-    // Weather
-    private final WeatherBucket weatherAll = new WeatherBucket();
-    private final WeatherBucket weatherSurface = new WeatherBucket();
-    private final WeatherBucket weatherGas = new WeatherBucket();
+    // Climate
+    private final WeatherBucket climateAll = new WeatherBucket();
+    private final WeatherBucket climateSurface = new WeatherBucket();
+    private final WeatherBucket climateGas = new WeatherBucket();
 
     // References to other collectors for delegation
     private final MoonDataCollector moonDataCollector;
@@ -236,7 +236,7 @@ public class PlanetDataCollector {
 
         analyzeWaterData(planet);
         analyzeHabitabilityData(planet);
-        analyzeWeatherData(planet);
+        analyzeClimateData(planet);
     }
 
     private void analyzeWaterData(Planet planet) {
@@ -324,13 +324,13 @@ public class PlanetDataCollector {
                 || planetType.contains("Puffy");
     }
 
-    private void analyzeWeatherData(Planet planet) {
-        PlanetaryWeather w = planet.getWeather();
+    private void analyzeClimateData(Planet planet) {
+        PlanetaryClimate w = planet.getClimate();
         if (w == null) return;
 
-        WeatherBucket split = isGasType(planet.getPlanetType()) ? weatherGas : weatherSurface;
+        WeatherBucket split = isGasType(planet.getPlanetType()) ? climateGas : climateSurface;
 
-        for (WeatherBucket bucket : new WeatherBucket[]{weatherAll, split}) {
+        for (WeatherBucket bucket : new WeatherBucket[]{climateAll, split}) {
             bucket.count++;
 
             String skyColor = w.getSkyColor() != null ? w.getSkyColor() : "NULL";
@@ -380,7 +380,7 @@ public class PlanetDataCollector {
 
             if (w.getCloudLayers() != null) bucket.cloudLayerTotal += w.getCloudLayers().size();
             if (w.getPrecipitationTypes() != null) bucket.precipTypeTotal += w.getPrecipitationTypes().size();
-            if (w.getExtremeWeatherEvents() != null) bucket.extremeEventTotal += w.getExtremeWeatherEvents().size();
+            if (w.getExtremeClimateEvents() != null) bucket.extremeEventTotal += w.getExtremeClimateEvents().size();
             if (w.getEclipseData() != null) bucket.eclipseTotal += w.getEclipseData().size();
         }
     }

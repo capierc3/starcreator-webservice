@@ -20,13 +20,12 @@ import java.util.List;
     "earthMass", "earthRadius", "density", "surfaceGravity", "escapeVelocity", "albedo",
     "distanceFromStar", "orbitalOrder", "orbit",
     "rotationPeriodHours", "axialTilt", "tidallyLocked",
-    "surfaceTemp",
     "atmosphere",
     "coreType", "interiorComposition", "envelopeComposition", "compositionClassification",
     "water", "terrain",
     "hasGreatStorm", "numberOfMajorStorms", "atmosphericConvectionLevel",
     "additionalMoonlets", "moons", "bands",
-    "magneticField", "habitability", "weather",
+    "magneticField", "habitability", "climate",
     "createdAt", "modifiedAt"
 })
 @Schema(description = "A planet orbiting a star within a star system")
@@ -104,6 +103,7 @@ public class Planet extends CelestialBody {
 
     @Column(name = "surface_temp_kelvin")
     @Schema(description = "Equilibrium surface temperature in Kelvin", example = "288")
+    @JsonIgnore
     private Double surfaceTemp;
 
     // ── Atmosphere (extracted to Atmosphere entity) ──
@@ -191,10 +191,10 @@ public class Planet extends CelestialBody {
     @Schema(description = "Habitability assessment including ESI score and risk factors")
     private PlanetaryHabitability habitability;
 
-    @Transient
-    @JsonProperty("weather")
-    @Schema(description = "Weather and climate simulation data")
-    private PlanetaryWeather weather;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "climate_id")
+    @Schema(description = "Climate and atmospheric conditions")
+    private PlanetaryClimate climate;
 
     // ── JSON Accessors ──
 

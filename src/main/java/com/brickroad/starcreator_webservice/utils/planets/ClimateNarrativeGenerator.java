@@ -7,20 +7,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-public class WeatherNarrativeGenerator {
+public class ClimateNarrativeGenerator {
 
     // ================================================================
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void generate(PlanetaryWeather weather, Planet planet, Star parentStar) {
-        boolean isMoon = weather.getMoon() != null;
+    public void generate(PlanetaryClimate weather, Planet planet, Star parentStar) {
+        boolean isMoon = weather.isMoonClimate();
 
         // Generate weather hazards — moon vs planet
-        List<WeatherHazard> hazards = isMoon
+        List<ClimateHazard> hazards = isMoon
                 ? generateMoonHazards(weather, planet)
                 : generatePlanetHazards(weather, planet);
-        weather.setWeatherHazards(hazards);
+        weather.setClimateHazards(hazards);
 
         // Outdoor exposure rating — moon vs planet
         if (isMoon) {
@@ -44,8 +44,8 @@ public class WeatherNarrativeGenerator {
     // PLANET WEATHER HAZARDS
     // ================================================================
 
-    private List<WeatherHazard> generatePlanetHazards(PlanetaryWeather weather, Planet planet) {
-        List<WeatherHazard> hazards = new ArrayList<>();
+    private List<ClimateHazard> generatePlanetHazards(PlanetaryClimate weather, Planet planet) {
+        List<ClimateHazard> hazards = new ArrayList<>();
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -139,8 +139,8 @@ public class WeatherNarrativeGenerator {
      * receive high ratings. This prevents the hazard score from being inflated by
      * properties that are simply normal for any moon with an atmosphere.
      */
-    private List<WeatherHazard> generateMoonHazards(PlanetaryWeather weather, Planet planet) {
-        List<WeatherHazard> hazards = new ArrayList<>();
+    private List<ClimateHazard> generateMoonHazards(PlanetaryClimate weather, Planet planet) {
+        List<ClimateHazard> hazards = new ArrayList<>();
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -246,7 +246,7 @@ public class WeatherNarrativeGenerator {
     // SHARED HAZARD HELPERS
     // ================================================================
 
-    private void addDiurnalSwingHazard(List<WeatherHazard> hazards, PlanetaryWeather weather) {
+    private void addDiurnalSwingHazard(List<ClimateHazard> hazards, PlanetaryClimate weather) {
         Double dayNightRange = weather.getDayNightTempRangeK();
         if (dayNightRange != null && dayNightRange > 80) {
             addHazard(hazards, "Extreme Diurnal Temperature Swing", "THERMAL",
@@ -256,7 +256,7 @@ public class WeatherNarrativeGenerator {
         }
     }
 
-    private void addWindHazards(List<WeatherHazard> hazards, double meanWindMs, double maxGustMs) {
+    private void addWindHazards(List<ClimateHazard> hazards, double meanWindMs, double maxGustMs) {
         if (meanWindMs > 30) {
             addHazard(hazards, "Extreme Winds", "WIND",
                     meanWindMs > 60 ? "LETHAL" : "EXTREME", "CONTINUOUS",
@@ -267,7 +267,7 @@ public class WeatherNarrativeGenerator {
         }
     }
 
-    private void addChemicalHazards(List<WeatherHazard> hazards, String atmClass) {
+    private void addChemicalHazards(List<ClimateHazard> hazards, String atmClass) {
         switch (atmClass) {
             case "VENUS_LIKE":
                 addHazard(hazards, "Corrosive Sulfuric Acid Clouds", "CHEMICAL", "LETHAL", "CONTINUOUS",
@@ -296,7 +296,7 @@ public class WeatherNarrativeGenerator {
         }
     }
 
-    private void addLightningHazards(List<WeatherHazard> hazards, PlanetaryWeather weather) {
+    private void addLightningHazards(List<ClimateHazard> hazards, PlanetaryClimate weather) {
         if (Boolean.TRUE.equals(weather.getHasLightning())) {
             String lightningType = weather.getLightningType();
             if ("CONVECTIVE_GIANT".equals(lightningType)) {
@@ -309,9 +309,9 @@ public class WeatherNarrativeGenerator {
         }
     }
 
-    private void addHazard(List<WeatherHazard> hazards, String name, String type,
+    private void addHazard(List<ClimateHazard> hazards, String name, String type,
                            String severity, String frequency, String description) {
-        WeatherHazard hazard = new WeatherHazard();
+        ClimateHazard hazard = new ClimateHazard();
         hazard.setHazardName(name);
         hazard.setHazardType(type);
         hazard.setSeverity(severity);
@@ -324,7 +324,7 @@ public class WeatherNarrativeGenerator {
     // PLANET OUTDOOR EXPOSURE RATING
     // ================================================================
 
-    private void calculatePlanetOutdoorExposure(PlanetaryWeather weather, Planet planet, Star parentStar) {
+    private void calculatePlanetOutdoorExposure(PlanetaryClimate weather, Planet planet, Star parentStar) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -437,7 +437,7 @@ public class WeatherNarrativeGenerator {
      * territory (PRESSURE_SUIT), not instant death. LETHAL_SECONDS is reserved for conditions
      * that defeat standard EVA equipment (corrosive chemistry, extreme radiation, crushing pressure).
      */
-    private void calculateMoonOutdoorExposure(PlanetaryWeather weather, Planet planet, Star parentStar) {
+    private void calculateMoonOutdoorExposure(PlanetaryClimate weather, Planet planet, Star parentStar) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -583,7 +583,7 @@ public class WeatherNarrativeGenerator {
     // WEATHER SEVERITY
     // ================================================================
 
-    private void calculateWeatherSeverity(PlanetaryWeather weather, List<WeatherHazard> hazards) {
+    private void calculateWeatherSeverity(PlanetaryClimate weather, List<ClimateHazard> hazards) {
         if (hazards.isEmpty()) {
             weather.setWeatherSeverity("BENIGN");
             return;
@@ -591,7 +591,7 @@ public class WeatherNarrativeGenerator {
 
         // Score-based approach: each hazard contributes points based on its severity
         int score = 0;
-        for (WeatherHazard h : hazards) {
+        for (ClimateHazard h : hazards) {
             score += switch (h.getSeverity()) {
                 case "LETHAL" -> 4;
                 case "EXTREME" -> 3;
@@ -601,7 +601,7 @@ public class WeatherNarrativeGenerator {
             };
         }
 
-        boolean isMoon = weather.getMoon() != null;
+        boolean isMoon = weather.isMoonClimate();
 
         if (isMoon) {
             // Moon-calibrated thresholds:
@@ -647,7 +647,7 @@ public class WeatherNarrativeGenerator {
     // PLANET WEATHER SUMMARY
     // ================================================================
 
-    private void generatePlanetWeatherSummary(PlanetaryWeather weather, Planet planet, Star parentStar) {
+    private void generatePlanetWeatherSummary(PlanetaryClimate weather, Planet planet, Star parentStar) {
         StringBuilder summary = new StringBuilder();
         String atmClass = planet.getAtmosphereClassification();
 
@@ -697,7 +697,7 @@ public class WeatherNarrativeGenerator {
     // MOON WEATHER SUMMARY
     // ================================================================
 
-    private void generateMoonWeatherSummary(PlanetaryWeather weather, Planet planet, Star parentStar) {
+    private void generateMoonWeatherSummary(PlanetaryClimate weather, Planet planet, Star parentStar) {
         StringBuilder summary = new StringBuilder();
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
@@ -747,14 +747,14 @@ public class WeatherNarrativeGenerator {
     // SUMMARY HELPERS
     // ================================================================
 
-    private void appendSeasonInfo(StringBuilder summary, PlanetaryWeather weather) {
+    private void appendSeasonInfo(StringBuilder summary, PlanetaryClimate weather) {
         String seasonDesc = weather.getSeasonDescription();
         if (seasonDesc != null && !seasonDesc.isEmpty()) {
             summary.append(". ").append(seasonDesc);
         }
     }
 
-    private void appendWindInfo(StringBuilder summary, PlanetaryWeather weather) {
+    private void appendWindInfo(StringBuilder summary, PlanetaryClimate weather) {
         String windIntensity = weather.getWindIntensity();
         if (windIntensity != null) {
             switch (windIntensity) {
@@ -775,7 +775,7 @@ public class WeatherNarrativeGenerator {
         }
     }
 
-    private void appendCloudInfo(StringBuilder summary, PlanetaryWeather weather, String bodyType) {
+    private void appendCloudInfo(StringBuilder summary, PlanetaryClimate weather, String bodyType) {
         Double cloudCoverage = weather.getCloudCoveragePercent();
         if (cloudCoverage != null) {
             if (cloudCoverage > 90) {
@@ -788,7 +788,7 @@ public class WeatherNarrativeGenerator {
         }
     }
 
-    private void appendPrecipitationInfo(StringBuilder summary, PlanetaryWeather weather) {
+    private void appendPrecipitationInfo(StringBuilder summary, PlanetaryClimate weather) {
         String precipType = weather.getPrimaryPrecipitationType();
         if (precipType != null && !"NONE".equals(precipType)) {
             String readable = precipType.replace('_', ' ').toLowerCase();
@@ -799,7 +799,7 @@ public class WeatherNarrativeGenerator {
         }
     }
 
-    private void appendStormInfo(StringBuilder summary, PlanetaryWeather weather) {
+    private void appendStormInfo(StringBuilder summary, PlanetaryClimate weather) {
         String stormFreq = weather.getStormFrequency();
         if ("CONSTANT".equals(stormFreq)) {
             summary.append(". Storm activity is constant and intense");

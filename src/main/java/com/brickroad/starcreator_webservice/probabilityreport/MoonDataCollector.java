@@ -48,13 +48,13 @@ public class MoonDataCollector {
     // Atmosphere classifications (like the planet version)
     private final Map<String, Integer> atmosphereClassifications = new HashMap<>();
 
-    private int moonsWithWeather = 0;
-    private final Map<String, Integer> moonWeatherSeverity = new HashMap<>();
-    private final Map<String, Integer> moonWeatherExposure = new HashMap<>();
-    private final Map<String, Integer> moonWeatherSkyColor = new HashMap<>();
-    private final Map<String, Integer> moonWeatherCloudClass = new HashMap<>();
-    private final Map<String, Integer> moonWeatherWindIntensity = new HashMap<>();
-    private final Map<String, Integer> moonWeatherTidalRangeBins = new HashMap<>();
+    private int moonsWithClimate = 0;
+    private final Map<String, Integer> moonClimateSeverity = new HashMap<>();
+    private final Map<String, Integer> moonClimateExposure = new HashMap<>();
+    private final Map<String, Integer> moonClimateSkyColor = new HashMap<>();
+    private final Map<String, Integer> moonClimateCloudClass = new HashMap<>();
+    private final Map<String, Integer> moonClimateWindIntensity = new HashMap<>();
+    private final Map<String, Integer> moonClimateTidalRangeBins = new HashMap<>();
     private int moonsWithPrecipitation = 0;
     private int moonsWithLightning = 0;
     private int moonsWithPlanetaryEclipses = 0;
@@ -153,40 +153,40 @@ public class MoonDataCollector {
             if (hab.getHabitabilityScore() != null) moonHabScoreSum += hab.getHabitabilityScore();
         }
 
-        analyzeMoonWeatherData(moon);
+        analyzeMoonClimateData(moon);
     }
 
-    private void analyzeMoonWeatherData(Moon moon) {
-        PlanetaryWeather w = moon.getWeather();
+    private void analyzeMoonClimateData(Moon moon) {
+        PlanetaryClimate w = moon.getClimate();
         if (w == null) return;
 
-        moonsWithWeather++;
+        moonsWithClimate++;
 
         String skyColor = w.getSkyColor() != null ? w.getSkyColor() : "NULL";
-        moonWeatherSkyColor.merge(skyColor, 1, Integer::sum);
+        moonClimateSkyColor.merge(skyColor, 1, Integer::sum);
 
         String cloudClass = w.getCloudCoverageClass() != null ? w.getCloudCoverageClass() : "NULL";
-        moonWeatherCloudClass.merge(cloudClass, 1, Integer::sum);
+        moonClimateCloudClass.merge(cloudClass, 1, Integer::sum);
 
         String windIntensity = w.getWindIntensity() != null ? w.getWindIntensity() : "NULL";
-        moonWeatherWindIntensity.merge(windIntensity, 1, Integer::sum);
+        moonClimateWindIntensity.merge(windIntensity, 1, Integer::sum);
 
         String severity = w.getWeatherSeverity() != null ? w.getWeatherSeverity() : "NULL";
-        moonWeatherSeverity.merge(severity, 1, Integer::sum);
+        moonClimateSeverity.merge(severity, 1, Integer::sum);
 
         String exposure = w.getOutdoorExposureRating() != null ? w.getOutdoorExposureRating() : "NULL";
-        moonWeatherExposure.merge(exposure, 1, Integer::sum);
+        moonClimateExposure.merge(exposure, 1, Integer::sum);
 
         if (Boolean.TRUE.equals(w.getHasPrecipitation())) moonsWithPrecipitation++;
         if (Boolean.TRUE.equals(w.getHasLightning())) moonsWithLightning++;
 
         if (w.getTidalRangeMeters() != null) {
             String tidalBin = binTidalRange(w.getTidalRangeMeters());
-            moonWeatherTidalRangeBins.merge(tidalBin, 1, Integer::sum);
+            moonClimateTidalRangeBins.merge(tidalBin, 1, Integer::sum);
         }
 
-        if (w.getExtremeWeatherEvents() != null) {
-            moonExtremeEventTotal += w.getExtremeWeatherEvents().size();
+        if (w.getExtremeClimateEvents() != null) {
+            moonExtremeEventTotal += w.getExtremeClimateEvents().size();
         }
 
         List<MoonSkyAppearance> skyApps = w.getMoonSkyAppearances();
