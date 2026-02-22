@@ -266,7 +266,6 @@ public class PlanetCreator {
 
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);
-        planet.setNumberOfMoons(moons.size());
 
         PlanetaryHabitability habitability = habitabilityCreator.assess(planet, parentStar);
         planet.setHabitability(habitability);

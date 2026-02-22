@@ -14,6 +14,21 @@ import java.util.List;
 @Entity
 @Table(name = "planet", schema = "ud")
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonPropertyOrder({
+    "name", "planetType", "habitableZonePosition",
+    "ageMY", "parentStar",
+    "earthMass", "earthRadius", "density", "surfaceGravity", "escapeVelocity", "albedo",
+    "distanceFromStar", "orbitalOrder", "orbit",
+    "rotationPeriodHours", "axialTilt", "tidallyLocked",
+    "surfaceTemp",
+    "atmosphere",
+    "coreType", "interiorComposition", "envelopeComposition", "compositionClassification",
+    "water", "terrain",
+    "hasGreatStorm", "numberOfMajorStorms", "atmosphericConvectionLevel",
+    "additionalMoonlets", "moons", "bands",
+    "magneticField", "habitability", "weather",
+    "createdAt", "modifiedAt"
+})
 @Schema(description = "A planet orbiting a star within a star system")
 public class Planet extends CelestialBody {
 
@@ -147,14 +162,6 @@ public class Planet extends CelestialBody {
     // ── Magnetic Field ──
 
     // ── Moons & Bands ──
-
-    @Column(name = "has_rings")
-    @Schema(description = "Whether this planet has a ring system")
-    private Boolean hasRings;
-
-    @Column(name = "number_of_moons")
-    @Schema(description = "Total number of moons", example = "4")
-    private Integer numberOfMoons;
 
     @Column(name = "additional_moonlets")
     @Schema(description = "Number of additional small moonlets not individually generated")
@@ -399,5 +406,21 @@ public class Planet extends CelestialBody {
     @JsonIgnore
     public Double getMagneticFieldStrength() {
         return magneticField != null ? magneticField.getStrengthComparedToEarth() : null;
+    }
+
+    // ── Moons Convenience Getter ──
+
+    @JsonIgnore
+    public Integer getNumberOfMoons() {
+        int count = (moons != null ? moons.size() : 0);
+        int moonlets = (additionalMoonlets != null ? additionalMoonlets : 0);
+        return count + moonlets;
+    }
+
+    // ── Rings Convenience Getter ──
+
+    @JsonIgnore
+    public Boolean getHasRings() {
+        return bands != null && !bands.isEmpty();
     }
 }

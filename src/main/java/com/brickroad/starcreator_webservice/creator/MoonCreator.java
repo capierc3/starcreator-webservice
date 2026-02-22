@@ -96,7 +96,6 @@ public class MoonCreator {
 
         int moonlets = calculateAdditionalMoonlets(planet) + distributionResult.redirectedToMoonlets;
         planet.setAdditionalMoonlets(moonlets);
-        planet.setNumberOfMoons(moons.size() + moonlets);
 
         return moons;
     }
@@ -1067,11 +1066,7 @@ public class MoonCreator {
 
         if (!rings.isEmpty()) {
             planet.setBands(rings);
-            planet.setHasRings(true);
-
             ringCreator.linkShepherdMoons(planet);
-        } else {
-            planet.setHasRings(false);
         }
     }
 
