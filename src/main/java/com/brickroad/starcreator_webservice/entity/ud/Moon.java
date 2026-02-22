@@ -59,10 +59,6 @@ public class Moon {
     @Schema(description = "Physical properties including mass, radius, density, and gravity")
     private PhysicalProperties physicalProperties;
 
-    @Column(name = "composition_type", length = 50)
-    @Schema(description = "Primary composition type", example = "ROCKY")
-    private String compositionType;
-
     // ── Orbital Properties ──
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
@@ -70,27 +66,14 @@ public class Moon {
     @Schema(description = "Keplerian orbital elements for this moon's orbit around its planet")
     private OrbitalElements orbit;
 
-    @Column(name = "hill_sphere_radius_km")
-    @Schema(description = "Hill sphere radius in km")
-    private Double hillSphereRadiusKm;
+    // ── Rotation (extracted to RotationProperties entity) ──
 
-    @Column(name = "roche_limit_km")
-    @Schema(description = "Roche limit distance in km")
-    private Double rocheLimitKm;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "rotation_properties_id")
+    @Schema(description = "Rotation and spin-axis properties")
+    private RotationProperties rotation;
 
-    // ── Rotation & Tidal ──
-
-    @Column(name = "tidally_locked", nullable = false)
-    @JsonIgnore
-    private Boolean tidallyLocked = true;
-
-    @Column(name = "rotation_period_hours")
-    @Schema(description = "Rotation period in hours", example = "655.7")
-    private Double rotationPeriodHours;
-
-    @Column(name = "axial_tilt")
-    @Schema(description = "Axial tilt in degrees", example = "6.7")
-    private Double axialTilt;
+    // ── Tidal Heating (moon-specific) ──
 
     @Column(name = "tidal_heating_level", length = 20)
     @Schema(description = "Tidal heating intensity", example = "MODERATE")
@@ -121,19 +104,12 @@ public class Moon {
     @Schema(description = "Atmospheric properties")
     private Atmosphere atmosphere;
 
-    // ── Composition ──
+    // ── Composition (extracted to CompositionProperties entity) ──
 
-    @Column(name = "interior_composition", length = 500)
-    @Schema(description = "Interior composition breakdown")
-    private String interiorComposition;
-
-    @Column(name = "envelope_composition", length = 500)
-    @Schema(description = "Surface/envelope composition breakdown")
-    private String envelopeComposition;
-
-    @Column(name = "composition_classification", length = 50)
-    @Schema(description = "Composition classification")
-    private String compositionClassification;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "composition_properties_id")
+    @Schema(description = "Composition properties")
+    private CompositionProperties compositionProperties;
 
     // ── Ring Interaction ──
 
@@ -176,17 +152,32 @@ public class Moon {
     @Schema(description = "Timestamp when this moon was last modified")
     private LocalDateTime modifiedAt;
 
-    // ── JSON Accessors ──
+    // ── Rotation Convenience Getters/Setters ──
 
-    @JsonProperty("tidallyLocked")
-    @Schema(description = "Whether the moon is tidally locked to its planet", example = "true")
+    private RotationProperties ensureRotation() {
+        if (rotation == null) rotation = new RotationProperties();
+        return rotation;
+    }
+
+    @JsonIgnore
+    public Double getRotationPeriodHours() {
+        return rotation != null ? rotation.getRotationPeriodHours() : null;
+    }
+    public void setRotationPeriodHours(Double rotationPeriodHours) { ensureRotation().setRotationPeriodHours(rotationPeriodHours); }
+
+    @JsonIgnore
+    public Double getAxialTilt() {
+        return rotation != null ? rotation.getAxialTilt() : null;
+    }
+    public void setAxialTilt(Double axialTilt) { ensureRotation().setAxialTilt(axialTilt); }
+
+    @JsonIgnore
     public Boolean getTidallyLocked() {
-        return tidallyLocked;
+        return rotation != null ? rotation.getTidallyLocked() : null;
     }
+    public void setTidallyLocked(Boolean tidallyLocked) { ensureRotation().setTidallyLocked(tidallyLocked); }
 
-    public void setTidallyLocked(Boolean tidallyLocked) {
-        this.tidallyLocked = tidallyLocked;
-    }
+    // ── JSON Accessors ──
 
     @JsonProperty("shepherdMoon")
     @Schema(description = "Whether this moon acts as a shepherd for a ring")
@@ -261,6 +252,37 @@ public class Moon {
     }
     public void setSurfaceTemp(Double surfaceTemp) { ensurePhysicalProperties().setSurfaceTemp(surfaceTemp); }
 
+    // ── Composition Convenience Getters/Setters ──
+
+    private CompositionProperties ensureCompositionProperties() {
+        if (compositionProperties == null) compositionProperties = new CompositionProperties();
+        return compositionProperties;
+    }
+
+    @JsonIgnore
+    public String getCompositionType() {
+        return compositionProperties != null ? compositionProperties.getCompositionType() : null;
+    }
+    public void setCompositionType(String compositionType) { ensureCompositionProperties().setCompositionType(compositionType); }
+
+    @JsonIgnore
+    public String getInteriorComposition() {
+        return compositionProperties != null ? compositionProperties.getInteriorComposition() : null;
+    }
+    public void setInteriorComposition(String interiorComposition) { ensureCompositionProperties().setInteriorComposition(interiorComposition); }
+
+    @JsonIgnore
+    public String getEnvelopeComposition() {
+        return compositionProperties != null ? compositionProperties.getEnvelopeComposition() : null;
+    }
+    public void setEnvelopeComposition(String envelopeComposition) { ensureCompositionProperties().setEnvelopeComposition(envelopeComposition); }
+
+    @JsonIgnore
+    public String getCompositionClassification() {
+        return compositionProperties != null ? compositionProperties.getCompositionClassification() : null;
+    }
+    public void setCompositionClassification(String compositionClassification) { ensureCompositionProperties().setCompositionClassification(compositionClassification); }
+
     // ── Orbital Convenience Getters ──
 
     @JsonIgnore
@@ -306,6 +328,24 @@ public class Moon {
     @JsonIgnore
     public String getOrbitStability() {
         return orbit != null ? orbit.getOrbitStability() : null;
+    }
+
+    @JsonIgnore
+    public Double getHillSphereRadiusKm() {
+        return orbit != null ? orbit.getHillSphereRadiusKm() : null;
+    }
+    public void setHillSphereRadiusKm(Double hillSphereRadiusKm) {
+        if (orbit == null) orbit = new OrbitalElements();
+        orbit.setHillSphereRadiusKm(hillSphereRadiusKm);
+    }
+
+    @JsonIgnore
+    public Double getRocheLimitKm() {
+        return orbit != null ? orbit.getRocheLimitKm() : null;
+    }
+    public void setRocheLimitKm(Double rocheLimitKm) {
+        if (orbit == null) orbit = new OrbitalElements();
+        orbit.setRocheLimitKm(rocheLimitKm);
     }
 
     // ── Terrain Convenience Getters (delegate to terrain object) ──

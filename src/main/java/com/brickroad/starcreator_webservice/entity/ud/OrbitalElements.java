@@ -90,6 +90,16 @@ public class OrbitalElements {
     @Schema(description = "Position in orbital sequence (1 = innermost)")
     private Integer orbitalOrder;
 
+    // ── Gravitational Boundaries (moon orbits only — null for others) ──
+
+    @Column(name = "hill_sphere_radius_km")
+    @Schema(description = "Hill sphere radius in km — gravitational sphere of influence")
+    private Double hillSphereRadiusKm;
+
+    @Column(name = "roche_limit_km")
+    @Schema(description = "Roche limit distance in km — tidal disruption boundary")
+    private Double rocheLimitKm;
+
     // ── Metadata ──
 
     @Column(name = "label", length = 100)

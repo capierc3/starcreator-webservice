@@ -23,7 +23,7 @@ public class Asteroid {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Schema(description = "Unique identifier")
+    @JsonIgnore
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -50,35 +50,12 @@ public class Asteroid {
     @Schema(description = "Age in millions of years")
     private Double ageMY;
 
-    // ── Physical Properties ──
+    // ── Physical Properties (extracted to PhysicalProperties entity) ──
 
-    @Column(name = "mass")
-    @Schema(description = "Mass in kg")
-    private Double mass;
-
-    @Column(name = "earth_mass")
-    @Schema(description = "Mass in Earth masses")
-    private Double earthMass;
-
-    @Column(name = "radius")
-    @Schema(description = "Mean radius in km")
-    private Double radius;
-
-    @Column(name = "circumference")
-    @JsonIgnore
-    private Double circumference;
-
-    @Column(name = "dimensions_km")
-    @Schema(description = "Approximate dimensions for irregularly shaped bodies", example = "965 x 961 x 891")
-    private String dimensionsKm;
-
-    @Column(name = "density")
-    @Schema(description = "Bulk density in g/cm\u00b3", example = "2.16")
-    private Double density;
-
-    @Column(name = "albedo")
-    @Schema(description = "Surface albedo", example = "0.09")
-    private Double albedo;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "physical_properties_id")
+    @Schema(description = "Physical properties including mass, radius, density, and gravity")
+    private PhysicalProperties physicalProperties;
 
     // ── Orbital Properties ──
 
@@ -87,29 +64,12 @@ public class Asteroid {
     @Schema(description = "Keplerian orbital elements for this asteroid's orbit")
     private OrbitalElements orbit;
 
-    // ── Rotation ──
+    // ── Rotation (extracted to RotationProperties entity) ──
 
-    @Column(name = "rotation_period_hours")
-    @Schema(description = "Rotation period in hours", example = "9.07")
-    private Double rotationPeriodHours;
-
-    @Column(name = "axial_tilt")
-    @Schema(description = "Axial tilt in degrees")
-    private Double axialTilt;
-
-    // ── Surface ──
-
-    @Column(name = "surface_temp")
-    @Schema(description = "Surface temperature in Kelvin", example = "167")
-    private Double surfaceTemp;
-
-    @Column(name = "surface_gravity")
-    @Schema(description = "Surface gravity in m/s\u00b2", example = "0.27")
-    private Double surfaceGravity;
-
-    @Column(name = "escape_velocity")
-    @Schema(description = "Escape velocity in km/s", example = "0.51")
-    private Double escapeVelocity;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "rotation_properties_id")
+    @Schema(description = "Rotation and spin-axis properties")
+    private RotationProperties rotation;
 
     // ── Terrain (extracted to TerrainProperties) ──
 
@@ -123,19 +83,12 @@ public class Asteroid {
     @Schema(description = "Water and hydrological properties")
     private WaterProperties water;
 
-    // ── Composition ──
+    // ── Composition (extracted to CompositionProperties entity) ──
 
-    @Column(name = "composition")
-    @Schema(description = "Composition breakdown", example = "Silicates 60%, Iron-Nickel 30%, Carbon 10%")
-    private String composition;
-
-    @Column(name = "is_differentiated")
-    @JsonIgnore
-    private Boolean isDifferentiated;
-
-    @Column(name = "core_type")
-    @Schema(description = "Core composition type, if differentiated")
-    private String coreType;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "composition_properties_id")
+    @Schema(description = "Composition properties")
+    private CompositionProperties compositionProperties;
 
     // ── Moons ──
 
@@ -165,11 +118,124 @@ public class Asteroid {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @JsonIgnore
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "modified_at")
+    @JsonIgnore
     private LocalDateTime modifiedAt;
+
+    // ── Physical Properties Convenience Getters/Setters ──
+
+    private PhysicalProperties ensurePhysicalProperties() {
+        if (physicalProperties == null) physicalProperties = new PhysicalProperties();
+        return physicalProperties;
+    }
+
+    @JsonIgnore
+    public Double getMass() {
+        return physicalProperties != null ? physicalProperties.getMass() : null;
+    }
+    public void setMass(Double mass) { ensurePhysicalProperties().setMass(mass); }
+
+    @JsonIgnore
+    public Double getEarthMass() {
+        return physicalProperties != null ? physicalProperties.getEarthMass() : null;
+    }
+    public void setEarthMass(Double earthMass) { ensurePhysicalProperties().setEarthMass(earthMass); }
+
+    @JsonIgnore
+    public Double getRadius() {
+        return physicalProperties != null ? physicalProperties.getRadius() : null;
+    }
+    public void setRadius(Double radius) { ensurePhysicalProperties().setRadius(radius); }
+
+    @JsonIgnore
+    public Double getCircumference() {
+        return physicalProperties != null ? physicalProperties.getCircumference() : null;
+    }
+    public void setCircumference(Double circumference) { ensurePhysicalProperties().setCircumference(circumference); }
+
+    @JsonIgnore
+    public String getDimensionsKm() {
+        return physicalProperties != null ? physicalProperties.getDimensionsKm() : null;
+    }
+    public void setDimensionsKm(String dimensionsKm) { ensurePhysicalProperties().setDimensionsKm(dimensionsKm); }
+
+    @JsonIgnore
+    public Double getDensity() {
+        return physicalProperties != null ? physicalProperties.getDensity() : null;
+    }
+    public void setDensity(Double density) { ensurePhysicalProperties().setDensity(density); }
+
+    @JsonIgnore
+    public Double getAlbedo() {
+        return physicalProperties != null ? physicalProperties.getAlbedo() : null;
+    }
+    public void setAlbedo(Double albedo) { ensurePhysicalProperties().setAlbedo(albedo); }
+
+    @JsonIgnore
+    public Double getSurfaceTemp() {
+        return physicalProperties != null ? physicalProperties.getSurfaceTemp() : null;
+    }
+    public void setSurfaceTemp(Double surfaceTemp) { ensurePhysicalProperties().setSurfaceTemp(surfaceTemp); }
+
+    @JsonIgnore
+    public Double getSurfaceGravity() {
+        return physicalProperties != null ? physicalProperties.getSurfaceGravity() : null;
+    }
+    public void setSurfaceGravity(Double surfaceGravity) { ensurePhysicalProperties().setSurfaceGravity(surfaceGravity); }
+
+    @JsonIgnore
+    public Double getEscapeVelocity() {
+        return physicalProperties != null ? physicalProperties.getEscapeVelocity() : null;
+    }
+    public void setEscapeVelocity(Double escapeVelocity) { ensurePhysicalProperties().setEscapeVelocity(escapeVelocity); }
+
+    // ── Rotation Convenience Getters/Setters ──
+
+    private RotationProperties ensureRotation() {
+        if (rotation == null) rotation = new RotationProperties();
+        return rotation;
+    }
+
+    @JsonIgnore
+    public Double getRotationPeriodHours() {
+        return rotation != null ? rotation.getRotationPeriodHours() : null;
+    }
+    public void setRotationPeriodHours(Double rotationPeriodHours) { ensureRotation().setRotationPeriodHours(rotationPeriodHours); }
+
+    @JsonIgnore
+    public Double getAxialTilt() {
+        return rotation != null ? rotation.getAxialTilt() : null;
+    }
+    public void setAxialTilt(Double axialTilt) { ensureRotation().setAxialTilt(axialTilt); }
+
+    // ── Composition Convenience Getters/Setters ──
+
+    private CompositionProperties ensureCompositionProperties() {
+        if (compositionProperties == null) compositionProperties = new CompositionProperties();
+        return compositionProperties;
+    }
+
+    @JsonIgnore
+    public String getComposition() {
+        return compositionProperties != null ? compositionProperties.getComposition() : null;
+    }
+    public void setComposition(String composition) { ensureCompositionProperties().setComposition(composition); }
+
+    @JsonIgnore
+    public Boolean getIsDifferentiated() {
+        return compositionProperties != null ? compositionProperties.getIsDifferentiated() : null;
+    }
+    public void setIsDifferentiated(Boolean isDifferentiated) { ensureCompositionProperties().setIsDifferentiated(isDifferentiated); }
+
+    @JsonIgnore
+    public String getCoreType() {
+        return compositionProperties != null ? compositionProperties.getCoreType() : null;
+    }
+    public void setCoreType(String coreType) { ensureCompositionProperties().setCoreType(coreType); }
 
     // ── Orbital Convenience Getters (delegate to orbit object) ──
 

@@ -20,12 +20,10 @@ import java.util.List;
 @JsonPropertyOrder({
     "planetType", "habitableZonePosition",
     "ageMY", "parentStar",
-    "physicalProperties", "orbit",
-    "rotationPeriodHours", "axialTilt", "tidallyLocked",
+    "physicalProperties", "orbit", "rotation",
     "atmosphere",
-    "coreType", "interiorComposition", "envelopeComposition", "compositionClassification",
+    "compositionProperties",
     "water", "terrain",
-    "hasGreatStorm", "numberOfMajorStorms", "atmosphericConvectionLevel",
     "additionalMoonlets", "moons", "bands",
     "magneticField", "habitability", "climate",
     "createdAt", "modifiedAt"
@@ -79,19 +77,12 @@ public class Planet {
     @Schema(description = "Keplerian orbital elements for this planet's orbit around its star")
     private OrbitalElements orbit;
 
-    // ── Rotation ──
+    // ── Rotation (extracted to RotationProperties entity) ──
 
-    @Column(name = "rotation_period_hours")
-    @Schema(description = "Sidereal rotation period in hours (negative = retrograde)", example = "24.0")
-    private Double rotationPeriodHours;
-
-    @Column(name = "axial_tilt_degrees")
-    @Schema(description = "Axial tilt in degrees", example = "23.4")
-    private Double axialTilt;
-
-    @Column(name = "is_tidally_locked")
-    @JsonIgnore
-    private Boolean isTidallyLocked;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "rotation_properties_id")
+    @Schema(description = "Rotation and spin-axis properties")
+    private RotationProperties rotation;
 
     // ── Atmosphere (extracted to Atmosphere entity) ──
 
@@ -100,23 +91,12 @@ public class Planet {
     @Schema(description = "Atmospheric properties")
     private Atmosphere atmosphere;
 
-    // ── Composition ──
+    // ── Composition (extracted to CompositionProperties entity) ──
 
-    @Column(name = "core_type")
-    @Schema(description = "Core composition type", example = "Iron-Nickel")
-    private String coreType;
-
-    @Column(name = "interior_composition", length = 500)
-    @Schema(description = "Interior composition breakdown")
-    private String interiorComposition;
-
-    @Column(name = "envelope_composition", length = 500)
-    @Schema(description = "Envelope/crust composition breakdown")
-    private String envelopeComposition;
-
-    @Column(name = "composition_classification", length = 50)
-    @Schema(description = "Overall composition classification", example = "SILICATE")
-    private String compositionClassification;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "composition_properties_id")
+    @Schema(description = "Composition properties including core, interior, and envelope breakdown")
+    private CompositionProperties compositionProperties;
 
     // ── Water (extracted to WaterProperties) ──
 
@@ -131,20 +111,6 @@ public class Planet {
     @JoinColumn(name = "terrain_id")
     @Schema(description = "Terrain, geology, and surface morphology data")
     private TerrainProperties terrain;
-
-    // ── Storms ──
-
-    @Column(name = "has_great_storm")
-    @Schema(description = "Whether the planet has a persistent great storm (like Jupiter's Red Spot)")
-    private Boolean hasGreatStorm;
-
-    @Column(name = "number_of_major_storms")
-    @Schema(description = "Number of persistent major storm systems")
-    private Integer numberOfMajorStorms;
-
-    @Column(name = "atmospheric_convection_level", length = 50)
-    @Schema(description = "Atmospheric convection intensity", example = "VIGOROUS")
-    private String atmosphericConvectionLevel;
 
     // ── Moons & Bands ──
 
@@ -193,17 +159,30 @@ public class Planet {
     @Schema(description = "Timestamp when this planet was last modified")
     private LocalDateTime modifiedAt;
 
-    // ── JSON Accessors ──
+    // ── Rotation Convenience Getters/Setters ──
 
-    @JsonProperty("tidallyLocked")
-    @Schema(description = "Whether the planet is tidally locked to its star", example = "false")
+    private RotationProperties ensureRotation() {
+        if (rotation == null) rotation = new RotationProperties();
+        return rotation;
+    }
+
+    @JsonIgnore
+    public Double getRotationPeriodHours() {
+        return rotation != null ? rotation.getRotationPeriodHours() : null;
+    }
+    public void setRotationPeriodHours(Double rotationPeriodHours) { ensureRotation().setRotationPeriodHours(rotationPeriodHours); }
+
+    @JsonIgnore
+    public Double getAxialTilt() {
+        return rotation != null ? rotation.getAxialTilt() : null;
+    }
+    public void setAxialTilt(Double axialTilt) { ensureRotation().setAxialTilt(axialTilt); }
+
+    @JsonIgnore
     public Boolean getTidallyLocked() {
-        return isTidallyLocked;
+        return rotation != null ? rotation.getTidallyLocked() : null;
     }
-
-    public void setTidallyLocked(Boolean tidallyLocked) {
-        isTidallyLocked = tidallyLocked;
-    }
+    public void setTidallyLocked(Boolean tidallyLocked) { ensureRotation().setTidallyLocked(tidallyLocked); }
 
     // ── System Convenience (navigate through parentStar) ──
 
@@ -443,6 +422,62 @@ public class Planet {
     public List<TerrainDistribution> getTerrainDistribution() {
         return terrain != null ? terrain.getTerrainDistribution() : new ArrayList<>();
     }
+
+    // ── Storm Convenience Getters (delegate to atmosphere object) ──
+
+    private Atmosphere ensureAtmosphere() {
+        if (atmosphere == null) atmosphere = new Atmosphere();
+        return atmosphere;
+    }
+
+    @JsonIgnore
+    public Boolean getHasGreatStorm() {
+        return atmosphere != null ? atmosphere.getHasGreatStorm() : null;
+    }
+    public void setHasGreatStorm(Boolean hasGreatStorm) { ensureAtmosphere().setHasGreatStorm(hasGreatStorm); }
+
+    @JsonIgnore
+    public Integer getNumberOfMajorStorms() {
+        return atmosphere != null ? atmosphere.getNumberOfMajorStorms() : null;
+    }
+    public void setNumberOfMajorStorms(Integer numberOfMajorStorms) { ensureAtmosphere().setNumberOfMajorStorms(numberOfMajorStorms); }
+
+    @JsonIgnore
+    public String getAtmosphericConvectionLevel() {
+        return atmosphere != null ? atmosphere.getAtmosphericConvectionLevel() : null;
+    }
+    public void setAtmosphericConvectionLevel(String atmosphericConvectionLevel) { ensureAtmosphere().setAtmosphericConvectionLevel(atmosphericConvectionLevel); }
+
+    // ── Composition Convenience Getters/Setters ──
+
+    private CompositionProperties ensureCompositionProperties() {
+        if (compositionProperties == null) compositionProperties = new CompositionProperties();
+        return compositionProperties;
+    }
+
+    @JsonIgnore
+    public String getCoreType() {
+        return compositionProperties != null ? compositionProperties.getCoreType() : null;
+    }
+    public void setCoreType(String coreType) { ensureCompositionProperties().setCoreType(coreType); }
+
+    @JsonIgnore
+    public String getInteriorComposition() {
+        return compositionProperties != null ? compositionProperties.getInteriorComposition() : null;
+    }
+    public void setInteriorComposition(String interiorComposition) { ensureCompositionProperties().setInteriorComposition(interiorComposition); }
+
+    @JsonIgnore
+    public String getEnvelopeComposition() {
+        return compositionProperties != null ? compositionProperties.getEnvelopeComposition() : null;
+    }
+    public void setEnvelopeComposition(String envelopeComposition) { ensureCompositionProperties().setEnvelopeComposition(envelopeComposition); }
+
+    @JsonIgnore
+    public String getCompositionClassification() {
+        return compositionProperties != null ? compositionProperties.getCompositionClassification() : null;
+    }
+    public void setCompositionClassification(String compositionClassification) { ensureCompositionProperties().setCompositionClassification(compositionClassification); }
 
     // ── Water Convenience Getters (delegate to water object) ──
 

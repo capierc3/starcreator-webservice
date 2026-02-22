@@ -12,13 +12,13 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * Physical properties for any celestial body (planet, moon, or star).
+ * Physical properties for any celestial body (planet, moon, star, or asteroid).
  * <p>
  * Body-type-specific fields are nullable and only populated for the appropriate
  * body type. Planet/moon fields (earthMass, earthRadius, density, etc.) are null
  * for stars; star fields (solarMass, solarRadius, solarLuminosity) are null for
- * planets and moons. {@code @JsonInclude(NON_NULL)} ensures only relevant fields
- * appear in the JSON output.
+ * planets and moons; {@code dimensionsKm} is asteroid-only.
+ * {@code @JsonInclude(NON_NULL)} ensures only relevant fields appear in the JSON output.
  */
 @Entity
 @Table(name = "physical_properties", schema = "ud")
@@ -75,6 +75,12 @@ public class PhysicalProperties {
     @Column(name = "albedo")
     @Schema(description = "Bond albedo (fraction of energy reflected)", example = "0.30")
     private Double albedo;
+
+    // ── Asteroid Fields ──
+
+    @Column(name = "dimensions_km")
+    @Schema(description = "Approximate dimensions for irregularly shaped bodies", example = "965 x 961 x 891")
+    private String dimensionsKm;
 
     // ── Star Fields ──
 

@@ -60,6 +60,20 @@ public class Atmosphere {
     @Schema(description = "Individual gas components of the atmosphere")
     private List<AtmosphereComponent> components = new ArrayList<>();
 
+    // ── Storm Properties (gas giant only — null for other planet types) ──
+
+    @Column(name = "has_great_storm")
+    @Schema(description = "Whether the planet has a persistent great storm (like Jupiter's Red Spot)")
+    private Boolean hasGreatStorm;
+
+    @Column(name = "number_of_major_storms")
+    @Schema(description = "Number of persistent major storm systems")
+    private Integer numberOfMajorStorms;
+
+    @Column(name = "atmospheric_convection_level", length = 50)
+    @Schema(description = "Atmospheric convection intensity", example = "VIGOROUS")
+    private String atmosphericConvectionLevel;
+
     @Column(name = "created_at")
     @JsonIgnore
     private java.time.LocalDateTime createdAt;
