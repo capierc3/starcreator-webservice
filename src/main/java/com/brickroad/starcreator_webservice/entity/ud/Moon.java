@@ -165,8 +165,8 @@ public class Moon extends CelestialBody {
 
     // ── Computed Properties (not persisted) ──
 
-    @Transient
-    @JsonProperty("habitability")
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "habitability_id")
     @Schema(description = "Habitability assessment")
     private PlanetaryHabitability habitability;
 

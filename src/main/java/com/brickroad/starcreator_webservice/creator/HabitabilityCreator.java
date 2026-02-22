@@ -25,7 +25,6 @@ public class HabitabilityCreator {
 
     public PlanetaryHabitability assess(Planet planet, Star parentStar) {
         PlanetaryHabitability hab = new PlanetaryHabitability();
-        hab.setPlanet(planet);
 
         String planetType = planet.getPlanetType() != null ? planet.getPlanetType().toLowerCase() : "";
 
@@ -48,7 +47,6 @@ public class HabitabilityCreator {
 
     public PlanetaryHabitability assessMoon(Moon moon, Planet parentPlanet, Star parentStar) {
         PlanetaryHabitability hab = new PlanetaryHabitability();
-        hab.setMoon(moon);
 
         calculateMoonESI(hab, moon);
         assessMoonRadiation(hab, moon, parentPlanet, parentStar);
@@ -59,8 +57,6 @@ public class HabitabilityCreator {
         assessMoonBiosignatures(hab, moon, parentPlanet, parentStar);
         classifyMoonHabitability(hab, moon);
 
-        hab.setCreatedAt(java.time.LocalDateTime.now());
-        hab.setModifiedAt(java.time.LocalDateTime.now());
         return hab;
     }
 
