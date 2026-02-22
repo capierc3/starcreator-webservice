@@ -260,7 +260,6 @@ public class PlanetCreator {
 
         PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet, parentStar);
         planet.setMagneticField(magneticField);
-        planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
 
         WaterProperties water = waterCreator.createPlanetWaterProperties(planet, parentStar);
         planet.setWater(water);

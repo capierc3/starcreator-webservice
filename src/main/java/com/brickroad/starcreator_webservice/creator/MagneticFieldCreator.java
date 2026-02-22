@@ -20,7 +20,6 @@ public class MagneticFieldCreator {
 
     public PlanetaryMagneticField generateMagneticField(Planet planet, Star parentStar) {
         PlanetaryMagneticField field = new PlanetaryMagneticField();
-        field.setPlanet(planet);
 
         boolean canHaveDynamo = canGenerateDynamo(planet);
         if (!canHaveDynamo) {
@@ -33,7 +32,6 @@ public class MagneticFieldCreator {
 
     public PlanetaryMagneticField generateMoonMagneticField(Moon moon, Planet parentPlanet) {
         PlanetaryMagneticField field = new PlanetaryMagneticField();
-        field.setMoon(moon);
 
         MoonFieldType fieldType = determineMoonFieldType(moon, parentPlanet);
 
@@ -53,8 +51,6 @@ public class MagneticFieldCreator {
                 break;
         }
 
-        field.setCreatedAt(java.time.LocalDateTime.now());
-        field.setModifiedAt(java.time.LocalDateTime.now());
         return field;
     }
 

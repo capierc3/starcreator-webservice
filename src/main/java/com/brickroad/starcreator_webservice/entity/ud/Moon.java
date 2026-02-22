@@ -155,12 +155,14 @@ public class Moon extends CelestialBody {
     @Schema(description = "Name of the ring this moon shepherds, if applicable")
     private String shepherdsRingName;
 
-    // ── Computed Properties (not persisted) ──
+    // ── Magnetic Field (extracted to PlanetaryMagneticField) ──
 
-    @Transient
-    @JsonProperty("magneticField")
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "magnetic_field_id")
     @Schema(description = "Magnetic field properties")
     private PlanetaryMagneticField magneticField;
+
+    // ── Computed Properties (not persisted) ──
 
     @Transient
     @JsonProperty("habitability")

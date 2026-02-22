@@ -1,9 +1,13 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -11,25 +15,14 @@ import java.time.LocalDateTime;
 @Getter
 @Entity
 @Table(name = "planetary_magnetic_field", schema = "ud")
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Magnetic field properties for a planet or moon")
 public class PlanetaryMagneticField {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonIgnore
     private Long id;
-
-    @Column(name = "planet_id", unique = true)
-    private Long planetId;
-
-    @Transient
-    @JsonIgnore
-    private Planet planet;
-
-    @Column(name = "moon_id")
-    private Long moonId;
-
-    @Transient
-    @JsonIgnore
-    private Moon moon;
 
     // ================================================================
     // FIELD STRENGTH
@@ -284,27 +277,13 @@ public class PlanetaryMagneticField {
     // ================================================================
     // METADATA
     // ================================================================
-    @Column(name = "created_at")
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    @JsonIgnore
     private LocalDateTime createdAt;
 
+    @UpdateTimestamp
     @Column(name = "modified_at")
+    @JsonIgnore
     private LocalDateTime modifiedAt;
-
-    // ================================================================
-    // CONSTRUCTORS
-    // ================================================================
-    public PlanetaryMagneticField() {
-        this.createdAt = LocalDateTime.now();
-        this.modifiedAt = LocalDateTime.now();
-    }
-
-    // ================================================================
-    // GETTERS AND SETTERS
-    // ================================================================
-
-    public void preparePersistence() {
-        if (this.planet != null && this.planet.getId() != null) {
-            this.planetId = this.planet.getId();
-        }
-    }
 }

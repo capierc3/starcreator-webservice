@@ -146,10 +146,6 @@ public class Planet extends CelestialBody {
 
     // ── Magnetic Field ──
 
-    @Column(name = "magnetic_field_strength")
-    @Schema(description = "Magnetic field strength relative to Earth (1.0 = Earth)", example = "0.60")
-    private Double magneticFieldStrength;
-
     // ── Moons & Bands ──
 
     @Column(name = "has_rings")
@@ -174,12 +170,14 @@ public class Planet extends CelestialBody {
     @Schema(description = "Orbital bands (rings) around this planet")
     private List<OrbitalBand> bands = new ArrayList<>();
 
-    // ── Computed Properties (not persisted) ──
+    // ── Magnetic Field (extracted to PlanetaryMagneticField) ──
 
-    @Transient
-    @JsonProperty("magneticField")
-    @Schema(description = "Detailed magnetic field properties")
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "magnetic_field_id")
+    @Schema(description = "Magnetic field properties")
     private PlanetaryMagneticField magneticField;
+
+    // ── Computed Properties (not persisted) ──
 
     @Transient
     @JsonProperty("habitability")
@@ -394,5 +392,12 @@ public class Planet extends CelestialBody {
     @JsonIgnore
     public Double getSurfacePressure() {
         return atmosphere != null ? atmosphere.getSurfacePressureBar() : null;
+    }
+
+    // ── Magnetic Field Convenience Getter ──
+
+    @JsonIgnore
+    public Double getMagneticFieldStrength() {
+        return magneticField != null ? magneticField.getStrengthComparedToEarth() : null;
     }
 }
