@@ -1,5 +1,8 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,44 +15,57 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)  // Private - only for Builder
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Atmospheric properties for a celestial body")
 public class Atmosphere {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonIgnore
     private Long id;
 
     @Column(name = "classification", nullable = false, length = 50)
+    @Schema(description = "Atmosphere classification type", example = "EARTH_LIKE")
     private String classification;
 
     @Column(name = "surface_pressure_bar")
+    @Schema(description = "Surface atmospheric pressure in bar (1 bar ≈ Earth sea level)", example = "1.01")
     private Double surfacePressureBar;
 
     @Column(name = "composition_summary", columnDefinition = "TEXT")
+    @Schema(description = "Human-readable atmospheric composition summary", example = "N2 78%, O2 21%, Ar 0.93%")
     private String compositionSummary;
 
     // Atmospheric properties
     @Column(name = "scale_height_km")
+    @Schema(description = "Atmospheric scale height in km")
     private Double scaleHeightKm;
 
     @Column(name = "greenhouse_effect_k")
+    @Schema(description = "Temperature increase due to greenhouse effect in Kelvin")
     private Double greenhouseEffectK;
 
-    // Stripping metadata
+    // Stripping metadata (internal generation data)
     @Column(name = "is_stripped", nullable = false)
+    @JsonIgnore
     private Boolean isStripped = false;
 
     @Column(name = "stripped_reason", length = 100)
+    @JsonIgnore
     private String strippedReason;
 
     // Component relationship - individual gas components
     @OneToMany(mappedBy = "atmosphere", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
+    @Schema(description = "Individual gas components of the atmosphere")
     private List<AtmosphereComponent> components = new ArrayList<>();
 
     @Column(name = "created_at")
+    @JsonIgnore
     private java.time.LocalDateTime createdAt;
 
     @Column(name = "modified_at")
+    @JsonIgnore
     private java.time.LocalDateTime modifiedAt;
 
     @PrePersist

@@ -91,19 +91,12 @@ public class Planet extends CelestialBody {
     @Schema(description = "Equilibrium surface temperature in Kelvin", example = "288")
     private Double surfaceTemp;
 
-    @Column(name = "surface_pressure_atm")
-    @Schema(description = "Surface atmospheric pressure in atm (1.0 = Earth sea level)", example = "1.0")
-    private Double surfacePressure;
+    // ── Atmosphere (extracted to Atmosphere entity) ──
 
-    // ── Atmosphere ──
-
-    @Column(name = "atmosphere_composition")
-    @Schema(description = "Atmospheric composition summary", example = "N2 78%, O2 21%, Ar 0.93%, CO2 (trace)")
-    private String atmosphereComposition;
-
-    @Column(name = "atmosphere_classification", length = 50)
-    @Schema(description = "Atmosphere classification", example = "EARTH_LIKE")
-    private String atmosphereClassification;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "atmosphere_id")
+    @Schema(description = "Atmospheric properties")
+    private Atmosphere atmosphere;
 
     // ── Composition ──
 
@@ -384,5 +377,22 @@ public class Planet extends CelestialBody {
     @JsonIgnore
     public Double getSubsurfaceWaterDepthKm() {
         return water != null ? water.getSubsurfaceWaterDepthKm() : null;
+    }
+
+    // ── Atmosphere Convenience Getters (delegate to atmosphere object) ──
+
+    @JsonIgnore
+    public String getAtmosphereClassification() {
+        return atmosphere != null ? atmosphere.getClassification() : null;
+    }
+
+    @JsonIgnore
+    public String getAtmosphereComposition() {
+        return atmosphere != null ? atmosphere.getCompositionSummary() : null;
+    }
+
+    @JsonIgnore
+    public Double getSurfacePressure() {
+        return atmosphere != null ? atmosphere.getSurfacePressureBar() : null;
     }
 }

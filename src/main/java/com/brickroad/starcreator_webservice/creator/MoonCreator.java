@@ -819,30 +819,20 @@ public class MoonCreator {
         Planet planet = moon.getPlanet();
 
         if (moon.getEscapeVelocity() < 0.3) {
-            moon.setHasAtmosphere(false);
-            moon.setSurfacePressure(0.0);
-            moon.setAtmosphereComposition("None");
-            moon.setAtmosphere(null);
+            moon.setAtmosphere(atmosphereCreator.createNoAtmosphereEntity());
             return;
         }
 
         boolean strippedByMagneticField = checkMagneticFieldStripping(moon, planet);
-
         if (strippedByMagneticField) {
-            Atmosphere strippedAtmosphere = createStrippedAtmosphere();
-            moon.setAtmosphere(strippedAtmosphere);
-            moon.setHasAtmosphere(false);
-            moon.setSurfacePressure(0.0);
-            moon.setAtmosphereComposition("None (stripped by magnetic field)");
+            moon.setAtmosphere(atmosphereCreator.createStrippedAtmosphereEntity(
+                    "Atmosphere stripped by parent planet's magnetosphere"));
             return;
         }
 
         boolean shouldHaveAtmosphere = determineAtmospherePresence(moon);
-
         if (!shouldHaveAtmosphere) {
-            moon.setHasAtmosphere(false);
-            moon.setSurfacePressure(0.0);
-            moon.setAtmosphereComposition("None");
+            moon.setAtmosphere(atmosphereCreator.createNoAtmosphereEntity());
             return;
         }
 
@@ -858,10 +848,7 @@ public class MoonCreator {
 
         PlanetaryAtmosphere generatedAtmosphere = result.atmosphere();
         if (generatedAtmosphere.getClassification() == AtmosphereClassification.NONE) {
-            moon.setHasAtmosphere(false);
-            moon.setSurfacePressure(0.0);
-            moon.setAtmosphereComposition("None");
-            moon.setAtmosphere(null);
+            moon.setAtmosphere(atmosphereCreator.createNoAtmosphereEntity());
             return;
         }
 
@@ -871,13 +858,8 @@ public class MoonCreator {
                 result.template()
         );
 
-        // Convert PlanetaryAtmosphere to Atmosphere entity
-        Atmosphere atmosphereEntity = convertToAtmosphereEntity(generatedAtmosphere, surfacePressure);
-
+        Atmosphere atmosphereEntity = atmosphereCreator.toAtmosphereEntity(generatedAtmosphere, surfacePressure);
         moon.setAtmosphere(atmosphereEntity);
-        moon.setHasAtmosphere(true);
-        moon.setSurfacePressure(surfacePressure);
-        moon.setAtmosphereComposition(generatedAtmosphere.toCompactString());
     }
 
     private boolean checkMagneticFieldStripping(Moon moon, Planet planet) {
@@ -1016,34 +998,6 @@ public class MoonCreator {
             return "Rocky Moon Large";
         }
         return "Rocky Moon";
-    }
-
-    private Atmosphere createStrippedAtmosphere() {
-        return Atmosphere.builder()
-                .classification("NONE")
-                .surfacePressureBar(0.0)
-                .compositionSummary("None")
-                .isStripped(true)
-                .strippedReason("Atmosphere stripped by parent planet's magnetosphere")
-                .components(new java.util.ArrayList<>())
-                .build();
-    }
-
-    private Atmosphere convertToAtmosphereEntity(PlanetaryAtmosphere planetaryAtm, double pressureBar) {
-        Atmosphere atmosphere = Atmosphere.builder()
-                .classification(planetaryAtm.getClassification().name())
-                .surfacePressureBar(pressureBar)
-                .compositionSummary(planetaryAtm.toCompactString())
-                .isStripped(false)
-                .components(new java.util.ArrayList<>())
-                .build();
-
-        for (AtmosphereComponent component : planetaryAtm.components()) {
-            component.setAtmosphere(atmosphere);
-            atmosphere.getComponents().add(component);
-        }
-
-        return atmosphere;
     }
 
     // ═══════════════════════════════════════════════════════════════

@@ -6,6 +6,7 @@ import com.brickroad.starcreator_webservice.utils.planets.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -130,13 +131,18 @@ public class WeatherCreator {
     private Planet buildMoonProxy(Moon moon, Planet parentPlanet, String atmClass) {
         Planet proxy = new Planet();
 
-        // Atmosphere classification — the key routing field
-        proxy.setAtmosphereClassification(atmClass);
-        proxy.setAtmosphereComposition(moon.getAtmosphereComposition());
+        // Atmosphere — build proxy Atmosphere entity
+        Atmosphere proxyAtm = Atmosphere.builder()
+                .classification(atmClass)
+                .surfacePressureBar(moon.getSurfacePressure())
+                .compositionSummary(moon.getAtmosphereComposition())
+                .isStripped(false)
+                .components(new ArrayList<>())
+                .build();
+        proxy.setAtmosphere(proxyAtm);
 
         // Physical properties
         proxy.setSurfaceTemp(moon.getSurfaceTemp());
-        proxy.setSurfacePressure(moon.getSurfacePressure());
         proxy.setEarthMass(moon.getEarthMass());
         proxy.setEarthRadius(moon.getEarthRadius());
         proxy.setSurfaceGravity(moon.getSurfaceGravity());

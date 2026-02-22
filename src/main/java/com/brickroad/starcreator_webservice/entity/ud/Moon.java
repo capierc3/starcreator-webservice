@@ -126,22 +126,10 @@ public class Moon extends CelestialBody {
 
     // ── Atmosphere ──
 
-    @Column(name = "has_atmosphere", nullable = false)
-    @Schema(description = "Whether the moon has a significant atmosphere")
-    private Boolean hasAtmosphere = false;
-
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "atmosphere_id")
-    @Schema(description = "Detailed atmosphere data")
+    @Schema(description = "Atmospheric properties")
     private Atmosphere atmosphere;
-
-    @Column(name = "surface_pressure")
-    @Schema(description = "Surface atmospheric pressure in atm")
-    private Double surfacePressure;
-
-    @Column(name = "atmosphere_composition", length = 500)
-    @Schema(description = "Atmosphere composition summary")
-    private String atmosphereComposition;
 
     // ── Composition ──
 
@@ -351,5 +339,24 @@ public class Moon extends CelestialBody {
     @JsonIgnore
     public Double getSubsurfaceWaterDepthKm() {
         return water != null ? water.getSubsurfaceWaterDepthKm() : null;
+    }
+
+    // ── Atmosphere Convenience Getters (delegate to atmosphere object) ──
+
+    @JsonIgnore
+    public Boolean getHasAtmosphere() {
+        return atmosphere != null
+                && atmosphere.getClassification() != null
+                && !"NONE".equals(atmosphere.getClassification());
+    }
+
+    @JsonIgnore
+    public Double getSurfacePressure() {
+        return atmosphere != null ? atmosphere.getSurfacePressureBar() : null;
+    }
+
+    @JsonIgnore
+    public String getAtmosphereComposition() {
+        return atmosphere != null ? atmosphere.getCompositionSummary() : null;
     }
 }

@@ -5,7 +5,6 @@ import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
-import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.repository.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -440,50 +439,22 @@ public class PlanetCreator {
     }
 
     private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type) {
-        if (!type.getCanHaveAtmosphere() || planet.getEarthMass() < 0.1) {
-            planet.setAtmosphereComposition("None");
-            planet.setAtmosphereClassification("NONE");
-            planet.setSurfacePressure(0.0);
+        Atmosphere atmosphere = atmosphereCreator.createPlanetAtmosphere(planet, type, planet.getParentStar());
+        planet.setAtmosphere(atmosphere);
+
+        // Albedo adjustment based on atmosphere classification
+        String classification = planet.getAtmosphereClassification();
+        if ("NONE".equals(classification)) {
             planet.setAlbedo(type.getTypicalAlbedo());
-            return;
+        } else {
+            double baseAlbedo = switch (classification) {
+                case "EARTH_LIKE" -> 0.3;
+                case "VENUS_LIKE" -> 0.75;
+                case "JOVIAN", "ICE_GIANT" -> 0.5;
+                default -> type.getTypicalAlbedo();
+            };
+            planet.setAlbedo(addVariance(baseAlbedo));
         }
-
-        Star parentStar = planet.getParentStar();
-        double distanceAU = planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : 1.0;
-
-        // Use star-aware atmosphere generation
-        AtmosphereCreator.AtmosphereResult result = atmosphereCreator.generateAtmosphereWithTemplate(
-                planet.getPlanetType(),
-                planet.getSurfaceTemp(),
-                planet.getEarthMass(),
-                distanceAU,
-                parentStar
-        );
-
-        PlanetaryAtmosphere atmosphere = result.atmosphere();
-        planet.setAtmosphereComposition(atmosphere.toCompactString());
-        planet.setAtmosphereClassification(atmosphere.getClassification().name());
-
-        // Use star-aware surface pressure calculation
-        double pressure = atmosphereCreator.calculateSurfacePressure(
-                planet.getEarthMass(),
-                planet.getSurfaceTemp(),
-                result.template(),
-                parentStar,
-                distanceAU
-        );
-        planet.setSurfacePressure(pressure);
-
-        double baseAlbedo = type.getTypicalAlbedo();
-        baseAlbedo = switch (atmosphere.getClassification()) {
-            case EARTH_LIKE -> 0.3;
-            case VENUS_LIKE -> 0.75;
-            case JOVIAN, ICE_GIANT -> 0.5;
-            case NONE -> 0.1;
-            default -> baseAlbedo;
-        };
-
-        planet.setAlbedo(addVariance(baseAlbedo));
     }
 
     private void populateAlbedo(Planet planet, PlanetTypeRef type) {
