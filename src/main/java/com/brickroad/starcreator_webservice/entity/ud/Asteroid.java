@@ -118,6 +118,11 @@ public class Asteroid {
     @Schema(description = "Terrain and surface morphology data")
     private TerrainProperties terrain;
 
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "water_id")
+    @Schema(description = "Water and hydrological properties")
+    private WaterProperties water;
+
     // ── Composition ──
 
     @Column(name = "composition")

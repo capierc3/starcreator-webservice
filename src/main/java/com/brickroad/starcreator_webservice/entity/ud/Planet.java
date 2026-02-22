@@ -123,31 +123,12 @@ public class Planet extends CelestialBody {
     @Schema(description = "Overall composition classification", example = "SILICATE")
     private String compositionClassification;
 
-    // ── Water ──
+    // ── Water (extracted to WaterProperties) ──
 
-    @Column(name = "water_coverage_percent")
-    @Schema(description = "Total water coverage as percentage of surface", example = "71.0")
-    private Double waterCoveragePercent;
-
-    @Column(name = "water_inventory", length = 30)
-    @Schema(description = "Relative water inventory classification", example = "EARTH_LIKE")
-    private String waterInventory;
-
-    @Column(name = "liquid_water_coverage_percent")
-    @Schema(description = "Liquid water coverage as percentage of surface", example = "65.0")
-    private Double liquidWaterCoveragePercent;
-
-    @Column(name = "ice_coverage_percent")
-    @Schema(description = "Ice coverage as percentage of surface", example = "6.0")
-    private Double iceCoveragePercent;
-
-    @Column(name = "has_subsurface_water")
-    @Schema(description = "Whether subsurface liquid water is present")
-    private Boolean hasSubsurfaceWater;
-
-    @Column(name = "subsurface_water_depth_km")
-    @Schema(description = "Depth to subsurface water layer in km")
-    private Double subsurfaceWaterDepthKm;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "water_id")
+    @Schema(description = "Water and hydrological properties")
+    private WaterProperties water;
 
     // ── Terrain (extracted to TerrainProperties) ──
 
@@ -371,5 +352,37 @@ public class Planet extends CelestialBody {
     @JsonIgnore
     public List<TerrainDistribution> getTerrainDistribution() {
         return terrain != null ? terrain.getTerrainDistribution() : new ArrayList<>();
+    }
+
+    // ── Water Convenience Getters (delegate to water object) ──
+
+    @JsonIgnore
+    public String getWaterInventory() {
+        return water != null ? water.getWaterInventory() : null;
+    }
+
+    @JsonIgnore
+    public Double getWaterCoveragePercent() {
+        return water != null ? water.getWaterCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Double getLiquidWaterCoveragePercent() {
+        return water != null ? water.getLiquidWaterCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Double getIceCoveragePercent() {
+        return water != null ? water.getIceCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Boolean getHasSubsurfaceWater() {
+        return water != null ? water.getHasSubsurfaceWater() : false;
+    }
+
+    @JsonIgnore
+    public Double getSubsurfaceWaterDepthKm() {
+        return water != null ? water.getSubsurfaceWaterDepthKm() : null;
     }
 }

@@ -263,7 +263,8 @@ public class PlanetCreator {
         planet.setMagneticField(magneticField);
         planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
 
-        waterCreator.populateWaterProperties(planet, parentStar);
+        WaterProperties water = waterCreator.createPlanetWaterProperties(planet, parentStar);
+        planet.setWater(water);
 
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);

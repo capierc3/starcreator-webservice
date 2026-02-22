@@ -117,41 +117,12 @@ public class Moon extends CelestialBody {
     @Schema(description = "Terrain, geology, and surface morphology data")
     private TerrainProperties terrain;
 
-    // ── Water & Ocean ──
+    // ── Water (extracted to WaterProperties) ──
 
-    @Column(name = "has_subsurface_ocean", nullable = false)
-    @Schema(description = "Whether the moon has a subsurface liquid water ocean")
-    private Boolean hasSubsurfaceOcean = false;
-
-    @Column(name = "ocean_depth_km")
-    @Schema(description = "Depth of subsurface ocean in km")
-    private Double oceanDepthKm;
-
-    @Column(name = "ice_shell_thickness_km")
-    @Schema(description = "Thickness of ice shell above subsurface ocean in km")
-    private Double iceShellThicknessKm;
-
-    @Column(name = "water_inventory", length = 30)
-    @Schema(description = "Relative water inventory")
-    private String waterInventory;
-
-    @Column(name = "water_coverage_percent")
-    @Schema(description = "Water coverage percentage")
-    private Double waterCoveragePercent;
-
-    @Column(name = "liquid_water_coverage_percent")
-    @Schema(description = "Liquid water coverage percentage")
-    private Double liquidWaterCoveragePercent;
-
-    @Column(name = "ice_coverage_percent")
-    @Schema(description = "Ice coverage percentage")
-    private Double iceCoveragePercent;
-
-    @Column(name = "has_subsurface_water")
-    private Boolean hasSubsurfaceWater = false;
-
-    @Column(name = "subsurface_water_depth_km")
-    private Double subsurfaceWaterDepthKm;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "water_id")
+    @Schema(description = "Water and hydrological properties")
+    private WaterProperties water;
 
     // ── Atmosphere ──
 
@@ -333,5 +304,52 @@ public class Moon extends CelestialBody {
     @JsonIgnore
     public String getPrimaryErosionAgent() {
         return terrain != null ? terrain.getPrimaryErosionAgent() : null;
+    }
+
+    // ── Water Convenience Getters (delegate to water object) ──
+
+    @JsonIgnore
+    public Boolean getHasSubsurfaceOcean() {
+        return water != null ? water.getHasSubsurfaceOcean() : false;
+    }
+
+    @JsonIgnore
+    public Double getOceanDepthKm() {
+        return water != null ? water.getOceanDepthKm() : null;
+    }
+
+    @JsonIgnore
+    public Double getIceShellThicknessKm() {
+        return water != null ? water.getIceShellThicknessKm() : null;
+    }
+
+    @JsonIgnore
+    public String getWaterInventory() {
+        return water != null ? water.getWaterInventory() : null;
+    }
+
+    @JsonIgnore
+    public Double getWaterCoveragePercent() {
+        return water != null ? water.getWaterCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Double getLiquidWaterCoveragePercent() {
+        return water != null ? water.getLiquidWaterCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Double getIceCoveragePercent() {
+        return water != null ? water.getIceCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Boolean getHasSubsurfaceWater() {
+        return water != null ? water.getHasSubsurfaceWater() : false;
+    }
+
+    @JsonIgnore
+    public Double getSubsurfaceWaterDepthKm() {
+        return water != null ? water.getSubsurfaceWaterDepthKm() : null;
     }
 }

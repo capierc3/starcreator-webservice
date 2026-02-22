@@ -158,9 +158,11 @@ public class WeatherCreator {
         proxy.setOrbit(proxyOrbit);
 
         // Surface water/ice properties
-        proxy.setWaterCoveragePercent(moon.getWaterCoveragePercent());
-        proxy.setLiquidWaterCoveragePercent(moon.getLiquidWaterCoveragePercent());
-        proxy.setIceCoveragePercent(moon.getIceCoveragePercent());
+        WaterProperties proxyWater = new WaterProperties();
+        proxyWater.setWaterCoveragePercent(moon.getWaterCoveragePercent());
+        proxyWater.setLiquidWaterCoveragePercent(moon.getLiquidWaterCoveragePercent());
+        proxyWater.setIceCoveragePercent(moon.getIceCoveragePercent());
+        proxy.setWater(proxyWater);
 
         // Terrain data (used by StormCalculator for dust storms, etc.)
         TerrainProperties proxyTerrain = new TerrainProperties();
