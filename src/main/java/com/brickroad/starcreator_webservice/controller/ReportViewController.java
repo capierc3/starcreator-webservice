@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.controller;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.core.io.FileSystemResource;
@@ -36,11 +37,7 @@ public class ReportViewController {
                 .body(new FileSystemResource(latestReport));
     }
 
-    @Operation(summary = "Get Report Header Image",
-            description = "Returns the header image used by the probability report.",
-            tags = {"Probability Report"})
-    @ApiResponse(responseCode = "200", description = "Image returned successfully")
-    @ApiResponse(responseCode = "404", description = "Image not found")
+    @Hidden
     @GetMapping(value = "/report/headerImg.png", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getHeaderImage() {
         InputStream is = getClass().getResourceAsStream("/static/report/headerImg.png");

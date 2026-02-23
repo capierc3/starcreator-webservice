@@ -25,8 +25,18 @@ public class Star {
     @JsonIgnore
     private Long id;
 
-    @Schema(description = "Designation of this star", example = "SCS-V01-8RQ A")
-    private String name;
+    // ── Designation (identity card) ──
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "designation_id")
+    @Schema(description = "Identity card: designation, classification, and survey history")
+    private Designation designation;
+
+    // ── Legacy name column (kept for DB compatibility, delegates to designation) ──
+
+    @Column(name = "name")
+    @JsonIgnore
+    private String nameColumn;
 
     // ── System Relationship ──
 
@@ -35,21 +45,12 @@ public class Star {
     @JsonBackReference
     private StarSystem system;
 
-    // ── Identity & Classification ──
-
-    @Schema(description = "Star type from reference data", example = "Main Sequence M")
-    private String type;
-
-    @Schema(description = "Spectral class", example = "M")
-    private String spectralType;
+    // ── Star Role (kept on entity for JPQL queries) ──
 
     @Enumerated(EnumType.STRING)
     @Column(name = "star_role")
-    @Schema(description = "Role in a multi-star system", example = "PRIMARY")
+    @JsonIgnore
     private StarRole starRole;
-
-    @Schema(description = "Visible color based on surface temperature", example = "Red")
-    private String colorIndex;
 
     public enum StarRole {
         PRIMARY,
@@ -79,22 +80,6 @@ public class Star {
     @Schema(description = "Rotation period in days", example = "36.1")
     private Double rotationDays;
 
-    // ── Age & Evolution ──
-
-    @Column(name = "age_millions_years")
-    @Schema(description = "Age in millions of years", example = "280.1")
-    private Double ageMY;
-
-    @Schema(description = "Current evolutionary stage", example = "EARLY_MAIN_SEQUENCE")
-    private String evolutionaryStage;
-
-    @Schema(description = "Fraction of main sequence lifespan elapsed (0.0-1.0)", example = "0.002")
-    private Double mainSequenceFraction;
-
-    @Column(name = "estimated_remaining_ms_my")
-    @Schema(description = "Estimated remaining main sequence lifetime in millions of years", example = "118740")
-    private Double estimatedRemainingMsMy;
-
     // ── Habitable Zone ──
 
     @Schema(description = "Inner edge of the habitable zone in AU", example = "0.167")
@@ -102,6 +87,15 @@ public class Star {
 
     @Schema(description = "Outer edge of the habitable zone in AU", example = "0.241")
     private Double habitableZoneOuterAU;
+
+    // ── Main Sequence Lifetime ──
+
+    @Schema(description = "Fraction of main sequence lifespan elapsed (0.0-1.0)", example = "0.002")
+    private Double mainSequenceFraction;
+
+    @Column(name = "estimated_remaining_ms_my")
+    @Schema(description = "Estimated remaining main sequence lifetime in millions of years", example = "118740")
+    private Double estimatedRemainingMsMy;
 
     // ── Variability ──
 
@@ -206,6 +200,52 @@ public class Star {
     @Schema(description = "Timestamp when this star was last modified")
     private LocalDateTime modifiedAt;
 
+    // ── Designation Convenience Getters/Setters ──
+
+    private Designation ensureDesignation() {
+        if (designation == null) designation = new Designation();
+        return designation;
+    }
+
+    @JsonIgnore
+    public String getName() {
+        return designation != null ? designation.getLoggedName() : nameColumn;
+    }
+    public void setName(String name) {
+        ensureDesignation().setLoggedName(name);
+        this.nameColumn = name;
+    }
+
+    @JsonIgnore
+    public String getType() {
+        return designation != null ? designation.getObjectType() : null;
+    }
+    public void setType(String type) { ensureDesignation().setObjectType(type); }
+
+    @JsonIgnore
+    public String getSpectralType() {
+        return designation != null ? designation.getSpectralType() : null;
+    }
+    public void setSpectralType(String spectralType) { ensureDesignation().setSpectralType(spectralType); }
+
+    @JsonIgnore
+    public String getColorIndex() {
+        return designation != null ? designation.getColorIndex() : null;
+    }
+    public void setColorIndex(String colorIndex) { ensureDesignation().setColorIndex(colorIndex); }
+
+    @JsonIgnore
+    public Double getAgeMY() {
+        return designation != null ? designation.getAgeMY() : null;
+    }
+    public void setAgeMY(Double ageMY) { ensureDesignation().setAgeMY(ageMY); }
+
+    @JsonIgnore
+    public String getEvolutionaryStage() {
+        return designation != null ? designation.getEvolutionaryStage() : null;
+    }
+    public void setEvolutionaryStage(String evolutionaryStage) { ensureDesignation().setEvolutionaryStage(evolutionaryStage); }
+
     // ── Physical Properties Convenience Getters/Setters ──
 
     private PhysicalProperties ensurePhysicalProperties() {
@@ -279,11 +319,6 @@ public class Star {
 
     // ── Derived Properties (not persisted) ──
 
-    /**
-     * Returns the companion star in a multi-star system.
-     * For a SECONDARY star, returns the PRIMARY; for PRIMARY/TERTIARY, returns the SECONDARY.
-     * Returns null for single-star systems.
-     */
     @JsonIgnore
     public Star getCompanionStar() {
         if (system == null || system.getStars() == null) {

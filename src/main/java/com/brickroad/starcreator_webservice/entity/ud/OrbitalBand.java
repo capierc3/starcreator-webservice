@@ -41,6 +41,13 @@ public class OrbitalBand {
     @Schema(description = "Unique identifier")
     private Long id;
 
+    // ── Designation (identity card) ──
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "designation_id")
+    @Schema(description = "Identity card: designation, classification, and survey history")
+    private Designation designation;
+
     // ── Parent (exactly one is non-null) ──
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -60,9 +67,7 @@ public class OrbitalBand {
     @Schema(description = "High-level category: BELT (orbits a star) or RING (orbits a planet)", example = "BELT")
     private BandCategory bandCategory;
 
-    @Column(name = "band_type", nullable = false, length = 50)
-    @Schema(description = "Specific band type classification", example = "INNER_ROCKY")
-    private String bandType;
+    // bandType moved to Designation.objectType — see convenience getter below
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "belt_type_id")
@@ -83,18 +88,15 @@ public class OrbitalBand {
     private OrbitalElements outerOrbit;
 
     // ── Identity ──
+    // name and ageMY moved to Designation — see convenience getters below
 
     @Column(name = "name", length = 100)
-    @Schema(description = "Band designation", example = "SCS-V01-8RQ KB-01")
-    private String name;
+    @JsonIgnore
+    private String nameColumn;
 
     @Column(name = "description", columnDefinition = "TEXT")
     @Schema(description = "Description of the band")
     private String description;
-
-    @Column(name = "age_my")
-    @Schema(description = "Age in millions of years")
-    private Double ageMY;
 
     // ── Physical Properties (shared) ──
 
@@ -247,6 +249,41 @@ public class OrbitalBand {
     @Column(name = "modified_at")
     @JsonIgnore
     private LocalDateTime modifiedAt;
+
+    // ── Designation Convenience Getters/Setters ──
+
+    private Designation ensureDesignation() {
+        if (designation == null) designation = new Designation();
+        return designation;
+    }
+
+    @JsonIgnore
+    public String getName() {
+        return designation != null ? designation.getLoggedName() : nameColumn;
+    }
+
+    public void setName(String name) {
+        ensureDesignation().setLoggedName(name);
+        this.nameColumn = name;
+    }
+
+    @JsonIgnore
+    public String getBandType() {
+        return designation != null ? designation.getObjectType() : null;
+    }
+
+    public void setBandType(String bandType) {
+        ensureDesignation().setObjectType(bandType);
+    }
+
+    @JsonIgnore
+    public Double getAgeMY() {
+        return designation != null ? designation.getAgeMY() : null;
+    }
+
+    public void setAgeMY(Double ageMY) {
+        ensureDesignation().setAgeMY(ageMY);
+    }
 
     // ── Computed Properties ──
 

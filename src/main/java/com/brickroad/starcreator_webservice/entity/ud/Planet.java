@@ -18,8 +18,7 @@ import java.util.List;
 @Table(name = "planet", schema = "ud")
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({
-    "planetType", "habitableZonePosition",
-    "ageMY", "parentStar",
+    "designation",
     "physicalProperties", "orbit", "rotation",
     "atmosphere",
     "compositionProperties",
@@ -36,32 +35,19 @@ public class Planet {
     @JsonIgnore
     private Long id;
 
-    // ── Name (transient — deferred to a future naming update) ──
+    // ── Designation (identity card) ──
 
-    @Transient
-    @JsonIgnore
-    private String name;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "designation_id")
+    @Schema(description = "Identity card: designation, classification, and survey history")
+    private Designation designation;
 
-    // ── Identity & Classification ──
-
-    @Column(name = "planet_type")
-    @Schema(description = "Planet classification type", example = "Ocean Planet")
-    private String planetType;
-
-    @Column(name = "age_millions_years")
-    @Schema(description = "Age in millions of years", example = "4500")
-    private Double ageMY;
+    // ── Parent Star (kept for JPA navigation, hidden from JSON) ──
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "star_id")
-    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "name")
-    @JsonIdentityReference(alwaysAsId = true)
-    @Schema(description = "Name of the parent star this planet orbits", example = "SCS-V01-8RQ A")
+    @JsonIgnore
     private Star parentStar;
-
-    @Column(name = "habitable_zone_position")
-    @Schema(description = "Position relative to the habitable zone", example = "habitable")
-    private String habitableZonePosition;
 
     // ── Physical Properties (extracted to PhysicalProperties entity) ──
 
@@ -159,6 +145,37 @@ public class Planet {
     @Schema(description = "Timestamp when this planet was last modified")
     private LocalDateTime modifiedAt;
 
+    // ── Designation Convenience Getters/Setters ──
+
+    private Designation ensureDesignation() {
+        if (designation == null) designation = new Designation();
+        return designation;
+    }
+
+    @JsonIgnore
+    public String getName() {
+        return designation != null ? designation.getLoggedName() : null;
+    }
+    public void setName(String name) { ensureDesignation().setLoggedName(name); }
+
+    @JsonIgnore
+    public String getPlanetType() {
+        return designation != null ? designation.getObjectType() : null;
+    }
+    public void setPlanetType(String planetType) { ensureDesignation().setObjectType(planetType); }
+
+    @JsonIgnore
+    public Double getAgeMY() {
+        return designation != null ? designation.getAgeMY() : null;
+    }
+    public void setAgeMY(Double ageMY) { ensureDesignation().setAgeMY(ageMY); }
+
+    @JsonIgnore
+    public String getHabitableZonePosition() {
+        return designation != null ? designation.getHabitableZonePosition() : null;
+    }
+    public void setHabitableZonePosition(String habitableZonePosition) { ensureDesignation().setHabitableZonePosition(habitableZonePosition); }
+
     // ── Rotation Convenience Getters/Setters ──
 
     private RotationProperties ensureRotation() {
@@ -192,7 +209,6 @@ public class Planet {
     }
 
     // ── Physical Properties Convenience Getters/Setters ──
-    // Delegate to physicalProperties, auto-creating if needed for setters.
 
     private PhysicalProperties ensurePhysicalProperties() {
         if (physicalProperties == null) physicalProperties = new PhysicalProperties();

@@ -1,7 +1,10 @@
 package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.enums.BodyType;
+import com.brickroad.starcreator_webservice.repository.SurveyRepository;
 import com.brickroad.starcreator_webservice.utils.systems.SystemClassification;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.systems.SystemClassifier;
@@ -29,10 +32,21 @@ public class SystemCreator {
     @Autowired
     private SystemClassifier systemClassifier;
 
+    @Autowired
+    private SurveyRepository surveyRepository;
+
+    @Autowired
+    private SectorCreator sectorCreator;
+
     public StarSystem generateSystem() {
+        Survey survey = surveyRepository.findByCode("SCS")
+                .orElseThrow(() -> new IllegalStateException("Default survey 'SCS' not found"));
+        Sector sector = sectorCreator.generateSector(survey);
+        return generateSystem(sector);
+    }
+
+    public StarSystem generateSystem(Sector sector) {
         StarSystem system = new StarSystem();
-        Sector sector = new Sector();
-        sector.setName("SCS-V01");
         system.setSector(sector);
 
         system.setX(RandomUtils.rollRange(-100, 100));
@@ -78,6 +92,8 @@ public class SystemCreator {
         assignStarNames(stars, system.getName());
         assignPlanetNames(planets);
         assignBandNames(system.getBands(), system.getName());
+
+        initDesignationBodyTypes(system, stars, planets);
 
         return system;
     }
@@ -372,6 +388,56 @@ public class SystemCreator {
     private List<Planet> generateCircumbinaryPlanets(StarSystem system, Star primary, double binarySeparation) {
         List<Planet> planets = planetCreator.generatePlanetarySystem(primary);
         return planets;
+    }
+
+    private void initDesignationBodyTypes(StarSystem system, Set<Star> stars, List<Planet> planets) {
+        // System designation
+        system.getDesignation().setBodyType(BodyType.SYSTEM);
+
+        // Star designations
+        for (Star star : stars) {
+            Designation d = star.getDesignation();
+            d.setBodyType(BodyType.STAR);
+            d.setStarRole(star.getStarRole() != null ? star.getStarRole().name() : null);
+        }
+
+        // Planet designations
+        for (Planet planet : planets) {
+            Designation d = planet.getDesignation();
+            d.setBodyType(BodyType.PLANET);
+            Star parentStar = planet.getParentStar();
+            d.setParentBodyName(parentStar != null ? parentStar.getName() : null);
+
+            // Moon designations
+            for (Moon moon : planet.getMoons()) {
+                Designation md = moon.getDesignation();
+                md.setBodyType(BodyType.MOON);
+                md.setParentBodyName(planet.getName());
+            }
+
+            // Planet ring designations
+            for (OrbitalBand ring : planet.getBands()) {
+                Designation rd = ring.getDesignation();
+                rd.setBodyType(BodyType.RING);
+                rd.setBandCategory(ring.getBandCategory() != null ? ring.getBandCategory().name() : null);
+            }
+        }
+
+        // System-level belt designations
+        for (OrbitalBand band : system.getBands()) {
+            Designation bd = band.getDesignation();
+            bd.setBodyType(BodyType.BELT);
+            bd.setBandCategory(band.getBandCategory() != null ? band.getBandCategory().name() : null);
+
+            // Asteroid designations
+            for (Asteroid asteroid : band.getNotableAsteroids()) {
+                Designation ad = asteroid.getDesignation();
+                ad.setBodyType(BodyType.ASTEROID);
+                if (asteroid.getAsteroidType() != null) {
+                    ad.setObjectType(asteroid.getAsteroidType().getName());
+                }
+            }
+        }
     }
 
     public static String numberToRoman(int number) {

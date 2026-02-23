@@ -25,11 +25,12 @@ public class Moon {
     @JsonIgnore
     private Long id;
 
-    // ── Name (transient — deferred to a future naming update) ──
+    // ── Designation (identity card) ──
 
-    @Transient
-    @JsonIgnore
-    private String name;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "designation_id")
+    @Schema(description = "Identity card: designation, classification, and survey history")
+    private Designation designation;
 
     // ── Parent Relationship ──
 
@@ -37,20 +38,6 @@ public class Moon {
     @JoinColumn(name = "planet_id", nullable = false)
     @JsonBackReference
     private Planet planet;
-
-    // ── Classification ──
-
-    @Column(name = "moon_type", length = 50, nullable = false)
-    @Schema(description = "Moon classification type", example = "REGULAR_LARGE")
-    private String moonType;
-
-    @Column(name = "formation_type", length = 50)
-    @Schema(description = "How the moon formed", example = "CO_FORMED")
-    private String formationType;
-
-    @Column(name = "age_my")
-    @Schema(description = "Age in millions of years")
-    private Double ageMY;
 
     // ── Physical Properties (extracted to PhysicalProperties entity) ──
 
@@ -151,6 +138,37 @@ public class Moon {
     @Column(name = "modified_at")
     @Schema(description = "Timestamp when this moon was last modified")
     private LocalDateTime modifiedAt;
+
+    // ── Designation Convenience Getters/Setters ──
+
+    private Designation ensureDesignation() {
+        if (designation == null) designation = new Designation();
+        return designation;
+    }
+
+    @JsonIgnore
+    public String getName() {
+        return designation != null ? designation.getLoggedName() : null;
+    }
+    public void setName(String name) { ensureDesignation().setLoggedName(name); }
+
+    @JsonIgnore
+    public String getMoonType() {
+        return designation != null ? designation.getObjectType() : null;
+    }
+    public void setMoonType(String moonType) { ensureDesignation().setObjectType(moonType); }
+
+    @JsonIgnore
+    public String getFormationType() {
+        return designation != null ? designation.getFormationType() : null;
+    }
+    public void setFormationType(String formationType) { ensureDesignation().setFormationType(formationType); }
+
+    @JsonIgnore
+    public Double getAgeMY() {
+        return designation != null ? designation.getAgeMY() : null;
+    }
+    public void setAgeMY(Double ageMY) { ensureDesignation().setAgeMY(ageMY); }
 
     // ── Rotation Convenience Getters/Setters ──
 

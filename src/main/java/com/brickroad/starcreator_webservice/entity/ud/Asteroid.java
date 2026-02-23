@@ -26,6 +26,13 @@ public class Asteroid {
     @JsonIgnore
     private Long id;
 
+    // ── Designation (identity card) ──
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "designation_id")
+    @Schema(description = "Identity card: designation, classification, and survey history")
+    private Designation designation;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "band_id")
     @JsonBackReference("band-asteroids")
@@ -36,19 +43,11 @@ public class Asteroid {
     @Schema(description = "Asteroid type classification")
     private AsteroidTypeRef asteroidType;
 
-    // ── Identity ──
+    // ── Identity (legacy name column kept for DB compatibility) ──
 
     @Column(name = "name", nullable = false)
-    @Schema(description = "Asteroid designation", example = "SCS-V01-8RQ KB-01 AST-0001")
-    private String name;
-
-    @Column(name = "designation_code")
-    @Schema(description = "Discovery designation code", example = "2435 WR1")
-    private String designationCode;
-
-    @Column(name = "age_my")
-    @Schema(description = "Age in millions of years")
-    private Double ageMY;
+    @JsonIgnore
+    private String nameColumn;
 
     // ── Physical Properties (extracted to PhysicalProperties entity) ──
 
@@ -125,6 +124,41 @@ public class Asteroid {
     @Column(name = "modified_at")
     @JsonIgnore
     private LocalDateTime modifiedAt;
+
+    // ── Designation Convenience Getters/Setters ──
+
+    private Designation ensureDesignation() {
+        if (designation == null) designation = new Designation();
+        return designation;
+    }
+
+    @JsonIgnore
+    public String getName() {
+        return designation != null ? designation.getLoggedName() : nameColumn;
+    }
+
+    public void setName(String name) {
+        ensureDesignation().setLoggedName(name);
+        this.nameColumn = name;
+    }
+
+    @JsonIgnore
+    public String getDesignationCode() {
+        return designation != null ? designation.getDesignationCode() : null;
+    }
+
+    public void setDesignationCode(String designationCode) {
+        ensureDesignation().setDesignationCode(designationCode);
+    }
+
+    @JsonIgnore
+    public Double getAgeMY() {
+        return designation != null ? designation.getAgeMY() : null;
+    }
+
+    public void setAgeMY(Double ageMY) {
+        ensureDesignation().setAgeMY(ageMY);
+    }
 
     // ── Physical Properties Convenience Getters/Setters ──
 

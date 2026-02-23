@@ -30,8 +30,18 @@ public class StarSystem {
     @Schema(description = "Unique identifier for the star system", example = "42")
     private Long id;
 
-    @Schema(description = "Designation of the star system", example = "SCS-V01-8RQ")
-    private String name;
+    // ── Designation (identity card) ──
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "designation_id")
+    @Schema(description = "Identity card: designation, classification, and survey history")
+    private Designation designation;
+
+    // ── Legacy name column (kept for DB compatibility, delegates to designation) ──
+
+    @Column(name = "name")
+    @JsonIgnore
+    private String nameColumn;
 
     @Transient
     @JsonProperty("classification")
@@ -138,6 +148,23 @@ public class StarSystem {
                 .map(FactionPresence::getFaction)
                 .findFirst()
                 .orElse(null);
+    }
+
+    // ── Designation Convenience Getters/Setters ──
+
+    private Designation ensureDesignation() {
+        if (designation == null) designation = new Designation();
+        return designation;
+    }
+
+    @JsonIgnore
+    public String getName() {
+        return designation != null ? designation.getLoggedName() : nameColumn;
+    }
+
+    public void setName(String name) {
+        ensureDesignation().setLoggedName(name);
+        this.nameColumn = name;
     }
 
     // ── Convenience methods ──
