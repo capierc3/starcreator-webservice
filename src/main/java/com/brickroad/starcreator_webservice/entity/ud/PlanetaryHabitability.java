@@ -220,7 +220,7 @@ public class PlanetaryHabitability {
     // HABITABILITY CLASSIFICATION
     // ================================================================
     @Enumerated(EnumType.STRING)
-    @Column(name = "habitability_class", length = 50, nullable = false)
+    @Column(name = "habitability_class", length = 50)
     @Schema(description = "Overall habitability classification", example = "EARTH_ANALOG")
     private HabitabilityClass habitabilityClass;
 

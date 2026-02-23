@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.controller;
 
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.brickroad.starcreator_webservice.service.CreationService;
+import com.brickroad.starcreator_webservice.service.SystemPersistenceService;
 import com.brickroad.starcreator_webservice.utils.visualization.OrbitalAnalysisHtmlGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,10 +23,14 @@ import java.io.IOException;
 public class CreationController {
 
     private final CreationService creationService;
+    private final SystemPersistenceService persistenceService;
     private final ObjectMapper objectMapper;
 
-    public CreationController(CreationService creationService, ObjectMapper objectMapper) {
+    public CreationController(CreationService creationService,
+                              SystemPersistenceService persistenceService,
+                              ObjectMapper objectMapper) {
         this.creationService = creationService;
+        this.persistenceService = persistenceService;
         this.objectMapper = objectMapper;
     }
 
@@ -70,5 +75,37 @@ public class CreationController {
         }
 
         return ResponseEntity.ok(html);
+    }
+
+    // ── Persistence Endpoints ──
+
+    @Operation(
+        summary = "Generate and save a star system",
+        description = "Generates a complete star system and persists it to the database. "
+            + "Returns the saved system with its assigned database IDs."
+    )
+    @ApiResponse(responseCode = "200", description = "Star system generated and saved",
+        content = @Content(mediaType = "application/json", schema = @Schema(implementation = StarSystem.class)))
+    @PostMapping("/solarsystem")
+    public ResponseEntity<StarSystem> createAndSaveSystem() {
+        StarSystem system = creationService.createStarSystem();
+        StarSystem saved = persistenceService.saveSystem(system);
+        return ResponseEntity.ok(saved);
+    }
+
+    @Operation(
+        summary = "Load a star system from the database",
+        description = "Retrieves a previously saved star system by its ID. "
+            + "Includes all cascaded entities (stars, planets, moons, belts, asteroids) "
+            + "and recomputes the system classification."
+    )
+    @ApiResponse(responseCode = "200", description = "Star system loaded successfully",
+        content = @Content(mediaType = "application/json", schema = @Schema(implementation = StarSystem.class)))
+    @ApiResponse(responseCode = "404", description = "Star system not found")
+    @GetMapping("/solarsystem/{id}")
+    public ResponseEntity<StarSystem> loadSystem(@PathVariable Long id) {
+        return persistenceService.loadSystem(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }

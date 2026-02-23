@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.brickroad.starcreator_webservice.entity.ref.GovernmentType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -30,6 +31,7 @@ public class Faction {
     private boolean aiCreated;
 
     @OneToMany(mappedBy = "faction", cascade = CascadeType.ALL)
+    @JsonIgnore
     private Set<FactionPresence> systemPresences = new HashSet<>();
 
     @ManyToOne
@@ -61,12 +63,14 @@ public class Faction {
         this.aiCreated = ai_created;
     }
 
+    @JsonIgnore
     public Set<StarSystem> getSystems() {
         return systemPresences.stream()
                 .map(FactionPresence::getSystem)
                 .collect(Collectors.toSet());
     }
 
+    @JsonIgnore
     public Set<StarSystem> getControlledSystems() {
         return systemPresences.stream()
                 .filter(FactionPresence::getIsControlling)

@@ -58,17 +58,14 @@ public class StarSystem {
     @Schema(description = "Stars in this system")
     private Set<Star> stars = new HashSet<>();
 
-    @Transient
-    @JsonProperty("planets")
-    @Schema(description = "Planets orbiting within this system")
-    private List<Planet> planets = new ArrayList<>();
+    // planets are cascade-managed by Star — this getter aggregates from all stars
 
     @OneToMany(mappedBy = "starSystem", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference("system-bands")
     @Schema(description = "Orbital bands (asteroid belts, debris disks) in this system")
     private List<OrbitalBand> bands = new ArrayList<>();
 
-    @OneToMany(mappedBy = "system", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "system", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private Set<FactionPresence> factionPresences = new HashSet<>();
 
@@ -167,11 +164,38 @@ public class StarSystem {
         this.nameColumn = name;
     }
 
-    // ── Convenience methods ──
+    // ── Planets (derived from stars — planets cascade through Star) ──
 
-    public void setPlanets(List<Planet> planets) {
-        this.planets = planets;
+    /**
+     * Returns all planets across all stars in this system.
+     * Planets are persisted via Star.planets (cascade), not directly on StarSystem.
+     */
+    @JsonProperty("planets")
+    @Schema(description = "Planets orbiting within this system (aggregated from all stars)")
+    public List<Planet> getPlanets() {
+        if (stars == null || stars.isEmpty()) return new ArrayList<>();
+        return stars.stream()
+                .flatMap(star -> star.getPlanets().stream())
+                .collect(Collectors.toList());
     }
+
+    /**
+     * Distributes planets to their parent stars. Each planet must already have
+     * parentStar set. This is used during generation to assign planets after creation.
+     */
+    public void setPlanets(List<Planet> planets) {
+        if (planets == null) return;
+        for (Planet planet : planets) {
+            Star parent = planet.getParentStar();
+            if (parent != null && stars.contains(parent)) {
+                if (!parent.getPlanets().contains(planet)) {
+                    parent.addPlanet(planet);
+                }
+            }
+        }
+    }
+
+    // ── Band Convenience Methods ──
 
     public void setBands(List<OrbitalBand> bands) {
         this.bands = bands;

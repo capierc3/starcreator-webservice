@@ -79,7 +79,7 @@ public class SystemCreator {
         calculateHabitableZone(system, stars, config);
 
         List<Planet> planets = generatePlanetsForSystem(system, stars, config);
-        system.setPlanets(planets);
+        system.setPlanets(planets); // distributes planets to their parent stars
 
         List<OrbitalBand> bands = beltCreator.createBelts(system, primary);
         system.setBands(bands);
@@ -90,10 +90,10 @@ public class SystemCreator {
 
         system.setName(sector.getName() + "-" + Integer.toString(RandomUtils.rollRange(0,46_655), Character.MAX_RADIX).toUpperCase());
         assignStarNames(stars, system.getName());
-        assignPlanetNames(planets);
+        assignPlanetNames(system.getPlanets());
         assignBandNames(system.getBands(), system.getName());
 
-        initDesignationBodyTypes(system, stars, planets);
+        initDesignationBodyTypes(system, stars, system.getPlanets());
 
         return system;
     }

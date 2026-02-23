@@ -27,16 +27,16 @@ public class PlanetaryMagneticField {
     // ================================================================
     // FIELD STRENGTH
     // ================================================================
-    @Column(name = "strength_compared_to_earth", nullable = false)
+    @Column(name = "strength_compared_to_earth")
     private Double strengthComparedToEarth;
 
-    @Column(name = "surface_field_microteslas_min", nullable = false)
+    @Column(name = "surface_field_microteslas_min")
     private Double surfaceFieldMicroteslasMin;
 
-    @Column(name = "surface_field_microteslas_max", nullable = false)
+    @Column(name = "surface_field_microteslas_max")
     private Double surfaceFieldMicroteslasMax;
 
-    @Column(name = "surface_field_microteslas_avg", nullable = false)
+    @Column(name = "surface_field_microteslas_avg")
     private Double surfaceFieldMicroteslasAvg;
 
     // ================================================================
@@ -103,7 +103,7 @@ public class PlanetaryMagneticField {
     }
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "variation_pattern", nullable = false, length = 100)
+    @Column(name = "variation_pattern", length = 100)
     private VariationPattern variationPattern;
 
     @Column(name = "pole_field_strength_multiplier")

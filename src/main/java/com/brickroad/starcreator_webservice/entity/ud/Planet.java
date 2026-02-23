@@ -42,11 +42,11 @@ public class Planet {
     @Schema(description = "Identity card: designation, classification, and survey history")
     private Designation designation;
 
-    // ── Parent Star (kept for JPA navigation, hidden from JSON) ──
+    // ── Parent Star (cascade-managed from Star) ──
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "star_id")
-    @JsonIgnore
+    @JsonBackReference("star-planets")
     private Star parentStar;
 
     // ── Physical Properties (extracted to PhysicalProperties entity) ──

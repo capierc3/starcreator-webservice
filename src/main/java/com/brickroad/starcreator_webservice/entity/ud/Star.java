@@ -3,6 +3,7 @@ package com.brickroad.starcreator_webservice.entity.ud;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -11,6 +12,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Setter
 @Getter
@@ -44,6 +47,13 @@ public class Star {
     @JoinColumn(name = "system_id")
     @JsonBackReference
     private StarSystem system;
+
+    // ── Planets (cascade-managed from Star) ──
+
+    @OneToMany(mappedBy = "parentStar", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference("star-planets")
+    @Schema(description = "Planets orbiting this star")
+    private List<Planet> planets = new ArrayList<>();
 
     // ── Star Role (kept on entity for JPQL queries) ──
 
@@ -315,6 +325,22 @@ public class Star {
     public void setOrbitalOrder(Integer orbitalOrder) {
         if (orbit == null) orbit = new OrbitalElements();
         orbit.setOrbitalOrder(orbitalOrder);
+    }
+
+    // ── Planet Management ──
+
+    public void addPlanet(Planet planet) {
+        planets.add(planet);
+        planet.setParentStar(this);
+    }
+
+    public void setPlanets(List<Planet> planets) {
+        this.planets.clear();
+        if (planets != null) {
+            for (Planet planet : planets) {
+                addPlanet(planet);
+            }
+        }
     }
 
     // ── Derived Properties (not persisted) ──

@@ -33,12 +33,12 @@ public class OrbitalElements {
 
     // ── Core Keplerian Elements ──
 
-    @Column(name = "semi_major_axis", nullable = false)
+    @Column(name = "semi_major_axis")
     @Schema(description = "Semi-major axis in the specified distance unit", example = "1.0")
     private Double semiMajorAxis;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "semi_major_axis_unit", nullable = false, length = 5)
+    @Column(name = "semi_major_axis_unit", length = 5)
     @Schema(description = "Distance unit for semi-major axis: AU for star-orbiting bodies, KM for planet-orbiting bodies", example = "AU")
     private DistanceUnit semiMajorAxisUnit;
 

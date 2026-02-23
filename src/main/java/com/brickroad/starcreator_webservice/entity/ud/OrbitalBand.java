@@ -224,7 +224,6 @@ public class OrbitalBand {
 
     @OneToMany(mappedBy = "band", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonManagedReference("band-asteroids")
-    @OrderBy("mass DESC")
     @Schema(description = "Notable asteroids within this band (belts only)")
     private List<Asteroid> notableAsteroids = new ArrayList<>();
 

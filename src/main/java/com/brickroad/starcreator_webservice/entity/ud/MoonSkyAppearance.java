@@ -21,7 +21,7 @@ public class MoonSkyAppearance {
     @JsonIgnore
     private Long id;
 
-    @Column(name = "moon_id", nullable = false)
+    @Column(name = "moon_id")
     private Long moonId;
 
     @Column(name = "angular_diameter_degrees")
