@@ -8,6 +8,8 @@ import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.enums.DistanceUnit;
 import com.brickroad.starcreator_webservice.repository.AsteroidTypeRefRepository;
 import com.brickroad.starcreator_webservice.repository.BeltTypeRefRepository;
+import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import jakarta.annotation.PostConstruct;
@@ -35,9 +37,9 @@ public class BeltCreator {
     private List<BeltTypeRef> cachedBeltTypes;
     private List<AsteroidTypeRef> cachedAsteroidTypes;
 
-    private static final double EARTH_MASS_KG = 5.972e24;
-    private static final double EARTH_RADIUS_KM = 6371.0;
-    private static final double GRAVITATIONAL_CONSTANT = 6.674e-11;
+    // Physical constants — delegates to PhysicsFormulas (single source of truth)
+    private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
     private static final double AU_IN_KM = 1.496e8;
 
     // Giant planet threshold in Earth masses
@@ -570,11 +572,12 @@ public class BeltCreator {
         );
         asteroid.setSurfaceTemp(temp);
 
-        double surfaceGravity = (GRAVITATIONAL_CONSTANT * massKg) / Math.pow(radiusKm * 1000, 2);
+        // Asteroids store gravity in raw m/s² (not g-multiples like planets/moons)
+        double radiusM = radiusKm * 1000;
+        double surfaceGravity = (ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) / (radiusM * radiusM);
         asteroid.setSurfaceGravity(surfaceGravity);
 
-        double escapeVelocity = Math.sqrt(2 * GRAVITATIONAL_CONSTANT * massKg / (radiusKm * 1000)) / 1000.0;
-        asteroid.setEscapeVelocity(escapeVelocity);
+        asteroid.setEscapeVelocity(PhysicsFormulas.escapeVelocityKmS(massKg, radiusKm));
 
         String surfaceFeatures = type.getTypicalSurfaceFeatures();
         String crateringLevel = selectCrateringLevel();

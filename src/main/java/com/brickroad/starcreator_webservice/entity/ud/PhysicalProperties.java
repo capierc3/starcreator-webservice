@@ -33,19 +33,19 @@ public class PhysicalProperties {
     @JsonIgnore
     private Long id;
 
-    // ── Internal Computation Fields (hidden from JSON) ──
+    // ── Internal Computation Fields (derived on load, not persisted) ──
 
-    @Column(name = "mass")
+    @Transient
     @JsonIgnore
     @Schema(hidden = true)
     private double mass;
 
-    @Column(name = "radius")
+    @Transient
     @JsonIgnore
     @Schema(hidden = true)
     private double radius;
 
-    @Column(name = "circumference")
+    @Transient
     @JsonIgnore
     @Schema(hidden = true)
     private double circumference;
@@ -60,15 +60,17 @@ public class PhysicalProperties {
     @Schema(description = "Radius in Earth radii (1.0 = Earth)", example = "1.1")
     private Double earthRadius;
 
-    @Column(name = "density_g_cm3")
+    // ── Derived fields (recalculated on load, not persisted) ──
+
+    @Transient
     @Schema(description = "Bulk density in g/cm³", example = "5.51")
     private Double density;
 
-    @Column(name = "surface_gravity")
+    @Transient
     @Schema(description = "Surface gravity (in g for planets, m/s² for moons)", example = "0.98")
     private Double surfaceGravity;
 
-    @Column(name = "escape_velocity")
+    @Transient
     @Schema(description = "Escape velocity in km/s", example = "11.2")
     private Double escapeVelocity;
 

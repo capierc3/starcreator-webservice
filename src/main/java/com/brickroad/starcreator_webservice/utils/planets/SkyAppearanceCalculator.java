@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField.AuroralFrequency;
 import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField.AuroralIntensity;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,7 @@ public class SkyAppearanceCalculator {
     private static final double SOLAR_RADIUS_KM = 695700.0;
     private static final double AU_TO_KM = 1.496e8;
     private static final double EARTH_MOON_ANGULAR_DIAMETER_DEG = 0.52;
-    private static final double EARTH_RADIUS_KM = CelestialBodyUtils.EARTH_RADIUS_KM;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
 
     // ================================================================
     // MAIN ENTRY POINT

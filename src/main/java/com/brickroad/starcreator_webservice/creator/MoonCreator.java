@@ -5,6 +5,7 @@ import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.AtmosphereClassification;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryComposition;
@@ -44,9 +45,9 @@ public class MoonCreator {
     @Autowired
     private ClimateCreator climateCreator;
 
-    private static final double EARTH_MASS_KG = 5.972e24;
-    private static final double EARTH_RADIUS_KM = 6371.0;
-    private static final double GRAVITATIONAL_CONSTANT_SI = 6.674e-11; // m³/(kg·s²)
+    private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
+    private static final double GRAVITATIONAL_CONSTANT_SI = ConversionFormulas.GRAVITATIONAL_CONSTANT;
     private static final double MIN_TRACKED_MOON_MASS = 1e-6;
 
     // ═══════════════════════════════════════════════════════════════
@@ -532,17 +533,12 @@ public class MoonCreator {
         moon.setAxialTilt(RandomUtils.rollRange(0.0, 25));
 
         // Per-moon Hill sphere
-        double moonMassKg = moon.getMass();
-        double planetMassKg = planet.getMass();
-        double moonHillSphere = semiMajorAxisKm * Math.cbrt(moonMassKg / (3 * planetMassKg));
-        moon.setHillSphereRadiusKm(moonHillSphere);
+        moon.setHillSphereRadiusKm(
+                PhysicsFormulas.hillSphereRadiusKm(semiMajorAxisKm, moon.getMass(), planet.getMass()));
 
-        // Per-moon Roche limit
-        double moonDensity = moon.getDensity();
-        double moonRadiusKm = moon.getRadius();
-        double debrisDensity = 2.5;
-        double moonRocheLimit = 2.46 * moonRadiusKm * Math.cbrt(moonDensity / debrisDensity);
-        moon.setRocheLimitKm(moonRocheLimit);
+        // Per-moon Roche limit (debris density ~2.5 g/cm³ for rocky material)
+        moon.setRocheLimitKm(
+                PhysicsFormulas.rocheLimitKm(moon.getRadius(), moon.getDensity(), 2.5));
 
         orbitalCreator.classifyMoonStability(moon.getOrbit(), semiMajorAxisKm, rocheLimit, hillSphereKm);
     }
@@ -592,12 +588,10 @@ public class MoonCreator {
 
         moon.setAxialTilt(RandomUtils.rollRange(0.0, 10.0));
 
-        double moonHillSphere = moon.getSemiMajorAxisKm() * Math.cbrt(moon.getMass() / (3 * planet.getMass()));
-        moon.setHillSphereRadiusKm(moonHillSphere);
-
-        double debrisDensity = 2.5;
-        double moonRocheLimit = 2.46 * moon.getRadius() * Math.cbrt(moon.getDensity() / debrisDensity);
-        moon.setRocheLimitKm(moonRocheLimit);
+        moon.setHillSphereRadiusKm(
+                PhysicsFormulas.hillSphereRadiusKm(moon.getSemiMajorAxisKm(), moon.getMass(), planet.getMass()));
+        moon.setRocheLimitKm(
+                PhysicsFormulas.rocheLimitKm(moon.getRadius(), moon.getDensity(), 2.5));
 
         double planetRocheLimit = "ICY".equals(moon.getCompositionType()) ?
                 outerRocheLimit : innerRocheLimit;
@@ -613,13 +607,8 @@ public class MoonCreator {
         double radiusKm = moon.getRadius();
         double massKg = moon.getMass();
 
-        double surfaceGravityMS2 = (ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) /
-                Math.pow(radiusKm * 1000, 2);
-        moon.setSurfaceGravity(surfaceGravityMS2 / 9.81);
-
-        double escapeVelocity = Math.sqrt((2 * ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) /
-                (radiusKm * 1000));
-        moon.setEscapeVelocity(escapeVelocity / 1000.0);
+        moon.setSurfaceGravity(PhysicsFormulas.surfaceGravityG(massKg, radiusKm));
+        moon.setEscapeVelocity(PhysicsFormulas.escapeVelocityKmS(massKg, radiusKm));
 
         moon.setSurfaceTemp(calculateSurfaceTemp(moon, planet, primaryStar));
     }
@@ -1152,11 +1141,11 @@ public class MoonCreator {
 
     private double calculateHillSphere(Planet planet, Star primaryStar) {
         double semiMajorAxisKm = planet.getSemiMajorAxisAU() * ConversionFormulas.AU_TO_KM;
-        return semiMajorAxisKm * Math.cbrt(planet.getMass() / (3 * primaryStar.getMass()));
+        return PhysicsFormulas.hillSphereRadiusKm(semiMajorAxisKm, planet.getMass(), primaryStar.getMass());
     }
 
     private double calculateRocheLimit(Planet planet, double moonDensity) {
-        return 2.46 * planet.getRadius() * Math.cbrt(planet.getDensity() / moonDensity);
+        return PhysicsFormulas.rocheLimitKm(planet.getRadius(), planet.getDensity(), moonDensity);
     }
 
     private boolean isGasIceGiant(Planet planet) {

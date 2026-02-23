@@ -19,13 +19,16 @@ public class SystemPersistenceService {
     private final StarSystemRepository starSystemRepository;
     private final SectorRepository sectorRepository;
     private final SystemClassifier systemClassifier;
+    private final DerivedFieldCalculator derivedFieldCalculator;
 
     public SystemPersistenceService(StarSystemRepository starSystemRepository,
                                      SectorRepository sectorRepository,
-                                     SystemClassifier systemClassifier) {
+                                     SystemClassifier systemClassifier,
+                                     DerivedFieldCalculator derivedFieldCalculator) {
         this.starSystemRepository = starSystemRepository;
         this.sectorRepository = sectorRepository;
         this.systemClassifier = systemClassifier;
+        this.derivedFieldCalculator = derivedFieldCalculator;
     }
 
     /**
@@ -87,6 +90,9 @@ public class SystemPersistenceService {
                     planet.getBands().forEach(ring -> initBand(ring));
                 });
             });
+
+            // Recompute all @Transient derived fields (Tier 1 optimization)
+            derivedFieldCalculator.recalculate(system);
 
             // Recompute classification (it's @Transient, so not persisted)
             SystemClassification classification = systemClassifier.classify(system);

@@ -104,7 +104,8 @@ public class OrbitalBand {
     @Schema(description = "Total band mass in kg")
     private Double totalMassKg;
 
-    @Column(name = "total_mass_earth_masses")
+    // Derived from totalMassKg / EARTH_MASS_KG on load
+    @Transient
     @Schema(description = "Total band mass in Earth masses", example = "0.049")
     private Double totalMassEarthMasses;
 

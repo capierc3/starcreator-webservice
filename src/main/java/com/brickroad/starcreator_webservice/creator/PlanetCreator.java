@@ -8,6 +8,7 @@ import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyz
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.repository.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryComposition;
@@ -63,9 +64,9 @@ public class PlanetCreator {
     private static final double VARIANCE = 0.15;
     private static final double MIN_VIABLE_PLANET_TEMP_K = 10.0;
 
-    private static final double EARTH_MASS_KG = 5.972e24;
-    private static final double EARTH_RADIUS_KM = 6371.0;
-    private static final double GRAVITATIONAL_CONSTANT = 6.674e-11;
+    // Physical constants — delegates to PhysicsFormulas (single source of truth)
+    private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
 
     @PostConstruct
     public void init() {
@@ -497,23 +498,16 @@ public class PlanetCreator {
         return addVariance(radius);
     }
 
-    private double calculateDensity(double massKg, double RadiusKm) {
-        double radiusM = RadiusKm* 1000;
-        double volumeM3 = (4.0/3.0) * Math.PI * Math.pow(radiusM, 3);
-        double densityKgM3 = massKg / volumeM3;
-        return densityKgM3 / 1000.0;
+    private double calculateDensity(double massKg, double radiusKm) {
+        return PhysicsFormulas.density(massKg, radiusKm);
     }
 
     private double calculateSurfaceGravity(double massKg, double radiusKm) {
-        double radiusM = radiusKm * 1000;
-        double gravityMS2 = (GRAVITATIONAL_CONSTANT * massKg) / (radiusM * radiusM);
-        return gravityMS2 / 9.81;
+        return PhysicsFormulas.surfaceGravityG(massKg, radiusKm);
     }
 
     private double calculateEscapeVelocity(double massKg, double radiusKm) {
-        double radiusM = radiusKm * 1000;
-        double velocityMS = Math.sqrt((2 * GRAVITATIONAL_CONSTANT * massKg) / radiusM);
-        return velocityMS / 1000.0;
+        return PhysicsFormulas.escapeVelocityKmS(massKg, radiusKm);
     }
 
     private double calculateFrostLine(Star star) {

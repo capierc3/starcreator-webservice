@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
 import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.planets.StellarEnvironment;
 import jakarta.annotation.PostConstruct;
@@ -101,8 +102,8 @@ public class StarCreator {
 
         populateStellarActivity(star, type);
         double effectiveLum = StellarEnvironment.effectiveLuminosity(star);
-        star.setHabitableZoneInnerAU(Math.sqrt(effectiveLum / 1.1));
-        star.setHabitableZoneOuterAU(Math.sqrt(effectiveLum / 0.53));
+        star.setHabitableZoneInnerAU(PhysicsFormulas.habitableZoneInnerAU(effectiveLum));
+        star.setHabitableZoneOuterAU(PhysicsFormulas.habitableZoneOuterAU(effectiveLum));
 
         star.setCreatedAt(LocalDateTime.now());
         star.setModifiedAt(LocalDateTime.now());
@@ -355,7 +356,7 @@ public class StarCreator {
         }
 
         star.setMainSequenceFraction(fraction);
-        star.setEstimatedRemainingMsMy(Math.max(0, msLifespan - ageMY));
+        star.setEstimatedRemainingMsMy(PhysicsFormulas.estimatedRemainingMsMy(mass, ageMY));
 
         if (fraction < 0.1) {
             star.setEvolutionaryStage("EARLY_MAIN_SEQUENCE");

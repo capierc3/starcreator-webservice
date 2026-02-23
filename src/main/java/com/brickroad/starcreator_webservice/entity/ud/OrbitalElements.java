@@ -42,7 +42,7 @@ public class OrbitalElements {
     @Schema(description = "Distance unit for semi-major axis: AU for star-orbiting bodies, KM for planet-orbiting bodies", example = "AU")
     private DistanceUnit semiMajorAxisUnit;
 
-    @Column(name = "orbital_period_days")
+    @Transient
     @Schema(description = "Orbital period in Earth days", example = "365.25")
     private Double orbitalPeriodDays;
 
@@ -66,17 +66,17 @@ public class OrbitalElements {
     @Schema(description = "Mean anomaly at epoch in degrees — initial orbital position", example = "357.5")
     private Double meanAnomalyDeg;
 
-    // ── Stability Assessment ──
+    // ── Stability Assessment (derived on load, not persisted) ──
 
-    @Column(name = "orbit_stability", length = 20)
+    @Transient
     @Schema(description = "Stability classification: STABLE, MARGINAL, CROSSING, or UNSTABLE", example = "STABLE")
     private String orbitStability;
 
-    @Column(name = "orbit_stability_timescale_my")
+    @Transient
     @Schema(description = "Estimated timescale to instability in millions of years")
     private Double orbitStabilityTimescaleMy;
 
-    @Column(name = "orbit_crossing_neighbor", length = 100)
+    @Transient
     @Schema(description = "Name of the neighboring body involved in orbital instability, if any")
     private String orbitCrossingNeighbor;
 
@@ -90,13 +90,13 @@ public class OrbitalElements {
     @Schema(description = "Position in orbital sequence (1 = innermost)")
     private Integer orbitalOrder;
 
-    // ── Gravitational Boundaries (moon orbits only — null for others) ──
+    // ── Gravitational Boundaries (derived on load, not persisted) ──
 
-    @Column(name = "hill_sphere_radius_km")
+    @Transient
     @Schema(description = "Hill sphere radius in km — gravitational sphere of influence")
     private Double hillSphereRadiusKm;
 
-    @Column(name = "roche_limit_km")
+    @Transient
     @Schema(description = "Roche limit distance in km — tidal disruption boundary")
     private Double rocheLimitKm;
 

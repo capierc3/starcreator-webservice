@@ -90,11 +90,13 @@ public class Star {
     @Schema(description = "Rotation period in days", example = "36.1")
     private Double rotationDays;
 
-    // ── Habitable Zone ──
+    // ── Habitable Zone (derived on load from luminosity, not persisted) ──
 
+    @Transient
     @Schema(description = "Inner edge of the habitable zone in AU", example = "0.167")
     private Double habitableZoneInnerAU;
 
+    @Transient
     @Schema(description = "Outer edge of the habitable zone in AU", example = "0.241")
     private Double habitableZoneOuterAU;
 
@@ -103,7 +105,7 @@ public class Star {
     @Schema(description = "Fraction of main sequence lifespan elapsed (0.0-1.0)", example = "0.002")
     private Double mainSequenceFraction;
 
-    @Column(name = "estimated_remaining_ms_my")
+    @Transient
     @Schema(description = "Estimated remaining main sequence lifetime in millions of years", example = "118740")
     private Double estimatedRemainingMsMy;
 

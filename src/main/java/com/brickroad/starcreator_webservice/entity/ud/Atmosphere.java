@@ -36,12 +36,12 @@ public class Atmosphere {
     @Schema(description = "Human-readable atmospheric composition summary", example = "N2 78%, O2 21%, Ar 0.93%")
     private String compositionSummary;
 
-    // Atmospheric properties
-    @Column(name = "scale_height_km")
+    // Atmospheric properties (derived on load from pressure/temp/gravity, not persisted)
+    @Transient
     @Schema(description = "Atmospheric scale height in km")
     private Double scaleHeightKm;
 
-    @Column(name = "greenhouse_effect_k")
+    @Transient
     @Schema(description = "Temperature increase due to greenhouse effect in Kelvin")
     private Double greenhouseEffectK;
 

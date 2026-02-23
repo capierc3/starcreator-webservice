@@ -5,6 +5,7 @@ import com.brickroad.starcreator_webservice.entity.ref.RingTemplateRef;
 import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.DistanceUnit;
 import com.brickroad.starcreator_webservice.repository.RingTemplateRefRepository;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,7 @@ public class RingCreator {
     @Autowired
     private OrbitalCreator orbitalCreator;
 
-    private static final double EARTH_MASS_KG = 5.972e24;
+    private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
 
     public static class RingSystemData {
         public boolean shouldHaveRings;

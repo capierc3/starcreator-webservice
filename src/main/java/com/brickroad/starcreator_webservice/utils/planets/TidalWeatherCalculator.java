@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Component;
 
@@ -11,8 +12,8 @@ import java.util.List;
 public class TidalWeatherCalculator {
 
     // Earth reference values
-    private static final double EARTH_MASS_KG = 5.972e24;
-    private static final double EARTH_RADIUS_KM = CelestialBodyUtils.EARTH_RADIUS_KM;
+    private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
     private static final double MOON_MASS_KG = 7.342e22;
     private static final double MOON_DISTANCE_KM = 384400.0;
     private static final double EARTH_TIDAL_RANGE_M = 1.0; // Average open-ocean tidal range

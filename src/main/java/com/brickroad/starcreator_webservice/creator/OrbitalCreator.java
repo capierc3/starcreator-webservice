@@ -3,6 +3,7 @@ package com.brickroad.starcreator_webservice.creator;
 import com.brickroad.starcreator_webservice.entity.ud.OrbitalElements;
 import com.brickroad.starcreator_webservice.enums.DistanceUnit;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Service;
 
@@ -30,8 +31,7 @@ public class OrbitalCreator {
      * @return orbital period in Earth days
      */
     public double calculateOrbitalPeriodAU(double semiMajorAxisAU, double starMassSolar) {
-        double periodYears = Math.sqrt(Math.pow(semiMajorAxisAU, 3) / starMassSolar);
-        return periodYears * 365.25;
+        return PhysicsFormulas.orbitalPeriodDaysAU(semiMajorAxisAU, starMassSolar);
     }
 
     /**
@@ -43,12 +43,7 @@ public class OrbitalCreator {
      * @return orbital period in Earth days
      */
     public double calculateOrbitalPeriodKM(double semiMajorAxisKm, double centralMassKg) {
-        double semiMajorAxisMeters = semiMajorAxisKm * 1000.0;
-        double periodSeconds = 2 * Math.PI * Math.sqrt(
-                Math.pow(semiMajorAxisMeters, 3) /
-                        (ConversionFormulas.GRAVITATIONAL_CONSTANT * centralMassKg)
-        );
-        return periodSeconds / (24.0 * 3600.0);
+        return PhysicsFormulas.orbitalPeriodDaysKM(semiMajorAxisKm, centralMassKg);
     }
 
     // ═══════════════════════════════════════════════════════════════

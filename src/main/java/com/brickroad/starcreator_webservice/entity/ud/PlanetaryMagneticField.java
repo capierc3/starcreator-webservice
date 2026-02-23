@@ -30,13 +30,14 @@ public class PlanetaryMagneticField {
     @Column(name = "strength_compared_to_earth")
     private Double strengthComparedToEarth;
 
-    @Column(name = "surface_field_microteslas_min")
+    // Derived from strengthComparedToEarth (avg = strength * 50µT, min = avg * 0.6, max = avg * 1.4)
+    @Transient
     private Double surfaceFieldMicroteslasMin;
 
-    @Column(name = "surface_field_microteslas_max")
+    @Transient
     private Double surfaceFieldMicroteslasMax;
 
-    @Column(name = "surface_field_microteslas_avg")
+    @Transient
     private Double surfaceFieldMicroteslasAvg;
 
     // ================================================================
@@ -181,13 +182,14 @@ public class PlanetaryMagneticField {
     @Column(name = "magnetosphere_exists")
     private Boolean magnetosphereExists = false;
 
-    @Column(name = "magnetopause_distance_planet_radii")
+    // Derived from strengthComparedToEarth + stellar wind data
+    @Transient
     private Double magnetopauseDistancePlanetRadii;
 
-    @Column(name = "magnetotail_length_planet_radii")
+    @Transient
     private Double magnetotailLengthPlanetRadii;
 
-    @Column(name = "bow_shock_distance_planet_radii")
+    @Transient
     private Double bowShockDistancePlanetRadii;
 
     // Van Allen Belt analogs
@@ -237,10 +239,11 @@ public class PlanetaryMagneticField {
     // ================================================================
     // FIELD INTERACTIONS
     // ================================================================
-    @Column(name = "shields_from_stellar_wind")
+    // Derived from protectionLevel
+    @Transient
     private Boolean shieldsFromStellarWind = false;
 
-    @Column(name = "shields_from_cosmic_rays")
+    @Transient
     private Boolean shieldsFromCosmicRays = false;
 
     public enum ProtectionLevel {
@@ -251,8 +254,8 @@ public class PlanetaryMagneticField {
         EXCEPTIONAL     // >80%
     }
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "protection_level", length = 50)
+    // Derived from strengthComparedToEarth vs stellar environment
+    @Transient
     private ProtectionLevel protectionLevel;
 
     @Column(name = "atmospheric_loss_rate_factor")
@@ -261,10 +264,11 @@ public class PlanetaryMagneticField {
     // ================================================================
     // SCIENTIFIC PROPERTIES
     // ================================================================
-    @Column(name = "magnetic_moment")
+    // Derived from strengthComparedToEarth and planet radius
+    @Transient
     private Double magneticMoment; // A·m² (Earth: 7.91 × 10^22)
 
-    @Column(name = "surface_power_flux_watts_per_m2")
+    @Transient
     private Double surfacePowerFluxWattsPerM2;
 
     // Paleomagnetism
