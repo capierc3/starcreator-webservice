@@ -35,6 +35,9 @@ public class BeltCreator {
     @Autowired
     private GeologyCreator geologyCreator;
 
+    @Autowired
+    private PlanetCreator planetCreator;
+
     private List<BeltTypeRef> cachedBeltTypes;
     private List<AsteroidTypeRef> cachedAsteroidTypes;
 
@@ -417,6 +420,9 @@ public class BeltCreator {
 
         generateNotableAsteroids(belt, beltType, star, arch);
 
+        // Attempt to spawn belt-born dwarf planets (e.g. Ceres-like bodies)
+        trySpawnBeltDwarfPlanets(belt, arch, star);
+
         return belt;
     }
 
@@ -520,6 +526,9 @@ public class BeltCreator {
         // Link any dwarf planets that fall within the belt
         linkDwarfPlanets(belt, arch.dwarfPlanets);
 
+        // Attempt to spawn belt-born dwarf planets (skips if already has linked dwarfs)
+        trySpawnBeltDwarfPlanets(belt, arch, star);
+
         // Generate notable KBOs (fewer if we already have dwarf planets)
         int dwarfCount = belt.getDwarfPlanets().size();
         generateNotableAsteroids(belt, beltType, star, arch, dwarfCount);
@@ -593,7 +602,169 @@ public class BeltCreator {
         // Generate 0-2 notable objects
         generateNotableAsteroids(belt, beltType, star, arch);
 
+        // Attempt to spawn belt-born dwarf planets
+        trySpawnBeltDwarfPlanets(belt, arch, star);
+
         return belt;
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    //  Belt-Born Dwarf Planet Formation
+    // ═════════════════════════════════════════════════════════════════════
+
+    /**
+     * Attempts to spawn dwarf planets from a belt's own mass budget.
+     * Models in-situ formation where belt material concentrates into one
+     * or more bodies (like Ceres in the asteroid belt, Pluto in the Kuiper belt).
+     *
+     * @param belt the belt to spawn dwarfs in
+     * @param arch system architecture for modifiers
+     * @param star parent star for the dwarf planet
+     * @return list of newly created dwarf planets (may be empty)
+     */
+    private List<Planet> trySpawnBeltDwarfPlanets(OrbitalBand belt, SystemArchitecture arch, Star star) {
+        List<Planet> spawnedDwarfs = new ArrayList<>();
+
+        String beltCode = belt.getBeltType() != null ? belt.getBeltType().getCode() : "";
+
+        // ── Formation probability ──
+        double baseChance;
+        double minMassEarth, maxMassEarth;
+        int maxDwarfs;
+
+        switch (beltCode) {
+            case "INNER_ROCKY" -> {
+                baseChance = 0.15; // Ceres-like; giant planet prevents runaway accretion
+                minMassEarth = 0.0001;
+                maxMassEarth = 0.002; // Ceres = 0.00016 M⊕
+                maxDwarfs = 1;        // Ceres is unique in our belt — rarely 2
+            }
+            case "KUIPER" -> {
+                // Skip if belt already has linked dwarfs from planet generation
+                if (!belt.getDwarfPlanets().isEmpty()) return spawnedDwarfs;
+                baseChance = 0.25;    // ~1 in 4 Kuiper belts form a Pluto-class body
+                minMassEarth = 0.001;
+                maxMassEarth = 0.004; // Pluto = 0.0022 M⊕
+                maxDwarfs = 2;
+            }
+            case "SCATTERED_DISK" -> {
+                baseChance = 0.08; // Highly disrupted, rarely concentrates mass
+                minMassEarth = 0.001;
+                maxMassEarth = 0.003;
+                maxDwarfs = 1;
+            }
+            default -> {
+                return spawnedDwarfs; // Unknown belt type — no dwarfs
+            }
+        }
+
+        // ── Modifiers (gentle — keep rates near baseChance) ──
+        // Mass modifier: more massive belts → slightly higher formation chance
+        double typicalMass = switch (beltCode) {
+            case "INNER_ROCKY" -> 0.0005; // typical asteroid belt mass
+            case "KUIPER" -> 0.03;         // typical Kuiper belt mass
+            case "SCATTERED_DISK" -> 0.01;
+            default -> 0.01;
+        };
+        double beltMass = belt.getTotalMassEarthMasses() != null ? belt.getTotalMassEarthMasses() : typicalMass;
+        double massMod = Math.max(0.7, Math.min(1.5, beltMass / typicalMass));
+
+        // Age modifier: older systems have had more time for accretion
+        double ageMod = Math.max(0.9, Math.min(1.2, arch.systemAgeMY / 4000.0));
+
+        double formationChance = Math.min(0.60, baseChance * massMod * ageMod);
+
+        if (RandomUtils.rollRange(0.0, 1.0) > formationChance) {
+            return spawnedDwarfs; // No formation this time
+        }
+
+        // ── Determine count ──
+        int count = 1;
+        if (maxDwarfs > 1 && "KUIPER".equals(beltCode)) {
+            // Kuiper: 1, occasionally 2 (20% chance)
+            count = RandomUtils.rollRange(0.0, 1.0) < 0.20 ? 2 : 1;
+        }
+
+        // ── Generate dwarfs with mass conservation ──
+        double remainingBeltMass = beltMass;
+        double maxTotalDwarfMass = beltMass * 0.50; // cap at 50% of belt mass
+        double dwarfMassUsed = 0;
+
+        for (int i = 0; i < count; i++) {
+            if (dwarfMassUsed >= maxTotalDwarfMass) break;
+
+            double dwarfMass;
+            if (i == 0) {
+                // Largest dwarf: 15-35% of belt mass, clamped to type range
+                dwarfMass = beltMass * RandomUtils.rollRange(0.15, 0.35);
+                dwarfMass = Math.max(minMassEarth, Math.min(maxMassEarth, dwarfMass));
+            } else {
+                // Subsequent dwarfs: 20-60% of the largest
+                double largestMass = spawnedDwarfs.isEmpty() ? minMassEarth
+                        : spawnedDwarfs.get(0).getEarthMass();
+                dwarfMass = largestMass * RandomUtils.rollRange(0.20, 0.60);
+                dwarfMass = Math.max(minMassEarth, Math.min(maxMassEarth, dwarfMass));
+            }
+
+            // Check we don't exceed cap
+            if (dwarfMassUsed + dwarfMass > maxTotalDwarfMass) {
+                dwarfMass = maxTotalDwarfMass - dwarfMassUsed;
+                if (dwarfMass < minMassEarth) break;
+            }
+
+            // ── Placement: weighted toward peak density ──
+            double innerEdge = belt.getInnerOrbit().getSemiMajorAxis();
+            double outerEdge = belt.getOuterOrbit().getSemiMajorAxis();
+            double peakDensity = belt.getPeakDensityDistance() != null
+                    ? belt.getPeakDensityDistance()
+                    : (innerEdge + outerEdge) / 2.0;
+
+            double sma;
+            if (RandomUtils.rollRange(0.0, 1.0) < 0.70) {
+                // 70% chance: within ±30% of peak density
+                double spread = (outerEdge - innerEdge) * 0.30;
+                sma = peakDensity + RandomUtils.rollRange(-spread, spread);
+            } else {
+                // 30% chance: anywhere in the belt
+                sma = RandomUtils.rollRange(innerEdge, outerEdge);
+            }
+            sma = Math.max(innerEdge, Math.min(outerEdge, sma));
+
+            // ── Create the dwarf planet via reusable method ──
+            // Override eccentricity/inclination to match belt properties
+            Planet dwarf = planetCreator.createPlanetAtLocation("Dwarf Planet", star, sma, dwarfMass);
+            if (dwarf == null) break; // Type not found — shouldn't happen, but be safe
+
+            // Override orbit with belt-appropriate eccentricity and inclination
+            double beltEcc = belt.getAverageEccentricity() != null ? belt.getAverageEccentricity() : 0.05;
+            double beltInc = belt.getAverageInclinationDeg() != null ? belt.getAverageInclinationDeg() : 5.0;
+            double ecc = beltEcc * RandomUtils.rollRange(0.5, 1.5);
+            double inc = beltInc * RandomUtils.rollRange(0.5, 1.5);
+            double stellarMass = star.getSolarMass() > 0 ? star.getSolarMass() : 1.0;
+            dwarf.setOrbit(orbitalCreator.createPlanetOrbit(sma, stellarMass, ecc, inc));
+            dwarf.setOrbitalPosition(-1); // Re-set after orbit override (setOrbit replaces OrbitalElements)
+
+            // Link to belt and star
+            belt.addDwarfPlanet(dwarf);
+            star.addPlanet(dwarf);
+            spawnedDwarfs.add(dwarf);
+            dwarfMassUsed += dwarfMass;
+        }
+
+        // ── Post-processing: subtract dwarf mass from belt ──
+        if (dwarfMassUsed > 0 && beltMass > dwarfMassUsed) {
+            double newBeltMass = beltMass - dwarfMassUsed;
+            belt.setTotalMassEarthMasses(newBeltMass);
+            belt.setTotalMassKg(newBeltMass * EARTH_MASS_KG);
+
+            // Reduce object count proportionally
+            if (belt.getEstimatedObjectCount() != null && belt.getEstimatedObjectCount() > 0) {
+                double massFraction = newBeltMass / beltMass;
+                belt.setEstimatedObjectCount((long) (belt.getEstimatedObjectCount() * massFraction));
+            }
+        }
+
+        return spawnedDwarfs;
     }
 
     // ═════════════════════════════════════════════════════════════════════

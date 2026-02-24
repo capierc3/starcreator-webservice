@@ -107,6 +107,65 @@ public class PlanetCreator {
         return planet;
     }
 
+    /**
+     * Look up a PlanetTypeRef by name from the cached types.
+     * @param name exact name match (case-insensitive), e.g. "Dwarf Planet", "Ocean World"
+     * @return the matching PlanetTypeRef, or null if not found
+     */
+    public PlanetTypeRef findPlanetTypeByName(String name) {
+        if (name == null) return null;
+        return cachedPlanetTypes.stream()
+                .filter(t -> t.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Create a fully populated planet of the specified type at a given location.
+     * This is the reusable building block for placing specific planet types at
+     * specific distances — used by belt-born dwarf planet creation, and designed
+     * for future "add planet X at Y AU" features.
+     *
+     * @param typeName    planet type name (e.g. "Dwarf Planet", "Ocean World")
+     * @param parentStar  the host star
+     * @param distanceAU  semi-major axis in AU
+     * @param massEarth   explicit mass in Earth masses, or null to roll from type range
+     * @return fully populated Planet entity, or null if type not found
+     */
+    public Planet createPlanetAtLocation(String typeName, Star parentStar,
+                                         double distanceAU, Double massEarth) {
+        PlanetTypeRef type = findPlanetTypeByName(typeName);
+        if (type == null) return null;
+
+        Planet planet = new Planet();
+
+        double earthMass = (massEarth != null) ? massEarth
+                : RandomUtils.rollRange(type.getMinMassEarth(), type.getMaxMassEarth());
+        double earthRadius = calculateRadius(earthMass, type);
+        earthRadius = addVariance(earthRadius);
+
+        planet.setEarthMass(earthMass);
+        planet.setParentStar(parentStar);
+
+        if (parentStar != null) {
+            // Simplified orbital parameters — caller can override ecc/inc after creation
+            double eccentricity = RandomUtils.rollRange(0.0, 0.1);
+            double inclination = RandomUtils.rollRange(0.0, 10.0);
+            double stellarMass = parentStar.getSolarMass() > 0 ? parentStar.getSolarMass() : 1.0;
+            planet.setOrbit(orbitalCreator.createPlanetOrbit(distanceAU, stellarMass,
+                    eccentricity, inclination));
+        } else {
+            planet.setOrbit(orbitalCreator.createPlanetOrbit(distanceAU, 1.0, 0.0, 0.0));
+        }
+
+        // Set AFTER orbit creation — setOrbit replaces the OrbitalElements object
+        planet.setOrbitalPosition(-1); // belt-born: not in normal planet sequence
+
+        populatePlanet(planet, type, earthMass, earthRadius, parentStar);
+
+        return planet;
+    }
+
     public List<Planet> generatePlanetarySystem(Star parentStar) {
 
         List<Planet> planets = new ArrayList<>();

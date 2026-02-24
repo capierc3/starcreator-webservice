@@ -114,6 +114,9 @@ public class SystemCreator {
 
     private void assignPlanetNames(List<Planet> planets) {
         for (Planet planet : planets) {
+            // Skip belt-born dwarfs — they get named by nameBeltDwarfPlanets()
+            if (planet.getOrbitalPosition() != null && planet.getOrbitalPosition() < 0) continue;
+
             Star parentStar = planet.getParentStar();
 
             if (parentStar != null && parentStar.getName() != null) {
@@ -148,6 +151,27 @@ public class SystemCreator {
                 });
             }
             generateAsteroidNames(band);
+            nameBeltDwarfPlanets(band);
+        }
+    }
+
+    /**
+     * Names dwarf planets associated with a belt using the belt's name as prefix.
+     * Applies to both belt-born dwarfs (orbitalPosition = -1) and existing dwarfs
+     * linked via linkDwarfPlanets(). Format: "{BeltName} DWF-{2DigitIndex}"
+     * e.g. "SCS-A2F A KB-01 DWF-01", "SCS-A2F A IB-01 DWF-02"
+     */
+    private void nameBeltDwarfPlanets(OrbitalBand band) {
+        String baseName = band.getName();
+        if (baseName == null) return;
+        List<Planet> dwarfs = band.getDwarfPlanets();
+        for (int i = 0; i < dwarfs.size(); i++) {
+            Planet dwarf = dwarfs.get(i);
+            dwarf.setName(baseName + " DWF-" + String.format("%02d", i + 1));
+            // Also rename any moons the dwarf has
+            for (int m = 0; m < dwarf.getMoons().size(); m++) {
+                dwarf.getMoons().get(m).setName(dwarf.getName() + " " + numberToRoman(m + 1));
+            }
         }
     }
 
