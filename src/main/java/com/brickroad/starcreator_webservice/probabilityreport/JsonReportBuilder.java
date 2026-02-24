@@ -46,7 +46,7 @@ public class JsonReportBuilder {
         System.out.println("JSON report saved to: " + file.getAbsolutePath());
     }
 
-    private Map<String, Object> buildReport() {
+    public Map<String, Object> buildReport() {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("metadata", buildMetadata());
         report.put("summary", buildSummary());

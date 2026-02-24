@@ -105,6 +105,7 @@ public class PlanetDataCollector {
             String distBin = binDistance(planet.getSemiMajorAxisAU());
             typeData.addSemiMajorAxisBin(distBin);
             typeData.addTidalLockAtDistance(distBin, Boolean.TRUE.equals(planet.getTidallyLocked()));
+            typeData.addDistanceValue(planet.getSemiMajorAxisAU());
         }
 
         // Composition classification

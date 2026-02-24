@@ -80,11 +80,21 @@ public class ProbabilityReportGenerator {
         htmlBuilder.saveReport(targetFolder);
 
         // Generate JSON report
+        JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData, stabilityData);
         try {
-            JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData, stabilityData);
             jsonBuilder.saveReport(targetFolder);
         } catch (Exception e) {
             System.err.println("Failed to save JSON report: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        // Generate SPA report
+        try {
+            java.util.Map<String, Object> reportData = jsonBuilder.buildReport();
+            SpaReportBuilder spaBuilder = new SpaReportBuilder(reportData, counts, timer);
+            spaBuilder.saveReport(targetFolder);
+        } catch (Exception e) {
+            System.err.println("Failed to save SPA report: " + e.getMessage());
             e.printStackTrace();
         }
     }

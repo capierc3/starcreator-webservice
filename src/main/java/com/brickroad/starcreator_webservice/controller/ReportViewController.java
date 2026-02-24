@@ -22,19 +22,63 @@ public class ReportViewController {
     private static final File REPORT_DIR = new File("target/probability_reports/");
 
     @Operation(summary = "View Probability Report",
-            description = "Returns the most recently generated probability report as HTML.",
+            description = "Returns the most recently generated probability report as an interactive SPA. "
+                    + "Falls back to the legacy HTML report if no SPA report exists.",
             tags = {"Probability Report"})
     @ApiResponse(responseCode = "200", description = "Report HTML returned successfully")
     @ApiResponse(responseCode = "404", description = "No report has been generated yet")
     @GetMapping(value = "/report", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<Resource> viewReport() {
-        File latestReport = getLatestHtmlReport();
-        if (latestReport == null) {
+        // Prefer SPA report; fall back to legacy HTML
+        File spaReport = getLatestFileMatching("system_spa_report_");
+        if (spaReport != null) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(new FileSystemResource(spaReport));
+        }
+
+        File legacyReport = getLatestFileMatching("system_report_");
+        if (legacyReport != null) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(new FileSystemResource(legacyReport));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @Operation(summary = "View Legacy Probability Report",
+            description = "Returns the legacy (non-SPA) HTML probability report.",
+            tags = {"Probability Report"})
+    @ApiResponse(responseCode = "200", description = "Legacy report HTML returned successfully")
+    @ApiResponse(responseCode = "404", description = "No legacy report has been generated yet")
+    @GetMapping(value = "/report/legacy", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<Resource> viewLegacyReport() {
+        File legacyReport = getLatestFileMatching("system_report_");
+        if (legacyReport == null) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)
-                .body(new FileSystemResource(latestReport));
+                .body(new FileSystemResource(legacyReport));
+    }
+
+    @Operation(summary = "Get Report JSON Data",
+            description = "Returns the raw JSON data from the most recent probability report.",
+            tags = {"Probability Report"})
+    @ApiResponse(responseCode = "200", description = "Report JSON returned successfully")
+    @ApiResponse(responseCode = "404", description = "No report has been generated yet")
+    @GetMapping(value = "/api/v1/report/data", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Resource> getReportData() {
+        if (!REPORT_DIR.exists()) return ResponseEntity.notFound().build();
+        File[] jsonFiles = REPORT_DIR.listFiles((dir, name) -> name.endsWith(".json"));
+        if (jsonFiles == null || jsonFiles.length == 0) return ResponseEntity.notFound().build();
+        File latest = Arrays.stream(jsonFiles)
+                .max(Comparator.comparingLong(File::lastModified))
+                .orElse(null);
+        if (latest == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new FileSystemResource(latest));
     }
 
     @Hidden
@@ -53,11 +97,12 @@ public class ReportViewController {
         }
     }
 
-    private File getLatestHtmlReport() {
+    private File getLatestFileMatching(String prefix) {
         if (!REPORT_DIR.exists()) return null;
-        File[] htmlFiles = REPORT_DIR.listFiles((dir, name) -> name.endsWith(".html"));
-        if (htmlFiles == null || htmlFiles.length == 0) return null;
-        return Arrays.stream(htmlFiles)
+        File[] files = REPORT_DIR.listFiles((dir, name) ->
+                name.startsWith(prefix) && name.endsWith(".html"));
+        if (files == null || files.length == 0) return null;
+        return Arrays.stream(files)
                 .max(Comparator.comparingLong(File::lastModified))
                 .orElse(null);
     }

@@ -2,9 +2,7 @@ package com.brickroad.starcreator_webservice.probabilityreport;
 
 import lombok.Getter;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 @Getter
 public class PlanetTypeBreakdown {
@@ -32,6 +30,9 @@ public class PlanetTypeBreakdown {
     private double tempSum = 0;
     private int physicalCount = 0;
 
+    // Raw distance values for statistical analysis
+    private final List<Double> distanceValues = new ArrayList<>();
+
     public void increment() { count++; }
 
     public void addCompositionClass(String val) { compositionClasses.merge(val, 1, Integer::sum); }
@@ -53,6 +54,7 @@ public class PlanetTypeBreakdown {
     }
     public void addMoonletBin(String bin) { moonletBins.merge(bin, 1, Integer::sum); }
     public void addRings() { withRings++; }
+    public void addDistanceValue(double au) { distanceValues.add(au); }
 
     public void addPhysicalProps(double mass, double radius, double gravity, double temp) {
         massSum += mass;
@@ -103,10 +105,65 @@ public class PlanetTypeBreakdown {
         }
         if (!moonletBins.isEmpty()) json.put("moonletBins", moonletBins);
 
+        // Distance statistics with IQR outlier exclusion
+        if (!distanceValues.isEmpty()) {
+            json.put("distanceStats", computeDistanceStats());
+        }
+
         return json;
+    }
+
+    public Map<String, Object> computeDistanceStats() {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        List<Double> sorted = new ArrayList<>(distanceValues);
+        Collections.sort(sorted);
+
+        int n = sorted.size();
+        stats.put("count", n);
+        stats.put("min", round3(sorted.get(0)));
+        stats.put("max", round3(sorted.get(n - 1)));
+        stats.put("mean", round3(sorted.stream().mapToDouble(Double::doubleValue).average().orElse(0)));
+        stats.put("median", round3(percentile(sorted, 50)));
+
+        // IQR-based outlier exclusion (need at least 4 samples)
+        if (n >= 4) {
+            double q1 = percentile(sorted, 25);
+            double q3 = percentile(sorted, 75);
+            double iqr = q3 - q1;
+            double lowerFence = q1 - 1.5 * iqr;
+            double upperFence = q3 + 1.5 * iqr;
+
+            List<Double> inliers = sorted.stream()
+                    .filter(v -> v >= lowerFence && v <= upperFence)
+                    .toList();
+
+            int excluded = n - inliers.size();
+            double iqrMean = inliers.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+
+            stats.put("q1", round3(q1));
+            stats.put("q3", round3(q3));
+            stats.put("iqrMean", round3(iqrMean));
+            stats.put("outliersExcluded", excluded);
+        }
+
+        return stats;
+    }
+
+    /** Linear interpolation percentile (0-100 scale) */
+    private double percentile(List<Double> sorted, double pct) {
+        if (sorted.size() == 1) return sorted.get(0);
+        double idx = (pct / 100.0) * (sorted.size() - 1);
+        int lo = (int) Math.floor(idx);
+        int hi = Math.min(lo + 1, sorted.size() - 1);
+        double frac = idx - lo;
+        return sorted.get(lo) + frac * (sorted.get(hi) - sorted.get(lo));
     }
 
     private double round(double val) {
         return Math.round(val * 100.0) / 100.0;
+    }
+
+    private double round3(double val) {
+        return Math.round(val * 1000.0) / 1000.0;
     }
 }

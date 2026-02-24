@@ -214,7 +214,8 @@ public class BeltDataCollector {
         private int objectCountCount = 0;
         private int gapsCount = 0;
         private int familiesCount = 0;
-        private int dwarfPlanetCount = 0;
+        private int beltsWithDwarfPlanets = 0;
+        private int totalDwarfPlanets = 0;
 
         void analyze(OrbitalBand band) {
             count++;
@@ -258,7 +259,9 @@ public class BeltDataCollector {
 
             if (Boolean.TRUE.equals(band.getHasGaps())) gapsCount++;
             if (Boolean.TRUE.equals(band.getHasCollisionalFamilies())) familiesCount++;
-            if (!band.getDwarfPlanets().isEmpty()) dwarfPlanetCount++;
+            int dwarfs = band.getDwarfPlanets().size();
+            if (dwarfs > 0) beltsWithDwarfPlanets++;
+            totalDwarfPlanets += dwarfs;
         }
 
         public Map<String, Object> toJson() {
@@ -276,7 +279,8 @@ public class BeltDataCollector {
             if (objectCountCount > 0) json.put("avgObjectCount", objectCountSum / objectCountCount);
             json.put("withGaps", gapsCount);
             json.put("withCollisionalFamilies", familiesCount);
-            json.put("withDwarfPlanets", dwarfPlanetCount);
+            json.put("withDwarfPlanets", beltsWithDwarfPlanets);
+            json.put("totalDwarfPlanets", totalDwarfPlanets);
             return json;
         }
     }

@@ -328,6 +328,8 @@ public class HtmlReportBuilder {
             printSortedTableByKey(w, ptb.getMassBins(), ptb.getCount(), "Mass Range");
         if (!ptb.getSemiMajorAxisBins().isEmpty())
             printSortedTableByKey(w, ptb.getSemiMajorAxisBins(), ptb.getCount(), "Semi-Major Axis (AU)");
+        if (!ptb.getDistanceValues().isEmpty())
+            printDistanceStats(w, ptb);
         if (!ptb.getTidalLockByDistance().isEmpty())
             printTidalLockByDistanceTable(w, ptb.getTidalLockByDistance());
         if (!ptb.getMoonCountBins().isEmpty())
@@ -342,6 +344,34 @@ public class HtmlReportBuilder {
             printSortedTable(w, ptb.getHabitabilityClasses(), ptb.getCount(), "Habitability Class");
 
         endCollapsible(w);
+    }
+
+    private void printDistanceStats(PrintWriter w, PlanetTypeBreakdown ptb) {
+        java.util.Map<String, Object> ds = ptb.computeDistanceStats();
+
+        w.println("<h3>Distance Statistics (AU)</h3>");
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, String.valueOf(ds.get("min")), "Closest");
+        statCard(w, String.valueOf(ds.get("max")), "Farthest");
+        statCard(w, String.valueOf(ds.get("median")), "Median");
+        if (ds.containsKey("iqrMean")) {
+            statCard(w, String.valueOf(ds.get("iqrMean")), "IQR Mean*");
+        } else {
+            statCard(w, String.valueOf(ds.get("mean")), "Mean");
+        }
+        w.println("</div>");
+
+        if (ds.containsKey("outliersExcluded")) {
+            int excluded = ((Number) ds.get("outliersExcluded")).intValue();
+            if (excluded > 0) {
+                w.println("<p class=\"note\">* IQR Mean excludes " + excluded
+                        + " outlier(s) outside Q1&#8211;Q3 &plusmn; 1.5&times;IQR (Q1="
+                        + ds.get("q1") + " AU, Q3=" + ds.get("q3") + " AU)</p>");
+            } else {
+                w.println("<p class=\"note\">* No outliers detected (Q1="
+                        + ds.get("q1") + " AU, Q3=" + ds.get("q3") + " AU)</p>");
+            }
+        }
     }
 
     private void printTidalLockByDistanceTable(PrintWriter w, Map<String, int[]> data) {
@@ -1171,7 +1201,8 @@ public class HtmlReportBuilder {
                 }
                 statCard(w, String.valueOf(btb.getGapsCount()), "With Gaps");
                 statCard(w, String.valueOf(btb.getFamiliesCount()), "Families");
-                statCard(w, String.valueOf(btb.getDwarfPlanetCount()), "Dwarf Planets");
+                statCard(w, String.valueOf(btb.getTotalDwarfPlanets()), "Dwarf Planets");
+                statCard(w, String.valueOf(btb.getBeltsWithDwarfPlanets()), "Belts w/ Dwarfs");
                 w.println("</div>");
 
                 if (!btb.getCompositionTypes().isEmpty()) {
