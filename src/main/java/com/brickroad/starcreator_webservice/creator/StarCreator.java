@@ -72,6 +72,15 @@ public class StarCreator {
                     primary.getGrandMinimumDepth() + RandomUtils.rollRange(-0.1, 0.1));
         }
 
+        // Recalculate transient fields that depend on overridden age/grand-minimum
+        if (companion.getEstimatedRemainingMsMy() != null) {
+            companion.setEstimatedRemainingMsMy(
+                    PhysicsFormulas.estimatedRemainingMsMy(companion.getSolarMass(), companion.getAgeMY()));
+        }
+        double effectiveLum = StellarEnvironment.effectiveLuminosity(companion);
+        companion.setHabitableZoneInnerAU(PhysicsFormulas.habitableZoneInnerAU(effectiveLum));
+        companion.setHabitableZoneOuterAU(PhysicsFormulas.habitableZoneOuterAU(effectiveLum));
+
         return companion;
     }
 

@@ -1,14 +1,15 @@
 package com.brickroad.starcreator_webservice.service;
 
+import com.brickroad.starcreator_webservice.creator.ClimateCreator;
+import com.brickroad.starcreator_webservice.creator.HabitabilityCreator;
 import com.brickroad.starcreator_webservice.entity.ud.*;
-import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
-import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
-import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
-import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
+import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.utils.*;
 import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
 import com.brickroad.starcreator_webservice.utils.planets.StellarEnvironment;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,6 +25,14 @@ import java.util.List;
  */
 @Component
 public class DerivedFieldCalculator {
+
+    private final ClimateCreator climateCreator;
+    private final HabitabilityCreator habitabilityCreator;
+
+    public DerivedFieldCalculator(ClimateCreator climateCreator, HabitabilityCreator habitabilityCreator) {
+        this.climateCreator = climateCreator;
+        this.habitabilityCreator = habitabilityCreator;
+    }
 
     /**
      * Recomputes all {@code @Transient} derived fields on a fully-loaded StarSystem.
@@ -46,23 +55,37 @@ public class DerivedFieldCalculator {
                 planet.getMoons().forEach(moon -> {
                     recalculatePhysicalProps(moon.getPhysicalProperties(), false);
                     recalculateOrbitalPeriodKM(moon.getOrbit(), planet);
-                    recalculateHillAndRoche(moon.getOrbit(), planet, star);
+                    recalculateMoonHillAndRoche(moon, planet);
                     recalculateAtmosphere(moon.getAtmosphere(), moon.getPhysicalProperties());
                     recalculateMagneticField(moon.getMagneticField(), moon.getPhysicalProperties(),
                             star, planet.getSemiMajorAxisAU());
                 });
 
-                // Planet's rings
-                planet.getBands().forEach(ring -> recalculateBand(ring, star));
+                // Planet's rings (SMA in KM, orbit planet)
+                planet.getBands().forEach(ring -> recalculateRing(ring, planet));
             });
         });
 
-        // System-level belts
-        Star primaryStar = system.getStars().stream().findFirst().orElse(null);
-        system.getBands().forEach(belt -> recalculateBand(belt, primaryStar));
+        // System-level belts (SMA in AU, orbit total stellar mass)
+        double totalStellarMass = computeTotalStellarMass(system);
+        system.getBands().forEach(belt -> recalculateBelt(belt, totalStellarMass));
 
         // Orbital stability (needs all planets to be ready)
         system.getStars().forEach(this::recalculateOrbitalStability);
+
+        // Regenerate climate + habitability from seed (Tier 2C)
+        system.getStars().forEach(star -> {
+            star.getPlanets().forEach(planet -> {
+                regenerateHabitability(planet, star);
+            });
+        });
+        // Moon climate depends on all sibling moons being ready (sky appearances)
+        system.getStars().forEach(star -> {
+            star.getPlanets().forEach(planet -> {
+                regenerateClimate(planet, star, system);
+                regenerateMoonClimateAndHabitability(planet, star, system);
+            });
+        });
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -150,26 +173,41 @@ public class DerivedFieldCalculator {
     // HILL SPHERE & ROCHE LIMIT (moon orbits)
     // ══════════════════════════════════════════════════════════════════
 
-    private void recalculateHillAndRoche(OrbitalElements moonOrbit, Planet planet, Star star) {
-        if (moonOrbit == null || planet == null || star == null) return;
-        if (planet.getOrbit() == null || planet.getOrbit().getSemiMajorAxis() == null) return;
-        if (planet.getPhysicalProperties() == null || star.getPhysicalProperties() == null) return;
+    /**
+     * Recalculates the moon's own Hill sphere and Roche limit.
+     * <p>
+     * Hill sphere: moon's gravitational sphere of influence relative to the planet.
+     * Roche limit: tidal disruption distance for debris around the moon.
+     * <p>
+     * These are the moon's properties (moon vs planet), NOT the planet's (planet vs star).
+     * Matches MoonCreator lines 536-541.
+     */
+    private void recalculateMoonHillAndRoche(Moon moon, Planet planet) {
+        if (moon == null || planet == null) return;
+        OrbitalElements moonOrbit = moon.getOrbit();
+        if (moonOrbit == null || moonOrbit.getSemiMajorAxis() == null) return;
 
-        double planetSmaKm = planet.getOrbit().getSemiMajorAxis() * ConversionFormulas.AU_TO_KM;
-        double planetMass = planet.getPhysicalProperties().getMass();
-        double starMass = star.getPhysicalProperties().getMass();
+        PhysicalProperties moonPP = moon.getPhysicalProperties();
+        PhysicalProperties planetPP = planet.getPhysicalProperties();
+        if (moonPP == null || planetPP == null) return;
 
-        if (starMass > 0) {
+        // Moon's SMA is in km (moon orbits planet)
+        double moonSmaKm = moonOrbit.getSemiMajorAxis();
+        Double moonMass = moonPP.getMass();
+        Double planetMass = planetPP.getMass();
+
+        if (moonMass != null && planetMass != null && planetMass > 0) {
             moonOrbit.setHillSphereRadiusKm(
-                    PhysicsFormulas.hillSphereRadiusKm(planetSmaKm, planetMass, starMass));
+                    PhysicsFormulas.hillSphereRadiusKm(moonSmaKm, moonMass, planetMass));
         }
 
-        // Roche limit: use ρ_moon = 3.3 g/cm³ (rocky default)
-        double planetRadius = planet.getPhysicalProperties().getRadius();
-        Double planetDensity = planet.getPhysicalProperties().getDensity();
-        if (planetRadius > 0 && planetDensity != null && planetDensity > 0) {
+        // Roche limit: moon's radius and density, debris density 2.5 g/cm³
+        // (matches MoonCreator which uses 2.5 for rocky material)
+        Double moonRadius = moonPP.getRadius();
+        Double moonDensity = moonPP.getDensity();
+        if (moonRadius != null && moonRadius > 0 && moonDensity != null && moonDensity > 0) {
             moonOrbit.setRocheLimitKm(
-                    PhysicsFormulas.rocheLimitKm(planetRadius, planetDensity, 3.3));
+                    PhysicsFormulas.rocheLimitKm(moonRadius, moonDensity, 2.5));
         }
     }
 
@@ -359,16 +397,111 @@ public class DerivedFieldCalculator {
     // ORBITAL BAND
     // ══════════════════════════════════════════════════════════════════
 
-    private void recalculateBand(OrbitalBand band, Star star) {
-        // totalMassEarthMasses from totalMassKg
+    /** System-level belt — SMA in AU, orbits total stellar mass. */
+    private void recalculateBelt(OrbitalBand band, double totalStellarMassSol) {
+        recalculateBandMass(band);
+        if (totalStellarMassSol > 0) {
+            recalculateBeltOrbitalPeriod(band.getInnerOrbit(), totalStellarMassSol);
+            recalculateBeltOrbitalPeriod(band.getOuterOrbit(), totalStellarMassSol);
+        }
+    }
+
+    /** Belt edge orbit — uses total stellar mass (matches BeltCreator). */
+    private void recalculateBeltOrbitalPeriod(OrbitalElements orbit, double totalStellarMassSol) {
+        if (orbit == null || orbit.getSemiMajorAxis() == null) return;
+        orbit.setOrbitalPeriodDays(
+                PhysicsFormulas.orbitalPeriodDaysAU(orbit.getSemiMajorAxis(), totalStellarMassSol));
+    }
+
+    /**
+     * Computes total stellar mass for system-level orbital calculations.
+     * Matches BeltCreator: binary P-type, hierarchical binary/triple → sum all star masses.
+     */
+    private double computeTotalStellarMass(StarSystem system) {
+        Star primaryStar = system.getStars().stream().findFirst().orElse(null);
+        if (primaryStar == null) return 1.0;
+
+        double totalMass = primaryStar.getSolarMass();
+
+        BinaryConfiguration config = system.getBinaryConfiguration();
+        if (config == BinaryConfiguration.P_TYPE
+                || config == BinaryConfiguration.HIERARCHICAL_BINARY_THIRD
+                || config == BinaryConfiguration.HIERARCHICAL_TRIPLE) {
+            totalMass = system.getStars().stream()
+                    .mapToDouble(Star::getSolarMass)
+                    .sum();
+        }
+        return totalMass;
+    }
+
+    /** Planet-level ring — SMA in KM, orbits planet. */
+    private void recalculateRing(OrbitalBand ring, Planet planet) {
+        recalculateBandMass(ring);
+        if (planet != null) {
+            recalculateOrbitalPeriodKM(ring.getInnerOrbit(), planet);
+            recalculateOrbitalPeriodKM(ring.getOuterOrbit(), planet);
+        }
+    }
+
+    private void recalculateBandMass(OrbitalBand band) {
         if (band.getTotalMassKg() != null) {
             band.setTotalMassEarthMasses(PhysicsFormulas.massKgToEarthMasses(band.getTotalMassKg()));
         }
+    }
 
-        // Orbital periods for inner/outer edges
-        if (star != null) {
-            recalculateOrbitalPeriodAU(band.getInnerOrbit(), star);
-            recalculateOrbitalPeriodAU(band.getOuterOrbit(), star);
+    // ══════════════════════════════════════════════════════════════════
+    // CLIMATE & HABITABILITY (Tier 2C — regenerated from seed)
+    // ══════════════════════════════════════════════════════════════════
+
+    private void regenerateHabitability(Planet planet, Star star) {
+        if (planet.getClimateSeed() == null) return;
+        RandomUtils.seed(planet.getClimateSeed());
+        try {
+            planet.setHabitability(habitabilityCreator.assess(planet, star));
+        } finally {
+            RandomUtils.unseed();
+        }
+    }
+
+    private void regenerateClimate(Planet planet, Star star, StarSystem system) {
+        if (planet.getClimateSeed() == null) return;
+        RandomUtils.seed(planet.getClimateSeed() ^ 0xDEADBEEFL);
+        try {
+            planet.setClimate(climateCreator.generateClimate(planet, star, system));
+        } finally {
+            RandomUtils.unseed();
+        }
+    }
+
+    private void regenerateMoonClimateAndHabitability(Planet planet, Star star, StarSystem system) {
+        List<Moon> moons = new ArrayList<>(planet.getMoons());
+        for (Moon moon : moons) {
+            if (moon.getClimateSeed() == null) continue;
+
+            // Habitability — only for moons with mass >= 0.0005 Earth masses
+            // (matches MoonCreator threshold at line 154)
+            double moonMass = moon.getPhysicalProperties() != null
+                    && moon.getPhysicalProperties().getEarthMass() != null
+                    ? moon.getPhysicalProperties().getEarthMass() : 0;
+            if (moonMass >= 0.0005) {
+                RandomUtils.seed(moon.getClimateSeed());
+                try {
+                    moon.setHabitability(habitabilityCreator.assessMoon(moon, planet, star));
+                } finally {
+                    RandomUtils.unseed();
+                }
+            }
+
+            // Climate
+            if (Boolean.TRUE.equals(moon.getHasAtmosphere())) {
+                RandomUtils.seed(moon.getClimateSeed() ^ 0xDEADBEEFL);
+                try {
+                    moon.setClimate(climateCreator.generateMoonClimate(
+                            moon, planet, star, system, moons));
+                } finally {
+                    RandomUtils.unseed();
+                }
+            }
         }
     }
 }

@@ -274,7 +274,11 @@ public class TemperatureClimateCalculator {
         // Temperate: tilt° to ~(90-tilt)° (or ~66.5° for Earth)
         // Polar: remaining
 
-        double tropicalBound = Math.max(5.0, axialTilt); // Minimum 5° tropical band
+        // Effective obliquity for insolation geometry: tilt > 90° means retrograde rotation
+        // (e.g. Venus 177°, Uranus 98°). The climate zone pattern mirrors around 90°.
+        double effectiveTilt = axialTilt > 90.0 ? 180.0 - axialTilt : axialTilt;
+        effectiveTilt = Math.max(0.0, Math.min(85.0, effectiveTilt)); // Keep within [0, 85] for valid bounds
+        double tropicalBound = Math.max(5.0, effectiveTilt); // Minimum 5° tropical band
         double polarBound = 90.0 - tropicalBound; // Arctic/Antarctic circle equivalent
 
         // Coverage percentages (from spherical geometry: area ∝ sin(latitude))
@@ -282,10 +286,15 @@ public class TemperatureClimateCalculator {
         double polarCoverage = 100.0 * (1.0 - Math.sin(Math.toRadians(polarBound)));
         double temperateCoverage = 100.0 - tropicalCoverage - polarCoverage;
 
-        // Ensure sane values
+        // Ensure sane values — clamp individually, then force sum to 100
         tropicalCoverage = Math.max(5.0, Math.min(80.0, tropicalCoverage));
         polarCoverage = Math.max(2.0, Math.min(40.0, polarCoverage));
-        temperateCoverage = 100.0 - tropicalCoverage - polarCoverage;
+        temperateCoverage = Math.max(2.0, 100.0 - tropicalCoverage - polarCoverage);
+        // Normalize so they sum to exactly 100
+        double total = tropicalCoverage + temperateCoverage + polarCoverage;
+        tropicalCoverage = tropicalCoverage / total * 100.0;
+        temperateCoverage = temperateCoverage / total * 100.0;
+        polarCoverage = 100.0 - tropicalCoverage - temperateCoverage;
 
         // Temperature interpolation
         double tempTempK = (equatorialTemp + polarTemp) / 2.0;

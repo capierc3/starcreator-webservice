@@ -186,7 +186,11 @@ public class TidalWeatherCalculator {
             String binaryNote = String.format(
                     ". Binary companion contributes variable heating (%.1f%% flux variation), " +
                     "creating a super-seasonal climate cycle", variationPercent);
-            weather.setAtmosphericTidalEffect(existing + binaryNote);
+            String combined = existing + binaryNote;
+            if (combined.length() > 200) {
+                combined = combined.substring(0, 197) + "...";
+            }
+            weather.setAtmosphericTidalEffect(combined);
         }
     }
 

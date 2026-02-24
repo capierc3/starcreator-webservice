@@ -16,9 +16,25 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.random.RandomGenerator;
 
 public class RandomUtils {
+
+    private static final ThreadLocal<RandomGenerator> SEEDED_RANDOM = new ThreadLocal<>();
+
+    public static void seed(long seed) {
+        SEEDED_RANDOM.set(new Random(seed));
+    }
+
+    public static void unseed() {
+        SEEDED_RANDOM.remove();
+    }
+
+    private static RandomGenerator getRandom() {
+        RandomGenerator seeded = SEEDED_RANDOM.get();
+        return seeded != null ? seeded : RandomGenerator.getDefault();
+    }
 
     public static int rollD100() {
         return rollDice(100);
@@ -53,25 +69,25 @@ public class RandomUtils {
     }
 
     public static int rollDice(int sides) {
-        return RandomGenerator.getDefault().nextInt(1, sides);
+        return getRandom().nextInt(1, sides);
     }
 
     public static int rollDice(int times, int sides) {
         int value = 0;
         for (int i = 0; i < times; i++) {
-            value = value + RandomGenerator.getDefault().nextInt(1, sides);
+            value = value + getRandom().nextInt(1, sides);
         }
         return value;
     }
 
     public static double rollDice(double sides) {
-        return RandomGenerator.getDefault().nextDouble(1, sides);
+        return getRandom().nextDouble(1, sides);
     }
 
     public static double rollDice(int times, double sides) {
         double value = 0;
         for (int i = 0; i < times; i++) {
-            value = value + RandomGenerator.getDefault().nextDouble(1, sides);
+            value = value + getRandom().nextDouble(1, sides);
         }
         return value;
     }
@@ -80,7 +96,7 @@ public class RandomUtils {
         if (low == high) {
             return low;
         }
-        RandomGenerator randomGenerator = RandomGenerator.getDefault();
+        RandomGenerator randomGenerator = getRandom();
         return randomGenerator.nextInt(low, (high + 1));
     }
 
@@ -88,7 +104,7 @@ public class RandomUtils {
         if (low >= high) {
             return low;
         }
-        RandomGenerator randomGenerator = RandomGenerator.getDefault();
+        RandomGenerator randomGenerator = getRandom();
         return randomGenerator.nextDouble(low, high);
     }
 

@@ -268,13 +268,25 @@ public class PlanetCreator {
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);
 
-        PlanetaryHabitability habitability = habitabilityCreator.assess(planet, parentStar);
-        planet.setHabitability(habitability);
+        // Capture a deterministic seed for climate/habitability regeneration on load
+        long climateSeed = System.nanoTime() ^ (planet.getOrbitalPosition() * 7919L);
+        planet.setClimateSeed(climateSeed);
+
+        RandomUtils.seed(climateSeed);
+        try {
+            planet.setHabitability(habitabilityCreator.assess(planet, parentStar));
+        } finally {
+            RandomUtils.unseed();
+        }
 
         // Climate generation (after habitability, magnetic field, and moons are populated)
         StarSystem system = parentStar != null ? parentStar.getSystem() : null;
-        PlanetaryClimate climate = climateCreator.generateClimate(planet, parentStar, system);
-        planet.setClimate(climate);
+        RandomUtils.seed(climateSeed ^ 0xDEADBEEFL);
+        try {
+            planet.setClimate(climateCreator.generateClimate(planet, parentStar, system));
+        } finally {
+            RandomUtils.unseed();
+        }
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());

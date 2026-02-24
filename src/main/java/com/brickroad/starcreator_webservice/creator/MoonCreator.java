@@ -150,6 +150,13 @@ public class MoonCreator {
         WaterProperties water = waterCreator.createMoonWaterProperties(moon);
         moon.setWater(water);
 
+        // Capture a deterministic seed for climate/habitability regeneration on load
+        // Names aren't assigned yet (SystemCreator names after creation),
+        // so use orbital positions for uniqueness
+        int planetOrd = planet.getOrbitalPosition() != null ? planet.getOrbitalPosition() : 0;
+        long climateSeed = System.nanoTime() ^ (planetOrd * 7919L + moonNumber * 104729L);
+        moon.setClimateSeed(climateSeed);
+
         double moonMass = moon.getEarthMass() != null ? moon.getEarthMass() : 0;
         if (moonMass >= 0.0005) {
             // Magnetic field (Ganymede-style dynamos, Europa-style induced, or remnant)
@@ -158,9 +165,12 @@ public class MoonCreator {
             moon.setMagneticField(moonMagField);
 
             // Habitability assessment (must be LAST — reads all other moon data)
-            PlanetaryHabitability moonHab = habitabilityCreator.assessMoon(
-                    moon, planet, primaryStar);
-            moon.setHabitability(moonHab);
+            RandomUtils.seed(climateSeed);
+            try {
+                moon.setHabitability(habitabilityCreator.assessMoon(moon, planet, primaryStar));
+            } finally {
+                RandomUtils.unseed();
+            }
         }
 
         // Weather generation is deferred to after all moons are created,
@@ -179,10 +189,15 @@ public class MoonCreator {
         StarSystem system = primaryStar != null ? primaryStar.getSystem() : null;
 
         for (Moon moon : moons) {
-            if (Boolean.TRUE.equals(moon.getHasAtmosphere())) {
-                PlanetaryClimate moonClimate = climateCreator.generateMoonClimate(
-                        moon, planet, primaryStar, system, moons);
-                moon.setClimate(moonClimate);
+            if (Boolean.TRUE.equals(moon.getHasAtmosphere()) && moon.getClimateSeed() != null) {
+                RandomUtils.seed(moon.getClimateSeed() ^ 0xDEADBEEFL);
+                try {
+                    PlanetaryClimate moonClimate = climateCreator.generateMoonClimate(
+                            moon, planet, primaryStar, system, moons);
+                    moon.setClimate(moonClimate);
+                } finally {
+                    RandomUtils.unseed();
+                }
             }
         }
     }

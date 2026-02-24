@@ -40,7 +40,7 @@ public class SystemPersistenceService {
      * Star -> Designation, PhysicalProperties, OrbitalElements, Planets
      * Planet -> Designation, PhysicalProperties, OrbitalElements, RotationProperties,
      *           Atmosphere, CompositionProperties, WaterProperties, TerrainProperties,
-     *           MagneticField, Habitability, Climate, Moons, Bands(Rings)
+     *           MagneticField, Moons, Bands(Rings)
      * Moon -> (same component pattern as Planet)
      * OrbitalBand -> Designation, InnerOrbit, OuterOrbit, NotableAsteroids
      * Asteroid -> Designation, PhysicalProperties, OrbitalElements, RotationProperties,

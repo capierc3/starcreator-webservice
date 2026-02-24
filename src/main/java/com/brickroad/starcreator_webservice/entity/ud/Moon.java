@@ -117,13 +117,15 @@ public class Moon {
 
     // ── Habitability & Climate ──
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "habitability_id")
+    @Column(name = "climate_seed")
+    @JsonIgnore
+    private Long climateSeed;
+
+    @Transient
     @Schema(description = "Habitability assessment")
     private PlanetaryHabitability habitability;
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "climate_id")
+    @Transient
     @Schema(description = "Climate and atmospheric conditions")
     private PlanetaryClimate climate;
 
