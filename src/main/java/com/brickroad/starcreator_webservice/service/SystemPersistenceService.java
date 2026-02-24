@@ -36,8 +36,8 @@ public class SystemPersistenceService {
      * The Sector must be saved first since it's a @ManyToOne without cascade.
      *
      * Cascade chain:
-     * StarSystem -> Designation, Stars, OrbitalBands, FactionPresences
-     * Star -> Designation, PhysicalProperties, OrbitalElements, Planets
+     * StarSystem -> Designation, Stars, FactionPresences
+     * Star -> Designation, PhysicalProperties, OrbitalElements, Planets, OrbitalBands(Belts)
      * Planet -> Designation, PhysicalProperties, OrbitalElements, RotationProperties,
      *           Atmosphere, CompositionProperties, WaterProperties, TerrainProperties,
      *           MagneticField, Moons, Bands(Rings)
@@ -75,11 +75,11 @@ public class SystemPersistenceService {
             // StarSystem-level lazy collections
             system.getFactionPresences().size();  // needed by getFactions() / getControllingFaction()
 
-            // System-level belts
-            system.getBands().forEach(band -> initBand(band));
-
-            // Star -> Planet -> Moon/Ring tree
+            // Star -> Belts / Planet -> Moon/Ring tree
             system.getStars().forEach(star -> {
+                // Star-level belts (cascade-managed by Star, like planets)
+                star.getBands().forEach(this::initBand);
+
                 star.getPlanets().forEach(planet -> {
                     initCelestialBody(planet.getAtmosphere());
 

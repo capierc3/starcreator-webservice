@@ -58,12 +58,7 @@ public class StarSystem {
     @Schema(description = "Stars in this system")
     private Set<Star> stars = new HashSet<>();
 
-    // planets are cascade-managed by Star — this getter aggregates from all stars
-
-    @OneToMany(mappedBy = "starSystem", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference("system-bands")
-    @Schema(description = "Orbital bands (asteroid belts, debris disks) in this system")
-    private List<OrbitalBand> bands = new ArrayList<>();
+    // planets and bands are cascade-managed by Star — getters aggregate from all stars
 
     @OneToMany(mappedBy = "system", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
@@ -195,17 +190,34 @@ public class StarSystem {
         }
     }
 
-    // ── Band Convenience Methods ──
+    // ── Bands (derived from stars — belts cascade through Star, rings through Planet) ──
 
-    public void setBands(List<OrbitalBand> bands) {
-        this.bands = bands;
-        for (OrbitalBand band : bands) {
-            band.setStarSystem(this);
-        }
+    /**
+     * Returns all system-level belts across all stars in this system.
+     * Belts are persisted via Star.bands (cascade), not directly on StarSystem.
+     */
+    @JsonProperty("bands")
+    @Schema(description = "Orbital bands (asteroid belts, debris disks) in this system (aggregated from all stars)")
+    public List<OrbitalBand> getBands() {
+        if (stars == null || stars.isEmpty()) return new ArrayList<>();
+        return stars.stream()
+                .flatMap(star -> star.getBands().stream())
+                .collect(Collectors.toList());
     }
 
-    public void addBand(OrbitalBand band) {
-        bands.add(band);
-        band.setStarSystem(this);
+    /**
+     * Distributes bands to their parent stars. Each band must already have
+     * its star set. Used during generation to assign bands after creation.
+     */
+    public void setBands(List<OrbitalBand> bands) {
+        if (bands == null) return;
+        for (OrbitalBand band : bands) {
+            Star parent = band.getStar();
+            if (parent != null && stars.contains(parent)) {
+                if (!parent.getBands().contains(band)) {
+                    parent.addBand(band);
+                }
+            }
+        }
     }
 }

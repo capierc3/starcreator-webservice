@@ -57,10 +57,11 @@ public class ProbabilityReportGenerator {
 
             counts.incrementBeltCount(system.getBands().size());
             for (OrbitalBand band : system.getBands()) {
-                beltData.analyzeData(band, counts);
+                beltData.analyzeData(band, counts, system);
             }
 
             stabilityData.analyzeSystem(system);
+            stabilityData.analyzeBelts(system);
             timer.lap();
         }
         timer.stop();

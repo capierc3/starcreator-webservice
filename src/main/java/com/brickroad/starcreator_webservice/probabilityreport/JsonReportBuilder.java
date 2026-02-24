@@ -341,6 +341,34 @@ public class JsonReportBuilder {
     private Map<String, Object> buildRingData() {
         Map<String, Object> rings = new LinkedHashMap<>();
         rings.put("types", ringData.getRingTypes());
+
+        // New distribution maps
+        if (!ringData.getOpticalDepthBins().isEmpty()) rings.put("opticalDepthBins", ringData.getOpticalDepthBins());
+        if (!ringData.getColorDistribution().isEmpty()) rings.put("colorDistribution", ringData.getColorDistribution());
+        if (!ringData.getVisibilityDistribution().isEmpty()) rings.put("visibilityDistribution", ringData.getVisibilityDistribution());
+        if (!ringData.getStabilityDistribution().isEmpty()) rings.put("stabilityDistribution", ringData.getStabilityDistribution());
+        if (!ringData.getOriginTypes().isEmpty()) rings.put("originTypes", ringData.getOriginTypes());
+        if (!ringData.getThicknessBins().isEmpty()) rings.put("thicknessBins", ringData.getThicknessBins());
+        if (!ringData.getParticleSizeBins().isEmpty()) rings.put("particleSizeBins", ringData.getParticleSizeBins());
+        if (!ringData.getAgeBins().isEmpty()) rings.put("ageBins", ringData.getAgeBins());
+        if (!ringData.getParentPlanetTypes().isEmpty()) rings.put("parentPlanetTypes", ringData.getParentPlanetTypes());
+
+        // Summary
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalRings", counts.getRingCount());
+        summary.put("withShepherdMoons", ringData.getShepherdMoonCount());
+        summary.put("withGaps", ringData.getRingsWithGaps());
+        rings.put("summary", summary);
+
+        // Per-type breakdown
+        if (!ringData.getPerTypeData().isEmpty()) {
+            Map<String, Object> perType = new LinkedHashMap<>();
+            for (Map.Entry<String, RingDataCollector.RingTypeBreakdown> entry : ringData.getPerTypeData().entrySet()) {
+                perType.put(entry.getKey(), entry.getValue().toJson());
+            }
+            rings.put("perType", perType);
+        }
+
         return rings;
     }
 
@@ -348,7 +376,44 @@ public class JsonReportBuilder {
         Map<String, Object> belts = new LinkedHashMap<>();
         belts.put("types", beltData.getBeltTypes());
         belts.put("asteroidTypes", beltData.getAsteroidTypes());
-        belts.put("dwarfPlanetsInBelts", counts.getTempCount());
+
+        // New distribution maps
+        if (!beltData.getCompositionTypes().isEmpty()) belts.put("compositionTypes", beltData.getCompositionTypes());
+        if (!beltData.getWidthBins().isEmpty()) belts.put("widthBins", beltData.getWidthBins());
+        if (!beltData.getInnerEdgeBins().isEmpty()) belts.put("innerEdgeBins", beltData.getInnerEdgeBins());
+        if (!beltData.getOuterEdgeBins().isEmpty()) belts.put("outerEdgeBins", beltData.getOuterEdgeBins());
+        if (!beltData.getMassBins().isEmpty()) belts.put("massBins", beltData.getMassBins());
+        if (!beltData.getEccentricityBins().isEmpty()) belts.put("eccentricityBins", beltData.getEccentricityBins());
+        if (!beltData.getInclinationBins().isEmpty()) belts.put("inclinationBins", beltData.getInclinationBins());
+        if (!beltData.getObjectCountBins().isEmpty()) belts.put("objectCountBins", beltData.getObjectCountBins());
+        if (!beltData.getParentStarTypes().isEmpty()) belts.put("parentStarTypes", beltData.getParentStarTypes());
+        if (!beltData.getBinaryConfigBelts().isEmpty()) belts.put("binaryConfigBelts", beltData.getBinaryConfigBelts());
+
+        // Summary
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalBelts", counts.getBeltCount());
+        summary.put("dwarfPlanetsInBelts", counts.getDwarfPlanetCount());
+        summary.put("withGaps", beltData.getBeltsWithGaps());
+        summary.put("withResonanceGaps", beltData.getBeltsWithResonanceGaps());
+        summary.put("withCollisionalFamilies", beltData.getBeltsWithCollisionalFamilies());
+        summary.put("withDwarfPlanets", beltData.getBeltsWithDwarfPlanets());
+        if (beltData.getMassCount() > 0) {
+            summary.put("avgMassEarth", round(beltData.getTotalMassSum() / beltData.getMassCount()));
+        }
+        if (beltData.getWidthCount() > 0) {
+            summary.put("avgWidthAU", round(beltData.getTotalWidthSum() / beltData.getWidthCount()));
+        }
+        belts.put("summary", summary);
+
+        // Per-type breakdown
+        if (!beltData.getPerTypeData().isEmpty()) {
+            Map<String, Object> perType = new LinkedHashMap<>();
+            for (Map.Entry<String, BeltDataCollector.BeltTypeBreakdown> entry : beltData.getPerTypeData().entrySet()) {
+                perType.put(entry.getKey(), entry.getValue().toJson());
+            }
+            belts.put("perType", perType);
+        }
+
         return belts;
     }
 
@@ -479,6 +544,23 @@ public class JsonReportBuilder {
         systemLevel.put("planetsPerSystem", stabilityData.getPlanetsPerSystemBins());
         systemLevel.put("systemOuterExtent", stabilityData.getSystemOuterExtentBins());
         stability.put("systemLevel", systemLevel);
+
+        // Belt stability
+        if (stabilityData.getTotalBeltsAnalyzed() > 0) {
+            Map<String, Object> beltStability = new LinkedHashMap<>();
+            beltStability.put("totalBeltsAnalyzed", stabilityData.getTotalBeltsAnalyzed());
+            beltStability.put("beltOverlapCount", stabilityData.getBeltOverlapCount());
+            beltStability.put("beltPlanetOverlapCount", stabilityData.getBeltPlanetOverlapCount());
+            beltStability.put("beltsExceedingStabilityLimit", stabilityData.getBeltsExceedingStabilityLimit());
+            beltStability.put("beltsBelowCavityLimit", stabilityData.getBeltsBelowCavityLimit());
+            if (!stabilityData.getBeltOverlapDetails().isEmpty()) {
+                beltStability.put("beltOverlapDetails", stabilityData.getBeltOverlapDetails());
+            }
+            if (!stabilityData.getBeltPlanetOverlapDetails().isEmpty()) {
+                beltStability.put("beltPlanetOverlapDetails", stabilityData.getBeltPlanetOverlapDetails());
+            }
+            stability.put("beltStability", beltStability);
+        }
 
         return stability;
     }

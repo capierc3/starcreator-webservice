@@ -12,14 +12,14 @@ import java.util.List;
 @Repository
 public interface BeltRepository extends JpaRepository<OrbitalBand, Long> {
 
-    @Query("SELECT b FROM OrbitalBand b WHERE b.starSystem.id = :systemId")
-    List<OrbitalBand> findByStarSystemId(@Param("systemId") Long starSystemId);
+    @Query("SELECT b FROM OrbitalBand b WHERE b.star.id = :starId")
+    List<OrbitalBand> findByStarId(@Param("starId") Long starId);
 
-    @Query("SELECT b FROM OrbitalBand b WHERE b.starSystem.id = :systemId AND b.beltType.code = :typeCode")
-    List<OrbitalBand> findByStarSystemIdAndTypeCode(@Param("systemId") Long starSystemId, @Param("typeCode") String typeCode);
+    @Query("SELECT b FROM OrbitalBand b WHERE b.star.id = :starId AND b.beltType.code = :typeCode")
+    List<OrbitalBand> findByStarIdAndTypeCode(@Param("starId") Long starId, @Param("typeCode") String typeCode);
 
-    @Query("SELECT b FROM OrbitalBand b WHERE b.starSystem.id = :systemId AND b.bandCategory = :category")
-    List<OrbitalBand> findByStarSystemIdAndCategory(@Param("systemId") Long starSystemId, @Param("category") BandCategory category);
+    @Query("SELECT b FROM OrbitalBand b WHERE b.star.id = :starId AND b.bandCategory = :category")
+    List<OrbitalBand> findByStarIdAndCategory(@Param("starId") Long starId, @Param("category") BandCategory category);
 
     @Query("SELECT b FROM OrbitalBand b WHERE b.planet.id = :planetId AND b.bandCategory = :category")
     List<OrbitalBand> findByPlanetIdAndCategory(@Param("planetId") Long planetId, @Param("category") BandCategory category);

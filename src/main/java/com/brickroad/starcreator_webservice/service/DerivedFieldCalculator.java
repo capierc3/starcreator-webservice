@@ -66,9 +66,25 @@ public class DerivedFieldCalculator {
             });
         });
 
-        // System-level belts (SMA in AU, orbit total stellar mass)
+        // System-level belts (SMA in AU) — use correct stellar mass per belt
         double totalStellarMass = computeTotalStellarMass(system);
-        system.getBands().forEach(belt -> recalculateBelt(belt, totalStellarMass));
+        system.getBands().forEach(belt -> {
+            // Circumstellar belt in a multi-star system: use parent star's mass
+            // Circumbinary or single-star: use total stellar mass
+            double stellarMass;
+            BinaryConfiguration bConfig = system.getBinaryConfiguration();
+            if (belt.getStar() != null
+                    && bConfig != null
+                    && (bConfig == BinaryConfiguration.S_TYPE_WIDE
+                        || bConfig == BinaryConfiguration.HIERARCHICAL_BINARY_THIRD
+                        || bConfig == BinaryConfiguration.HIERARCHICAL_TRIPLE)
+                    && belt.getStar().getStarRole() == Star.StarRole.TERTIARY) {
+                stellarMass = belt.getStar().getSolarMass();
+            } else {
+                stellarMass = totalStellarMass;
+            }
+            recalculateBelt(belt, stellarMass);
+        });
 
         // Orbital stability (needs all planets to be ready)
         system.getStars().forEach(this::recalculateOrbitalStability);

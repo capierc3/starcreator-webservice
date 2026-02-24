@@ -888,6 +888,43 @@ public class HtmlReportBuilder {
         w.println("<h4>System Outer Extent</h4>");
         printSortedTableByKey(w, stabilityData.getSystemOuterExtentBins(), counts.getSystemCount(), "Outer Extent");
 
+        // Section 8: Belt Stability
+        if (stabilityData.getTotalBeltsAnalyzed() > 0) {
+            printSubSection(w, "Belt Stability Analysis");
+            w.println("<p class=\"note\">Checks belt-belt overlaps, belt-planet intersections, "
+                    + "and binary stability limit violations</p>");
+
+            w.println("<div class=\"stats-grid\">");
+            statCard(w, fmt(stabilityData.getTotalBeltsAnalyzed()), "Belts Analyzed");
+            statCard(w, fmt(stabilityData.getBeltOverlapCount()), "Belt-Belt Overlaps");
+            statCard(w, fmt(stabilityData.getBeltPlanetOverlapCount()), "Belt-Planet Overlaps");
+            statCard(w, fmt(stabilityData.getBeltsExceedingStabilityLimit()), "Exceed S-Type Limit");
+            statCard(w, fmt(stabilityData.getBeltsBelowCavityLimit()), "Below P-Type Cavity");
+            w.println("</div>");
+
+            if (!stabilityData.getBeltOverlapDetails().isEmpty()) {
+                w.println("<h4>Belt-Belt Overlap Details (first " + stabilityData.getBeltOverlapDetails().size() + ")</h4>");
+                w.println("<table>");
+                w.println("<thead><tr><th>#</th><th>Overlap Description</th></tr></thead>");
+                w.println("<tbody>");
+                for (int i = 0; i < stabilityData.getBeltOverlapDetails().size(); i++) {
+                    w.println("<tr><td>" + (i + 1) + "</td><td>" + esc(stabilityData.getBeltOverlapDetails().get(i)) + "</td></tr>");
+                }
+                w.println("</tbody></table>");
+            }
+
+            if (!stabilityData.getBeltPlanetOverlapDetails().isEmpty()) {
+                w.println("<h4>Belt-Planet Overlap Details (first " + stabilityData.getBeltPlanetOverlapDetails().size() + ")</h4>");
+                w.println("<table>");
+                w.println("<thead><tr><th>#</th><th>Overlap Description</th></tr></thead>");
+                w.println("<tbody>");
+                for (int i = 0; i < stabilityData.getBeltPlanetOverlapDetails().size(); i++) {
+                    w.println("<tr><td>" + (i + 1) + "</td><td>" + esc(stabilityData.getBeltPlanetOverlapDetails().get(i)) + "</td></tr>");
+                }
+                w.println("</tbody></table>");
+            }
+        }
+
         endCollapsible(w);
     }
 
@@ -956,19 +993,194 @@ public class HtmlReportBuilder {
     private void printRingHtml(PrintWriter w) {
         w.println("<hr>");
         beginCollapsible(w, "Ring Types", 2);
+
+        // Summary stat cards
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, fmt(counts.getRingCount()), "Total Rings");
+        statCard(w, fmt(ringData.getShepherdMoonCount()), "With Shepherd Moons");
+        statCard(w, fmt(ringData.getRingsWithGaps()), "With Gaps");
+        w.println("</div>");
+
         printSortedTable(w, ringData.getRingTypes(), counts.getRingCount(), "Ring Type");
+
+        if (!ringData.getOpticalDepthBins().isEmpty()) {
+            printSubSection(w, "Optical Depth Distribution");
+            printSortedTableByKey(w, ringData.getOpticalDepthBins(), counts.getRingCount(), "Optical Depth");
+        }
+
+        if (!ringData.getColorDistribution().isEmpty()) {
+            printSubSection(w, "Ring Colors");
+            printSortedTable(w, ringData.getColorDistribution(), counts.getRingCount(), "Color");
+        }
+
+        if (!ringData.getVisibilityDistribution().isEmpty()) {
+            printSubSection(w, "Visibility");
+            printSortedTable(w, ringData.getVisibilityDistribution(), counts.getRingCount(), "Visibility");
+        }
+
+        if (!ringData.getStabilityDistribution().isEmpty()) {
+            printSubSection(w, "Ring Stability");
+            printSortedTable(w, ringData.getStabilityDistribution(), counts.getRingCount(), "Stability");
+        }
+
+        if (!ringData.getOriginTypes().isEmpty()) {
+            printSubSection(w, "Formation Origin");
+            printSortedTable(w, ringData.getOriginTypes(), counts.getRingCount(), "Origin");
+        }
+
+        if (!ringData.getThicknessBins().isEmpty()) {
+            printSubSection(w, "Ring Thickness");
+            printSortedTableByKey(w, ringData.getThicknessBins(), counts.getRingCount(), "Thickness");
+        }
+
+        if (!ringData.getParticleSizeBins().isEmpty()) {
+            printSubSection(w, "Maximum Particle Size");
+            printSortedTableByKey(w, ringData.getParticleSizeBins(), counts.getRingCount(), "Particle Size");
+        }
+
+        if (!ringData.getAgeBins().isEmpty()) {
+            printSubSection(w, "Ring Age Distribution");
+            printSortedTableByKey(w, ringData.getAgeBins(), counts.getRingCount(), "Age Range");
+        }
+
+        if (!ringData.getParentPlanetTypes().isEmpty()) {
+            printSubSection(w, "Rings by Parent Planet Type");
+            printSortedTable(w, ringData.getParentPlanetTypes(), counts.getRingCount(), "Planet Type");
+        }
+
+        // Per-type breakdown
+        if (!ringData.getPerTypeData().isEmpty()) {
+            printSubSection(w, "Per Ring Type Breakdown");
+            for (Map.Entry<String, RingDataCollector.RingTypeBreakdown> entry : ringData.getPerTypeData().entrySet()) {
+                RingDataCollector.RingTypeBreakdown rtb = entry.getValue();
+                beginCollapsible(w, entry.getKey() + " (" + rtb.getCount() + ")", 3);
+                w.println("<p>Shepherd moons: " + rtb.getShepherdCount()
+                        + " (" + pct(rtb.getShepherdCount(), rtb.getCount()) + "%)"
+                        + " | Gaps: " + rtb.getGapsCount()
+                        + " (" + pct(rtb.getGapsCount(), rtb.getCount()) + "%)</p>");
+                if (rtb.getOpticalDepthCount() > 0) {
+                    w.println("<p>Avg optical depth: " + String.format("%.3f", rtb.getOpticalDepthSum() / rtb.getOpticalDepthCount()) + "</p>");
+                }
+                if (!rtb.getColors().isEmpty()) printSortedTable(w, rtb.getColors(), rtb.getCount(), "Color");
+                if (!rtb.getVisibilities().isEmpty()) printSortedTable(w, rtb.getVisibilities(), rtb.getCount(), "Visibility");
+                if (!rtb.getStabilities().isEmpty()) printSortedTable(w, rtb.getStabilities(), rtb.getCount(), "Stability");
+                if (!rtb.getOrigins().isEmpty()) printSortedTable(w, rtb.getOrigins(), rtb.getCount(), "Origin");
+                endCollapsible(w);
+            }
+        }
+
         endCollapsible(w);
     }
 
     private void printBeltHtml(PrintWriter w) {
         w.println("<hr>");
         beginCollapsible(w, "Belt Types", 2);
+
+        // Summary stat cards
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, fmt(counts.getBeltCount()), "Total Belts");
+        if (beltData.getMassCount() > 0) {
+            statCard(w, String.format("%.4f M\u2295", beltData.getTotalMassSum() / beltData.getMassCount()), "Avg Mass");
+        }
+        if (beltData.getWidthCount() > 0) {
+            statCard(w, String.format("%.2f AU", beltData.getTotalWidthSum() / beltData.getWidthCount()), "Avg Width");
+        }
+        statCard(w, fmt(beltData.getBeltsWithGaps()), "With Gaps");
+        statCard(w, fmt(beltData.getBeltsWithResonanceGaps()), "Resonance Gaps");
+        statCard(w, fmt(beltData.getBeltsWithCollisionalFamilies()), "Collisional Families");
+        statCard(w, fmt(beltData.getBeltsWithDwarfPlanets()), "With Dwarf Planets");
+        statCard(w, fmt(counts.getDwarfPlanetCount()), "Total Dwarf Planets");
+        w.println("</div>");
+
         printSortedTable(w, beltData.getBeltTypes(), counts.getBeltCount(), "Belt Type");
 
         printSubSection(w, "Asteroid Types");
         printSortedTable(w, beltData.getAsteroidTypes(), counts.getAsteroidCount(), "Asteroid Type");
 
-        w.println("<p>Dwarf Planets in Belts: " + fmt(counts.getTempCount()) + "</p>");
+        if (!beltData.getCompositionTypes().isEmpty()) {
+            printSubSection(w, "Belt Composition");
+            printSortedTable(w, beltData.getCompositionTypes(), counts.getBeltCount(), "Composition");
+        }
+
+        if (!beltData.getWidthBins().isEmpty()) {
+            printSubSection(w, "Belt Width Distribution");
+            printSortedTableByKey(w, beltData.getWidthBins(), counts.getBeltCount(), "Width");
+        }
+
+        if (!beltData.getInnerEdgeBins().isEmpty()) {
+            printSubSection(w, "Inner Edge Distribution");
+            printSortedTableByKey(w, beltData.getInnerEdgeBins(), counts.getBeltCount(), "Inner Edge");
+        }
+
+        if (!beltData.getOuterEdgeBins().isEmpty()) {
+            printSubSection(w, "Outer Edge Distribution");
+            printSortedTableByKey(w, beltData.getOuterEdgeBins(), counts.getBeltCount(), "Outer Edge");
+        }
+
+        if (!beltData.getMassBins().isEmpty()) {
+            printSubSection(w, "Belt Mass Distribution");
+            printSortedTableByKey(w, beltData.getMassBins(), counts.getBeltCount(), "Mass Range");
+        }
+
+        if (!beltData.getEccentricityBins().isEmpty()) {
+            printSubSection(w, "Average Eccentricity Distribution");
+            printSortedTableByKey(w, beltData.getEccentricityBins(), counts.getBeltCount(), "Eccentricity");
+        }
+
+        if (!beltData.getInclinationBins().isEmpty()) {
+            printSubSection(w, "Average Inclination Distribution");
+            printSortedTableByKey(w, beltData.getInclinationBins(), counts.getBeltCount(), "Inclination");
+        }
+
+        if (!beltData.getObjectCountBins().isEmpty()) {
+            printSubSection(w, "Estimated Object Count Distribution");
+            printSortedTableByKey(w, beltData.getObjectCountBins(), counts.getBeltCount(), "Object Count");
+        }
+
+        if (!beltData.getParentStarTypes().isEmpty()) {
+            printSubSection(w, "Belts by Parent Star Type");
+            printSortedTable(w, beltData.getParentStarTypes(), counts.getBeltCount(), "Star Type");
+        }
+
+        if (!beltData.getBinaryConfigBelts().isEmpty()) {
+            printSubSection(w, "Belts by System Configuration");
+            printSortedTable(w, beltData.getBinaryConfigBelts(), counts.getBeltCount(), "Configuration");
+        }
+
+        // Per-type breakdown
+        if (!beltData.getPerTypeData().isEmpty()) {
+            printSubSection(w, "Per Belt Type Breakdown");
+            for (Map.Entry<String, BeltDataCollector.BeltTypeBreakdown> entry : beltData.getPerTypeData().entrySet()) {
+                BeltDataCollector.BeltTypeBreakdown btb = entry.getValue();
+                beginCollapsible(w, entry.getKey() + " (" + btb.getCount() + ")", 3);
+
+                w.println("<div class=\"stats-grid\">");
+                statCard(w, String.valueOf(btb.getCount()), "Count");
+                if (btb.getWidthCount() > 0) {
+                    statCard(w, String.format("%.2f AU", btb.getWidthSum() / btb.getWidthCount()), "Avg Width");
+                }
+                if (btb.getMassCount() > 0) {
+                    statCard(w, String.format("%.4f M\u2295", btb.getMassSum() / btb.getMassCount()), "Avg Mass");
+                }
+                if (btb.getEdgeCount() > 0) {
+                    statCard(w, String.format("%.2f AU", btb.getInnerEdgeSum() / btb.getEdgeCount()), "Avg Inner Edge");
+                    statCard(w, String.format("%.2f AU", btb.getOuterEdgeSum() / btb.getEdgeCount()), "Avg Outer Edge");
+                }
+                if (btb.getEccCount() > 0) {
+                    statCard(w, String.format("%.4f", btb.getEccSum() / btb.getEccCount()), "Avg Eccentricity");
+                }
+                statCard(w, String.valueOf(btb.getGapsCount()), "With Gaps");
+                statCard(w, String.valueOf(btb.getFamiliesCount()), "Families");
+                statCard(w, String.valueOf(btb.getDwarfPlanetCount()), "Dwarf Planets");
+                w.println("</div>");
+
+                if (!btb.getCompositionTypes().isEmpty()) {
+                    printSortedTable(w, btb.getCompositionTypes(), btb.getCount(), "Composition");
+                }
+                endCollapsible(w);
+            }
+        }
+
         endCollapsible(w);
     }
 

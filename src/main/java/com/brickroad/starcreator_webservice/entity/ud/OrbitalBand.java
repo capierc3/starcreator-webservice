@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -25,8 +26,10 @@ import java.util.List;
  * Each band has two {@link OrbitalElements} references defining its inner and outer
  * orbital boundaries. The inner edge orbits faster than the outer edge per Kepler's laws.
  * <p>
- * A belt orbits a star (star_system_id is set, planet_id is null).
- * A ring orbits a planet (planet_id is set, star_system_id is null).
+ * A belt orbits a star (star_id is set, planet_id is null).
+ * A ring orbits a planet (planet_id is set, star_id is null).
+ * For circumbinary belts (P_TYPE), the PRIMARY star is the parent
+ * (same convention used for circumbinary planets).
  */
 @Entity
 @Table(name = "orbital_band", schema = "ud")
@@ -51,9 +54,9 @@ public class OrbitalBand {
     // ── Parent (exactly one is non-null) ──
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "star_system_id")
-    @JsonBackReference("system-bands")
-    private StarSystem starSystem;
+    @JoinColumn(name = "star_id")
+    @JsonBackReference("star-bands")
+    private Star star;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "planet_id")
@@ -310,5 +313,13 @@ public class OrbitalBand {
         if (!dwarfPlanets.contains(dwarfPlanet)) {
             dwarfPlanets.add(dwarfPlanet);
         }
+    }
+
+    // ── JSON Convenience ──
+
+    @JsonProperty("parentStarId")
+    @Schema(description = "ID of the star this belt orbits (null for rings)")
+    public Long getParentStarId() {
+        return star != null ? star.getId() : null;
     }
 }

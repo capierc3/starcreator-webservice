@@ -55,6 +55,13 @@ public class Star {
     @Schema(description = "Planets orbiting this star")
     private List<Planet> planets = new ArrayList<>();
 
+    // ── Orbital Bands / Belts (cascade-managed from Star) ──
+
+    @OneToMany(mappedBy = "star", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference("star-bands")
+    @Schema(description = "Orbital bands (asteroid belts, debris disks) orbiting this star")
+    private List<OrbitalBand> bands = new ArrayList<>();
+
     // ── Star Role (kept on entity for JPQL queries) ──
 
     @Enumerated(EnumType.STRING)
@@ -341,6 +348,22 @@ public class Star {
         if (planets != null) {
             for (Planet planet : planets) {
                 addPlanet(planet);
+            }
+        }
+    }
+
+    // ── Band Management ──
+
+    public void addBand(OrbitalBand band) {
+        bands.add(band);
+        band.setStar(this);
+    }
+
+    public void setBands(List<OrbitalBand> bands) {
+        this.bands.clear();
+        if (bands != null) {
+            for (OrbitalBand band : bands) {
+                addBand(band);
             }
         }
     }

@@ -81,8 +81,7 @@ public class SystemCreator {
         List<Planet> planets = generatePlanetsForSystem(system, stars, config);
         system.setPlanets(planets); // distributes planets to their parent stars
 
-        List<OrbitalBand> bands = beltCreator.createBelts(system, primary);
-        system.setBands(bands);
+        beltCreator.createBeltsForSystem(system);
 
         SystemClassification classification = systemClassifier.classify(system);
         system.setClassification(classification);
@@ -136,12 +135,16 @@ public class SystemCreator {
     private void assignBandNames(List<OrbitalBand> bands, String systemName) {
         for (OrbitalBand band : bands) {
             if (band.getBeltType() != null) {
+                // Use the parent star's name as prefix (e.g. "SYS-A2F A" for star A)
+                String prefix = (band.getStar() != null && band.getStar().getName() != null)
+                        ? band.getStar().getName()
+                        : systemName;
                 band.setName(switch (band.getBeltType().getCode()) {
-                    case "INNER_ROCKY" -> systemName + " IB-01";
-                    case "OUTER_ROCKY" -> systemName + " OB-01";
-                    case "KUIPER" -> systemName + " KB-01";
-                    case "SCATTERED_DISK" -> systemName + " SD-01";
-                    default -> "UB-01";
+                    case "INNER_ROCKY" -> prefix + " IB-01";
+                    case "OUTER_ROCKY" -> prefix + " OB-01";
+                    case "KUIPER" -> prefix + " KB-01";
+                    case "SCATTERED_DISK" -> prefix + " SD-01";
+                    default -> prefix + " UB-01";
                 });
             }
             generateAsteroidNames(band);
@@ -423,11 +426,14 @@ public class SystemCreator {
             }
         }
 
-        // System-level belt designations
+        // System-level belt designations (aggregated from all stars)
         for (OrbitalBand band : system.getBands()) {
             Designation bd = band.getDesignation();
             bd.setBodyType(BodyType.BELT);
             bd.setBandCategory(band.getBandCategory() != null ? band.getBandCategory().name() : null);
+            if (band.getStar() != null) {
+                bd.setParentBodyName(band.getStar().getName());
+            }
 
             // Asteroid designations
             for (Asteroid asteroid : band.getNotableAsteroids()) {
