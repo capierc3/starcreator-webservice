@@ -102,6 +102,31 @@ public class MoonCreator {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    //  Trojan moon creation (called from TrojanCreator)
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Creates a single Trojan moon for a planet, to be placed at a Lagrange point
+     * by TrojanCreator. Calculates Hill sphere and Roche limits internally.
+     *
+     * @param planet     the parent planet
+     * @param star       the parent star
+     * @param massEarth  the moon's mass in Earth masses
+     * @param moonNumber ordinal moon number (for seed uniqueness)
+     * @return a fully-generated Trojan moon, or null if creation fails
+     */
+    public Moon createTrojanMoon(Planet planet, Star star, double massEarth, int moonNumber) {
+        if (planet == null || star == null) return null;
+
+        double hillSphereKm = calculateHillSphere(planet, star);
+        double innerRoche = calculateRocheLimit(planet, 3.3);
+        double outerRoche = calculateRocheLimit(planet, 1.0);
+
+        return createMoon(planet, star, moonNumber, hillSphereKm,
+                innerRoche, outerRoche, "TROJAN", massEarth, null);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     //  Moon creation
     // ═══════════════════════════════════════════════════════════════
 
@@ -305,10 +330,7 @@ public class MoonCreator {
         }
 
         // Marginal tracked moons (1e-6 to 1e-5 M⊕, ~40-100km)
-        // Gas/ice giants can have Trojan moons at Lagrange points
-        if (isGasIceGiant && RandomUtils.rollRange(0.0, 1.0) < 0.20) {
-            return "TROJAN";
-        }
+        // Trojan moons are now only created by TrojanCreator when a swarm is large enough
         return "IRREGULAR_CAPTURED";
     }
 

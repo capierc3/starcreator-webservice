@@ -16,14 +16,16 @@ public class ProbabilityReportGenerator {
     private final StarDataCollector starData = new StarDataCollector();
     private final MoonDataCollector moonData = new MoonDataCollector();
     private final RingDataCollector ringData = new RingDataCollector();
-    private final BeltDataCollector beltData = new BeltDataCollector();
+    private final AsteroidDataCollector asteroidData = new AsteroidDataCollector();
+    private final TrojanDataCollector trojanData = new TrojanDataCollector(asteroidData);
+    private final BeltDataCollector beltData = new BeltDataCollector(asteroidData);
     private final PlanetDataCollector planetData;
     private final OrbitStabilityCollector stabilityData = new OrbitStabilityCollector();
 
     public ProbabilityReportGenerator(SystemCreator systemCreator, int systemCount) {
         this.systemCreator = systemCreator;
         this.systemCount = systemCount;
-        this.planetData = new PlanetDataCollector(moonData, ringData);
+        this.planetData = new PlanetDataCollector(moonData, ringData, trojanData);
     }
 
     public void generate() {
@@ -76,11 +78,11 @@ public class ProbabilityReportGenerator {
         }
 
         // Generate HTML report
-        HtmlReportBuilder htmlBuilder = new HtmlReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData, stabilityData);
+        HtmlReportBuilder htmlBuilder = new HtmlReportBuilder(counts, timer, starData, planetData, moonData, ringData, trojanData, asteroidData, beltData, stabilityData);
         htmlBuilder.saveReport(targetFolder);
 
         // Generate JSON report
-        JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData, stabilityData);
+        JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, trojanData, asteroidData, beltData, stabilityData);
         try {
             jsonBuilder.saveReport(targetFolder);
         } catch (Exception e) {

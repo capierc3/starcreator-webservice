@@ -7,5 +7,6 @@ public enum BodyType {
     MOON,
     BELT,
     RING,
-    ASTEROID
+    ASTEROID,
+    TROJAN
 }

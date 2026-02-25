@@ -36,6 +36,9 @@ public class SystemCreator {
     private SurveyRepository surveyRepository;
 
     @Autowired
+    private TrojanCreator trojanCreator;
+
+    @Autowired
     private SectorCreator sectorCreator;
 
     public StarSystem generateSystem() {
@@ -82,6 +85,7 @@ public class SystemCreator {
         system.setPlanets(planets); // distributes planets to their parent stars
 
         beltCreator.createBeltsForSystem(system);
+        trojanCreator.createTrojansForSystem(system);
 
         SystemClassification classification = systemClassifier.classify(system);
         system.setClassification(classification);
@@ -126,8 +130,22 @@ public class SystemCreator {
                 for (int i = 0; i < planet.getMoons().size(); i++) {
                     planet.getMoons().get(i).setName(planet.getName() + " " + numberToRoman((i + 1)));
                 }
-                for (int i = 0; i < planet.getBands().size(); i++) {
-                    planet.getBands().get(i).setName(planet.getName() + " Ring " + (char) ('A' + i));
+                int ringIndex = 0;
+                for (OrbitalBand band : planet.getBands()) {
+                    if (band.getBandCategory() == BandCategory.TROJAN) {
+                        // Trojan swarms: "{PlanetName} TJ-L4" / "{PlanetName} TJ-L5"
+                        String lp = band.getLagrangePoint() != null ? band.getLagrangePoint() : "L4";
+                        band.setName(planet.getName() + " TJ-" + lp);
+                        // Name notable asteroids in the swarm
+                        for (int a = 0; a < band.getNotableAsteroids().size(); a++) {
+                            band.getNotableAsteroids().get(a).setName(
+                                    band.getName() + " AST-" + String.format("%04d", a + 1));
+                        }
+                    } else {
+                        // Rings: "{PlanetName} Ring A/B/C"
+                        band.setName(planet.getName() + " Ring " + (char) ('A' + ringIndex));
+                        ringIndex++;
+                    }
                 }
             } else {
                 planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
@@ -442,11 +460,25 @@ public class SystemCreator {
                 md.setParentBodyName(planet.getName());
             }
 
-            // Planet ring designations
-            for (OrbitalBand ring : planet.getBands()) {
-                Designation rd = ring.getDesignation();
-                rd.setBodyType(BodyType.RING);
-                rd.setBandCategory(ring.getBandCategory() != null ? ring.getBandCategory().name() : null);
+            // Planet band designations (rings and trojans)
+            for (OrbitalBand band : planet.getBands()) {
+                Designation bd = band.getDesignation();
+                if (band.getBandCategory() == BandCategory.TROJAN) {
+                    bd.setBodyType(BodyType.TROJAN);
+                } else {
+                    bd.setBodyType(BodyType.RING);
+                }
+                bd.setBandCategory(band.getBandCategory() != null ? band.getBandCategory().name() : null);
+                bd.setParentBodyName(planet.getName());
+
+                // Notable asteroid designations within Trojan swarms
+                for (Asteroid asteroid : band.getNotableAsteroids()) {
+                    Designation ad = asteroid.getDesignation();
+                    ad.setBodyType(BodyType.ASTEROID);
+                    if (asteroid.getAsteroidType() != null) {
+                        ad.setObjectType(asteroid.getAsteroidType().getName());
+                    }
+                }
             }
         }
 

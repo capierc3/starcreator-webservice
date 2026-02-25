@@ -45,6 +45,7 @@ public class PlanetDataCollector {
     private int breathablePlanets = 0;
 
     private int planetsWithRings = 0;
+    private int planetsWithTrojans = 0;
     private final Map<String, Integer> compositionClasses = new HashMap<>();
     private final Map<String, Integer> surfaceTempBins = new HashMap<>();
     private final Map<String, Integer> geologicalActivity = new HashMap<>();
@@ -67,10 +68,13 @@ public class PlanetDataCollector {
     // References to other collectors for delegation
     private final MoonDataCollector moonDataCollector;
     private final RingDataCollector ringDataCollector;
+    private final TrojanDataCollector trojanDataCollector;
 
-    public PlanetDataCollector(MoonDataCollector moonDataCollector, RingDataCollector ringDataCollector) {
+    public PlanetDataCollector(MoonDataCollector moonDataCollector, RingDataCollector ringDataCollector,
+                               TrojanDataCollector trojanDataCollector) {
         this.moonDataCollector = moonDataCollector;
         this.ringDataCollector = ringDataCollector;
+        this.trojanDataCollector = trojanDataCollector;
     }
 
     public void analyzeData(Planet planet, ProbabilityCounts counts) {
@@ -88,6 +92,7 @@ public class PlanetDataCollector {
         typeData.addHzPosition(planet.getHabitableZonePosition() != null ? planet.getHabitableZonePosition() : "unknown");
         if (Boolean.TRUE.equals(planet.getTidallyLocked())) typeData.addTidallyLocked();
         if (Boolean.TRUE.equals(planet.getHasRings())) typeData.addRings();
+        if (Boolean.TRUE.equals(planet.getHasTrojans())) typeData.addTrojans();
         if (planet.getEarthMass() != null) {
             typeData.addMassBin(binMass(planet.getEarthMass()));
             typeData.addPhysicalProps(
@@ -114,6 +119,9 @@ public class PlanetDataCollector {
 
         // Rings
         if (Boolean.TRUE.equals(planet.getHasRings())) planetsWithRings++;
+
+        // Trojans
+        if (Boolean.TRUE.equals(planet.getHasTrojans())) planetsWithTrojans++;
 
         // Geology (surface/rocky planets only)
         if (isSurfaceType(planet.getPlanetType()) && planet.getGeologicalActivity() != null) {
@@ -229,9 +237,26 @@ public class PlanetDataCollector {
                 .filter(b -> b.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.RING)
                 .count();
         counts.incrementRingCount((int) ringCount);
+
+        long trojanCount = planet.getBands().stream()
+                .filter(b -> b.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.TROJAN)
+                .count();
+        counts.incrementTrojanCount((int) trojanCount);
+
+        // Track planets with Trojan moons (for Trojan report)
+        if (trojanCount > 0) {
+            boolean hasTrojanMoons = planet.getMoons().stream()
+                    .anyMatch(m -> "TROJAN".equals(m.getMoonType()));
+            if (hasTrojanMoons) {
+                trojanDataCollector.incrementTrojansWithMoons(planet.getPlanetType());
+            }
+        }
+
         for (OrbitalBand band : planet.getBands()) {
             if (band.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.RING) {
                 ringDataCollector.analyzeData(band);
+            } else if (band.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.TROJAN) {
+                trojanDataCollector.analyzeData(band);
             }
         }
 

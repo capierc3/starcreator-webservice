@@ -3,6 +3,7 @@ package com.brickroad.starcreator_webservice.service;
 import com.brickroad.starcreator_webservice.creator.ClimateCreator;
 import com.brickroad.starcreator_webservice.creator.HabitabilityCreator;
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.utils.*;
 import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
@@ -61,8 +62,14 @@ public class DerivedFieldCalculator {
                             star, planet.getSemiMajorAxisAU());
                 });
 
-                // Planet's rings (SMA in KM, orbit planet)
-                planet.getBands().forEach(ring -> recalculateRing(ring, planet));
+                // Planet's bands: rings (SMA in KM) and trojans (SMA in AU)
+                planet.getBands().forEach(band -> {
+                    if (band.getBandCategory() == BandCategory.TROJAN) {
+                        recalculateTrojan(band, star);
+                    } else {
+                        recalculateRing(band, planet);
+                    }
+                });
             });
         });
 
@@ -456,6 +463,18 @@ public class DerivedFieldCalculator {
         if (planet != null) {
             recalculateOrbitalPeriodKM(ring.getInnerOrbit(), planet);
             recalculateOrbitalPeriodKM(ring.getOuterOrbit(), planet);
+        }
+    }
+
+    /** Trojan swarm — SMA in AU (co-orbits star at planet's Lagrange point). */
+    private void recalculateTrojan(OrbitalBand trojan, Star star) {
+        recalculateBandMass(trojan);
+        trojan.deriveMeanLibrationOffset();
+        if (star != null && star.getPhysicalProperties() != null
+                && star.getPhysicalProperties().getSolarMass() != null) {
+            double stellarMass = star.getPhysicalProperties().getSolarMass();
+            recalculateBeltOrbitalPeriod(trojan.getInnerOrbit(), stellarMass);
+            recalculateBeltOrbitalPeriod(trojan.getOuterOrbit(), stellarMass);
         }
     }
 

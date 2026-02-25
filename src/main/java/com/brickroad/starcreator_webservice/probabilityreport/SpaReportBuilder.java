@@ -62,7 +62,7 @@ public class SpaReportBuilder {
 
             // SPA engine (router, components, page renderers)
             w.println("<script>");
-            w.println(SpaReportJsTemplate.JS);
+            w.println(SpaReportJsTemplate.js());
             w.println("</script>");
 
             // Orbital simulation module (for System Viewer page)

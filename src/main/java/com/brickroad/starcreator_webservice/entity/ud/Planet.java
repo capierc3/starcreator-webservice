@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
+import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.fasterxml.jackson.annotation.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
@@ -562,10 +563,17 @@ public class Planet {
         return count + moonlets;
     }
 
-    // ── Rings Convenience Getter ──
+    // ── Rings & Trojans Convenience Getters ──
 
     @JsonIgnore
     public Boolean getHasRings() {
-        return bands != null && !bands.isEmpty();
+        if (bands == null || bands.isEmpty()) return false;
+        return bands.stream().anyMatch(b -> b.getBandCategory() == BandCategory.RING);
+    }
+
+    @JsonIgnore
+    public Boolean getHasTrojans() {
+        if (bands == null || bands.isEmpty()) return false;
+        return bands.stream().anyMatch(b -> b.getBandCategory() == BandCategory.TROJAN);
     }
 }

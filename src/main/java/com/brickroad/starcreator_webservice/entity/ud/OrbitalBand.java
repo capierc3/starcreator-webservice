@@ -20,14 +20,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An annular band of material orbiting a star (belt) or planet (ring).
+ * An annular band of material orbiting a star (belt), planet (ring), or at a
+ * planet's Lagrange point (trojan swarm).
  * <p>
- * Unifies the concepts of "asteroid belt" and "planetary ring" into a single model.
- * Each band has two {@link OrbitalElements} references defining its inner and outer
- * orbital boundaries. The inner edge orbits faster than the outer edge per Kepler's laws.
+ * Unifies the concepts of "asteroid belt", "planetary ring", and "trojan swarm"
+ * into a single model. Each band has two {@link OrbitalElements} references defining
+ * its inner and outer orbital boundaries. The inner edge orbits faster than the outer
+ * edge per Kepler's laws.
  * <p>
  * A belt orbits a star (star_id is set, planet_id is null).
  * A ring orbits a planet (planet_id is set, star_id is null).
+ * A trojan swarm orbits at a planet's L4 or L5 Lagrange point (planet_id is set, star_id is null).
  * For circumbinary belts (P_TYPE), the PRIMARY star is the parent
  * (same convention used for circumbinary planets).
  */
@@ -36,7 +39,7 @@ import java.util.List;
 @Getter
 @Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@Schema(description = "An annular band of material orbiting a star (belt) or planet (ring)")
+@Schema(description = "An annular band of material orbiting a star (belt), planet (ring), or at a planet's Lagrange point (trojan)")
 public class OrbitalBand {
 
     @Id
@@ -224,6 +227,21 @@ public class OrbitalBand {
     @Schema(description = "Estimated age in millions of years (rings only)")
     private Double estimatedAgeMY;
 
+    // ── Trojan-Specific ──
+
+    @Column(name = "lagrange_point", length = 5)
+    @Schema(description = "Lagrange point: L4 (60° ahead) or L5 (60° behind) — trojans only", example = "L4")
+    private String lagrangePoint;
+
+    @Column(name = "libration_amplitude_deg")
+    @Schema(description = "Angular spread from the Lagrange point in degrees (mean ~33°, range 0.6–88°) — trojans only", example = "33.0")
+    private Double librationAmplitudeDeg;
+
+    // Derived constant: 60° for L4, 300° for L5 — recalculated on load by DerivedFieldCalculator
+    @Transient
+    @Schema(description = "Mean angular offset from the host planet in degrees (60° for L4, 300° for L5) — trojans only")
+    private Double meanLibrationOffsetDeg;
+
     // ── Notable Objects (belt-specific children) ──
 
     @OneToMany(mappedBy = "band", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
@@ -296,10 +314,23 @@ public class OrbitalBand {
         return outerOrbit.getSemiMajorAxis() - innerOrbit.getSemiMajorAxis();
     }
 
-    @Schema(description = "Distance unit used by this band (AU for belts, KM for rings)")
+    @Schema(description = "Distance unit used by this band (AU for belts/trojans, KM for rings)")
     public DistanceUnit getDistanceUnit() {
         if (innerOrbit != null) return innerOrbit.getSemiMajorAxisUnit();
         return null;
+    }
+
+    /**
+     * Derives the mean libration offset from the lagrange point designation.
+     * L4 = 60° ahead of the planet, L5 = 300° ahead (equivalently 60° behind).
+     * Called by DerivedFieldCalculator on load, or during creation.
+     */
+    public void deriveMeanLibrationOffset() {
+        if ("L4".equals(lagrangePoint)) {
+            this.meanLibrationOffsetDeg = 60.0;
+        } else if ("L5".equals(lagrangePoint)) {
+            this.meanLibrationOffsetDeg = 300.0;
+        }
     }
 
     // ── Convenience Methods ──

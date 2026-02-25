@@ -23,6 +23,7 @@ public class PlanetTypeBreakdown {
     private final Map<String, int[]> tidalLockByDistance = new HashMap<>();
     private final Map<String, Integer> moonletBins = new HashMap<>();
     private int withRings = 0;
+    private int withTrojans = 0;
 
     private double massSum = 0;
     private double radiusSum = 0;
@@ -54,6 +55,7 @@ public class PlanetTypeBreakdown {
     }
     public void addMoonletBin(String bin) { moonletBins.merge(bin, 1, Integer::sum); }
     public void addRings() { withRings++; }
+    public void addTrojans() { withTrojans++; }
     public void addDistanceValue(double au) { distanceValues.add(au); }
 
     public void addPhysicalProps(double mass, double radius, double gravity, double temp) {
@@ -79,6 +81,7 @@ public class PlanetTypeBreakdown {
 
         json.put("tidallyLocked", tidallyLocked);
         json.put("withRings", withRings);
+        json.put("withTrojans", withTrojans);
         if (!compositionClasses.isEmpty()) json.put("compositionClasses", compositionClasses);
         if (!surfaceTempBins.isEmpty()) json.put("surfaceTempBins", surfaceTempBins);
         if (!atmosphereClasses.isEmpty()) json.put("atmosphereClasses", atmosphereClasses);

@@ -18,12 +18,15 @@ public class JsonReportBuilder {
     private final PlanetDataCollector planetData;
     private final MoonDataCollector moonData;
     private final RingDataCollector ringData;
+    private final TrojanDataCollector trojanData;
+    private final AsteroidDataCollector asteroidData;
     private final BeltDataCollector beltData;
     private final OrbitStabilityCollector stabilityData;
 
     public JsonReportBuilder(ProbabilityCounts counts, PerformanceTimer timer,
                              StarDataCollector starData, PlanetDataCollector planetData,
                              MoonDataCollector moonData, RingDataCollector ringData,
+                             TrojanDataCollector trojanData, AsteroidDataCollector asteroidData,
                              BeltDataCollector beltData, OrbitStabilityCollector stabilityData) {
         this.counts = counts;
         this.timer = timer;
@@ -31,6 +34,8 @@ public class JsonReportBuilder {
         this.planetData = planetData;
         this.moonData = moonData;
         this.ringData = ringData;
+        this.trojanData = trojanData;
+        this.asteroidData = asteroidData;
         this.beltData = beltData;
         this.stabilityData = stabilityData;
     }
@@ -54,6 +59,8 @@ public class JsonReportBuilder {
         report.put("planets", buildPlanetData());
         report.put("moons", buildMoonData());
         report.put("rings", buildRingData());
+        report.put("trojans", buildTrojanData());
+        report.put("notableAsteroids", buildAsteroidData());
         report.put("belts", buildBeltData());
         report.put("climate", buildClimateData());
         report.put("orbitalStability", buildOrbitalStabilityData());
@@ -77,6 +84,7 @@ public class JsonReportBuilder {
         summary.put("planets", counts.getPlanetCount());
         summary.put("moons", counts.getMoonCount());
         summary.put("rings", counts.getRingCount());
+        summary.put("trojans", counts.getTrojanCount());
         summary.put("belts", counts.getBeltCount());
         summary.put("asteroids", counts.getAsteroidCount());
         summary.put("moonlets", counts.getMoonletCount());
@@ -172,6 +180,7 @@ public class JsonReportBuilder {
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("totalRockyPlanets", planetData.getTotalRockyPlanets());
         summary.put("planetsWithRings", planetData.getPlanetsWithRings());
+        summary.put("planetsWithTrojans", planetData.getPlanetsWithTrojans());
         summary.put("planetsWithGeology", planetData.getPlanetsWithGeology());
         summary.put("planetsWithLiquidWater", planetData.getPlanetsWithLiquidWater());
         summary.put("planetsWithIce", planetData.getPlanetsWithIce());
@@ -370,6 +379,134 @@ public class JsonReportBuilder {
         }
 
         return rings;
+    }
+
+    private Map<String, Object> buildTrojanData() {
+        Map<String, Object> trojans = new LinkedHashMap<>();
+
+        // Distribution maps
+        if (!trojanData.getLagrangePointCounts().isEmpty()) trojans.put("lagrangePoints", trojanData.getLagrangePointCounts());
+        if (!trojanData.getParentPlanetTypes().isEmpty()) trojans.put("parentPlanetTypes", trojanData.getParentPlanetTypes());
+        if (!trojanData.getMassBins().isEmpty()) trojans.put("massBins", trojanData.getMassBins());
+        if (!trojanData.getObjectCountBins().isEmpty()) trojans.put("objectCountBins", trojanData.getObjectCountBins());
+        if (!trojanData.getLibrationAmplitudeBins().isEmpty()) trojans.put("librationAmplitudeBins", trojanData.getLibrationAmplitudeBins());
+        if (!trojanData.getWidthBins().isEmpty()) trojans.put("widthBins", trojanData.getWidthBins());
+        if (!trojanData.getTierCounts().isEmpty()) trojans.put("tierClassification", trojanData.getTierCounts());
+
+        // Summary
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalTrojanSwarms", trojanData.getTotalTrojans());
+        summary.put("planetsWithTrojans", planetData.getPlanetsWithTrojans());
+        summary.put("trojansWithNotableAsteroids", trojanData.getTrojansWithAsteroids());
+        summary.put("totalNotableAsteroids", trojanData.getTotalNotableAsteroids());
+        summary.put("trojansWithMoons", trojanData.getTrojansWithMoons());
+        if (trojanData.getMassCount() > 0) {
+            summary.put("avgMassEarth", roundScientific(trojanData.getTotalMassSum() / trojanData.getMassCount()));
+        }
+        if (trojanData.getWidthCount() > 0) {
+            summary.put("avgWidthAU", round(trojanData.getTotalWidthSum() / trojanData.getWidthCount()));
+        }
+        if (trojanData.getObjectCountCount() > 0) {
+            summary.put("avgObjectCount", trojanData.getTotalObjectCountSum() / trojanData.getObjectCountCount());
+        }
+        if (trojanData.getLibrationCount() > 0) {
+            summary.put("avgLibrationAmplitudeDeg", round(trojanData.getTotalLibrationSum() / trojanData.getLibrationCount()));
+        }
+        trojans.put("summary", summary);
+
+        // Per planet-type breakdown
+        if (!trojanData.getPerPlanetType().isEmpty()) {
+            Map<String, Object> perType = new LinkedHashMap<>();
+            for (Map.Entry<String, TrojanDataCollector.TrojanPlanetTypeBreakdown> entry : trojanData.getPerPlanetType().entrySet()) {
+                perType.put(entry.getKey(), entry.getValue().toJson());
+            }
+            trojans.put("perPlanetType", perType);
+        }
+
+        // Cross-reference summary table: planet type → trojan spawning overview
+        // Combines total planet counts (from planetData) with trojan stats (from trojanData)
+        Map<String, Object> summaryTable = new LinkedHashMap<>();
+        for (Map.Entry<String, PlanetTypeBreakdown> ptEntry : planetData.getPerTypeData().entrySet()) {
+            String typeName = ptEntry.getKey();
+            PlanetTypeBreakdown ptb = ptEntry.getValue();
+            int totalPlanets = ptb.getCount();
+            int planetsWithSwarms = ptb.getWithTrojans();
+            if (planetsWithSwarms == 0) continue; // skip types with no trojans
+
+            TrojanDataCollector.TrojanPlanetTypeBreakdown tptb = trojanData.getPerPlanetType().get(typeName);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("totalPlanets", totalPlanets);
+            row.put("planetsWithSwarms", planetsWithSwarms);
+            row.put("pctWithSwarms", round(planetsWithSwarms * 100.0 / totalPlanets));
+            if (tptb != null) {
+                row.put("swarmCount", tptb.getCount());
+                row.put("pctSwarmsWithAsteroids", tptb.getCount() > 0
+                        ? round(tptb.getWithAsteroids() * 100.0 / tptb.getCount()) : 0);
+                row.put("pctPlanetsWithMoons", planetsWithSwarms > 0
+                        ? round(tptb.getWithMoons() * 100.0 / planetsWithSwarms) : 0);
+                row.put("totalObjectCount", tptb.getObjectCountSum());
+            }
+            summaryTable.put(typeName, row);
+        }
+        if (!summaryTable.isEmpty()) {
+            trojans.put("planetTypeSummary", summaryTable);
+        }
+
+        return trojans;
+    }
+
+    private Map<String, Object> buildAsteroidData() {
+        Map<String, Object> asteroids = new LinkedHashMap<>();
+
+        // Source distribution (Belt vs Trojan)
+        if (!asteroidData.getSourceCounts().isEmpty()) asteroids.put("sourceCounts", asteroidData.getSourceCounts());
+
+        // Spectral type distribution
+        if (!asteroidData.getAsteroidTypes().isEmpty()) asteroids.put("spectralTypes", asteroidData.getAsteroidTypes());
+
+        // Physical property distributions
+        if (!asteroidData.getDiameterBins().isEmpty()) asteroids.put("diameterBins", asteroidData.getDiameterBins());
+        if (!asteroidData.getMassBins().isEmpty()) asteroids.put("massBins", asteroidData.getMassBins());
+        if (!asteroidData.getDensityBins().isEmpty()) asteroids.put("densityBins", asteroidData.getDensityBins());
+        if (!asteroidData.getAlbedoBins().isEmpty()) asteroids.put("albedoBins", asteroidData.getAlbedoBins());
+
+        // Cratering and orbital distance
+        if (!asteroidData.getCrateringLevels().isEmpty()) asteroids.put("crateringLevels", asteroidData.getCrateringLevels());
+        if (!asteroidData.getDistanceBins().isEmpty()) asteroids.put("orbitalDistanceBins", asteroidData.getDistanceBins());
+
+        // Summary
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalNotableAsteroids", asteroidData.getTotalAsteroids());
+        summary.put("fromBelts", asteroidData.getSourceCounts().getOrDefault("Belt", 0));
+        summary.put("fromTrojans", asteroidData.getSourceCounts().getOrDefault("Trojan", 0));
+        summary.put("withMoons", asteroidData.getTotalWithMoons());
+        summary.put("totalMoonCount", asteroidData.getTotalMoonCount());
+        summary.put("differentiated", asteroidData.getTotalDifferentiated());
+        summary.put("withRegolith", asteroidData.getTotalWithRegolith());
+        if (asteroidData.getDiameterCount() > 0) {
+            summary.put("avgDiameterKm", round(asteroidData.getDiameterSum() / asteroidData.getDiameterCount()));
+        }
+        if (asteroidData.getMassCount() > 0) {
+            summary.put("avgMassEarth", roundScientific(asteroidData.getMassSum() / asteroidData.getMassCount()));
+        }
+        if (asteroidData.getDensityCount() > 0) {
+            summary.put("avgDensity", round(asteroidData.getDensitySum() / asteroidData.getDensityCount()));
+        }
+        if (asteroidData.getAlbedoCount() > 0) {
+            summary.put("avgAlbedo", round(asteroidData.getAlbedoSum() / asteroidData.getAlbedoCount()));
+        }
+        asteroids.put("summary", summary);
+
+        // Per spectral-type breakdown
+        if (!asteroidData.getPerTypeData().isEmpty()) {
+            Map<String, Object> perType = new LinkedHashMap<>();
+            for (Map.Entry<String, AsteroidDataCollector.AsteroidTypeBreakdown> entry : asteroidData.getPerTypeData().entrySet()) {
+                perType.put(entry.getKey(), entry.getValue().toJson());
+            }
+            asteroids.put("perSpectralType", perType);
+        }
+
+        return asteroids;
     }
 
     private Map<String, Object> buildBeltData() {
@@ -571,5 +708,10 @@ public class JsonReportBuilder {
 
     private double roundAU(double val) {
         return Math.round(val * 10000.0) / 10000.0;
+    }
+
+    /** High-precision rounding for very small values like Trojan masses in Earth masses */
+    private double roundScientific(double val) {
+        return Math.round(val * 1e12) / 1e12;
     }
 }

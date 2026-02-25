@@ -3,12 +3,19 @@ package com.brickroad.starcreator_webservice.probabilityreport;
 /**
  * Complete JavaScript SPA engine for the probability report.
  * Contains: router, reusable components, and all page renderers.
+ * Split into two parts to stay under Java constant pool 65535-byte limit.
  */
 public final class SpaReportJsTemplate {
 
     private SpaReportJsTemplate() {}
 
-    public static final String JS = """
+    /** Returns the full JS as a single string (split across constants to stay under 65535 byte limit). */
+    public static String js() {
+        // Use StringBuilder to prevent compile-time constant folding
+        return new StringBuilder(JS_PART1).append(JS_PART2).toString();
+    }
+
+    static final String JS_PART1 = """
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -21,6 +28,8 @@ const PAGES = {
   planets:    { label: 'Planets',            icon: '\u25CF',  render: renderPlanets },
   moons:      { label: 'Moons',             icon: '\u263E',  render: renderMoons },
   rings:      { label: 'Rings',             icon: '\u25EF',  render: renderRings },
+  trojans:    { label: 'Trojans',          icon: '\u25C7',  render: renderTrojans },
+  asteroids:  { label: 'Asteroids',        icon: '\u2B25',  render: renderNotableAsteroids },
   belts:      { label: 'Belts',             icon: '\u2058',  render: renderBelts },
   climate:    { label: 'Climate',           icon: '\u2602',  render: renderClimate },
   stability:  { label: 'Orbital Stability', icon: '\u2300',  render: renderStability },
@@ -77,7 +86,7 @@ function initApp() {
   title1.textContent = 'REPORT';
   nav.appendChild(title1);
 
-  const reportPages = ['dashboard','stars','planets','moons','rings','belts','climate','stability'];
+  const reportPages = ['dashboard','stars','planets','moons','rings','trojans','asteroids','belts','climate','stability'];
   const viewerPages = ['viewer'];
 
   reportPages.forEach(key => {
@@ -148,6 +157,25 @@ function pct(n, total) {
 
 function round2(n) {
   return Math.round(n * 100) / 100;
+}
+
+function fmtShort(n) {
+  if (n == null || n === 0) return '0';
+  if (n >= 1e12) return (n / 1e12).toFixed(1) + 'T';
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n);
+}
+
+function pctBar(val) {
+  var p = Math.min(100, Math.max(0, val || 0));
+  var color = p >= 50 ? 'var(--accent)' : p >= 20 ? 'var(--copper)' : 'var(--text-muted)';
+  return '<div style="display:flex;align-items:center;gap:6px;min-width:100px">' +
+    '<div class="bar-track" style="flex:1"><div class="bar-fill" style="width:' + p +
+    '%;background:' + color + '"></div></div>' +
+    '<span style="font-family:var(--font-data);font-size:10px;color:var(--text-dim);min-width:38px;text-align:right">' +
+    p.toFixed(1) + '%</span></div>';
 }
 
 function sumValues(obj) {
@@ -375,6 +403,7 @@ function renderDashboard(c) {
     { value: fmt(S.moons),     label: 'Moons' },
     { value: fmt(S.moonlets),  label: 'Moonlets', cls: 'purple' },
     { value: fmt(S.rings),     label: 'Rings', cls: 'cyan' },
+    { value: fmt(S.trojans || 0), label: 'Trojans' },
     { value: fmt(S.belts),     label: 'Belts' },
     { value: fmt(S.asteroids), label: 'Asteroids', cls: 'purple' }
   ]);
@@ -450,6 +479,8 @@ function renderDashboard(c) {
     { key: 'planets', title: 'Planets', desc: 'Types, atmospheres, habitability, geology', stat: fmt(S.planets) },
     { key: 'moons', title: 'Moons', desc: 'Tidal heating, oceans, habitability', stat: fmt(S.moons) },
     { key: 'rings', title: 'Rings', desc: 'Optical depth, color, origins', stat: fmt(S.rings) },
+    { key: 'trojans', title: 'Trojans', desc: 'Lagrange points, tiers, per planet type', stat: fmt(S.trojans || 0) },
+    { key: 'asteroids', title: 'Notable Asteroids', desc: 'Spectral types, size, density, source breakdown', stat: fmt(S.asteroids) },
     { key: 'belts', title: 'Belts', desc: 'Mass, width, gaps, families', stat: fmt(S.belts) },
     { key: 'climate', title: 'Climate', desc: 'Weather, storms, sky colors', stat: fmt(S.planets) + ' planets' },
     { key: 'stability', title: 'Orbital Stability', desc: 'Gladman delta, crossings, timescales', stat: fmt(stab.totalAdjacentPairs || 0) + ' pairs' },
@@ -566,7 +597,9 @@ function renderStars(c) {
     }
   }
 }
+""";
 
+    public static final String JS_PART2 = """
 /* ═══════════════════════════════════════════════════════════════
    PAGE: Planets
    ═══════════════════════════════════════════════════════════════ */
@@ -586,6 +619,7 @@ function renderPlanets(c) {
     { value: fmt(S.totalRockyPlanets || 0), label: 'Rocky Planets' },
     { value: fmt(S.breathablePlanets || 0), label: 'Breathable', cls: 'safe' },
     { value: fmt(S.planetsWithRings || 0), label: 'With Rings', cls: 'purple' },
+    { value: fmt(S.planetsWithTrojans || 0), label: 'With Trojans' },
     { value: S.avgMass != null ? round2(S.avgMass) + ' M\u2295' : '-', label: 'Avg Mass' },
     { value: S.avgRadius != null ? round2(S.avgRadius) + ' R\u2295' : '-', label: 'Avg Radius', cls: 'cyan' },
     { value: S.avgEsi != null ? round2(S.avgEsi) : '-', label: 'Avg ESI', cls: 'safe' }
@@ -764,6 +798,7 @@ function renderPlanetPerType(c, data, heading, totalPlanets) {
       }
       summaryCards.push({ value: fmt(td.tidallyLocked || 0), label: 'Tidally Locked' });
       summaryCards.push({ value: fmt(td.withRings || 0), label: 'With Rings', cls: 'purple' });
+      summaryCards.push({ value: fmt(td.withTrojans || 0), label: 'With Trojans' });
       if (summaryCards.length > 0) statGrid(body, summaryCards);
 
       // ── Placement & Distance ──
@@ -1030,6 +1065,158 @@ function renderRings(c) {
         if (td.avgThickness != null) note(body, 'Avg thickness: <span class="readout readout-amber">' + round2(td.avgThickness) + ' km</span>');
         if (td.shepherdCount != null) note(body, 'With shepherd moons: ' + fmt(td.shepherdCount));
         if (td.gapsCount != null) note(body, 'With gaps: ' + fmt(td.gapsCount));
+      }, false);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE: Trojans
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderTrojans(c) {
+  const R = REPORT_DATA;
+  const trojans = R.trojans || {};
+  const summary = trojans.summary || {};
+  const totalTrojans = summary.totalTrojanSwarms || R.summary.trojans || 0;
+
+  pageHeader(c, 'Trojan Swarms', 'Lagrange point swarms: mass, tiers, object counts, and per planet type analysis');
+
+  statGrid(c, [
+    { value: fmt(totalTrojans), label: 'Total Swarms' },
+    { value: fmt(summary.planetsWithTrojans || 0), label: 'Planets With Trojans', cls: 'cyan' },
+    { value: fmt(summary.trojansWithNotableAsteroids || 0), label: 'With Asteroids' },
+    { value: fmt(summary.totalNotableAsteroids || 0), label: 'Notable Asteroids', cls: 'purple' },
+    { value: fmt(summary.trojansWithMoons || 0), label: 'With Trojan Moons', cls: 'cyan' },
+    { value: summary.avgMassEarth != null ? summary.avgMassEarth.toExponential(2) + ' M\u2295' : '-', label: 'Avg Mass' },
+    { value: fmt(summary.avgObjectCount || 0), label: 'Avg Objects' },
+    { value: summary.avgLibrationAmplitudeDeg != null ? round2(summary.avgLibrationAmplitudeDeg) + '\u00B0' : '-', label: 'Avg Libration', cls: 'cyan' }
+  ]);
+
+  // Main distribution grids
+  twoCol(c,
+    function(left) {
+      sectionCard(left, 'Lagrange Points', '#f59e0b', function(body) { distTable(body, trojans.lagrangePoints, totalTrojans, 'Point'); });
+      sectionCard(left, 'Tier Classification', '#a78bfa', function(body) { distTable(body, trojans.tierClassification, totalTrojans, 'Tier'); });
+      sectionCard(left, 'Mass Distribution', '#ef4444', function(body) { distTable(body, trojans.massBins, totalTrojans, 'Mass', { sortByKey: true, stripPrefixes: true }); });
+      sectionCard(left, 'Swarm Width', '#40d8d8', function(body) { distTable(body, trojans.widthBins, totalTrojans, 'Width', { sortByKey: true, stripPrefixes: true }); });
+    },
+    function(right) {
+      sectionCard(right, 'Parent Planet Types', '#60a5fa', function(body) { distTable(body, trojans.parentPlanetTypes, totalTrojans, 'Planet Type'); });
+      sectionCard(right, 'Object Count', '#34d399', function(body) { distTable(body, trojans.objectCountBins, totalTrojans, 'Count', { sortByKey: true, stripPrefixes: true }); });
+      sectionCard(right, 'Libration Amplitude', '#c07040', function(body) { distTable(body, trojans.librationAmplitudeBins, totalTrojans, 'Amplitude', { sortByKey: true, stripPrefixes: true }); });
+    }
+  );
+
+  // Planet type summary table
+  if (trojans.planetTypeSummary && Object.keys(trojans.planetTypeSummary).length > 0) {
+    sectionCard(c, 'Trojan Formation by Planet Type', '#60a5fa', function(body) {
+      var tbl = el('table', 'xref-table');
+      tbl.innerHTML = '<thead><tr>' +
+        '<th>Planet Type</th><th>Planets</th><th style="min-width:130px">With Swarms</th>' +
+        '<th>Swarms</th><th style="min-width:130px">With Asteroids</th>' +
+        '<th style="min-width:130px">With Moons</th><th>Total Objects</th>' +
+        '</tr></thead>';
+      var tbody = el('tbody');
+      var sorted = Object.entries(trojans.planetTypeSummary)
+        .sort(function(a, b) { return (b[1].pctWithSwarms || 0) - (a[1].pctWithSwarms || 0); });
+      for (var si = 0; si < sorted.length; si++) {
+        var typeName = sorted[si][0];
+        var row = sorted[si][1];
+        var tr = el('tr');
+        tr.innerHTML = '<td>' + esc(typeName) + '</td>' +
+          '<td>' + fmt(row.totalPlanets) + '</td>' +
+          '<td>' + pctBar(row.pctWithSwarms) + '</td>' +
+          '<td>' + fmt(row.swarmCount || 0) + '</td>' +
+          '<td>' + pctBar(row.pctSwarmsWithAsteroids) + '</td>' +
+          '<td>' + pctBar(row.pctPlanetsWithMoons || 0) + '</td>' +
+          '<td>' + fmtShort(row.totalObjectCount || 0) + '</td>';
+        tbody.appendChild(tr);
+      }
+      tbl.appendChild(tbody);
+      body.appendChild(tbl);
+    });
+  }
+
+  // Per planet type breakdown
+  if (trojans.perPlanetType && Object.keys(trojans.perPlanetType).length > 0) {
+    sectionCard(c, 'Per Planet Type Breakdown', '#a78bfa', function(body) {
+      for (const [typeName, td] of Object.entries(trojans.perPlanetType)) {
+        const count = td.swarmCount || 0;
+        collapsible(body, typeName + ' (' + fmt(count) + ' swarms)', function(inner) {
+          const cards = [];
+          cards.push({ value: fmt(count), label: 'Swarms' });
+          if (td.avgMassEarth != null) cards.push({ value: td.avgMassEarth.toExponential(2) + ' M\u2295', label: 'Avg Mass', cls: 'cyan' });
+          if (td.avgObjectCount != null) cards.push({ value: fmt(td.avgObjectCount), label: 'Avg Objects' });
+          cards.push({ value: fmt(td.withNotableAsteroids || 0), label: 'With Asteroids', cls: 'purple' });
+          if (cards.length > 0) statGrid(inner, cards);
+          if (td.lagrangePoints) distTable(inner, td.lagrangePoints, count, 'Lagrange Point');
+          if (td.tiers) distTable(inner, td.tiers, count, 'Tier');
+        }, false);
+      }
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE: Notable Asteroids
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderNotableAsteroids(c) {
+  const R = REPORT_DATA;
+  const ast = R.notableAsteroids || {};
+  const summary = ast.summary || {};
+  const total = summary.totalNotableAsteroids || 0;
+
+  pageHeader(c, 'Notable Asteroids', 'Unified notable asteroid statistics from belts and trojan swarms');
+
+  statGrid(c, [
+    { value: fmt(total), label: 'Total Notable' },
+    { value: fmt(summary.fromBelts || 0), label: 'From Belts', cls: 'cyan' },
+    { value: fmt(summary.fromTrojans || 0), label: 'From Trojans', cls: 'purple' },
+    { value: fmt(summary.withMoons || 0), label: 'With Moons' },
+    { value: fmt(summary.differentiated || 0), label: 'Differentiated', cls: 'cyan' },
+    { value: fmt(summary.withRegolith || 0), label: 'With Regolith' },
+    { value: summary.avgDiameterKm != null ? round2(summary.avgDiameterKm) + ' km' : '-', label: 'Avg Diameter', cls: 'purple' },
+    { value: summary.avgDensity != null ? round2(summary.avgDensity) + ' g/cm\u00B3' : '-', label: 'Avg Density' }
+  ]);
+
+  if (total > 0) {
+    const grid = el('div', 'two-col');
+    const left = el('div');
+    const right = el('div');
+    grid.appendChild(left);
+    grid.appendChild(right);
+
+    sectionCard(left, 'Spectral Type Distribution', '#f59e0b', function(body) { distTable(body, ast.spectralTypes, total, 'Type'); });
+    sectionCard(left, 'Diameter Distribution', '#60a5fa', function(body) { distTable(body, ast.diameterBins, total, 'Diameter', { sortByKey: true, stripPrefixes: true }); });
+    sectionCard(left, 'Density Distribution', '#a78bfa', function(body) { distTable(body, ast.densityBins, total, 'Density', { sortByKey: true, stripPrefixes: true }); });
+    sectionCard(left, 'Cratering Levels', '#ef4444', function(body) { distTable(body, ast.crateringLevels, total, 'Level'); });
+
+    sectionCard(right, 'Source Breakdown', '#34d399', function(body) { distTable(body, ast.sourceCounts, total, 'Source'); });
+    sectionCard(right, 'Mass Distribution', '#40d8d8', function(body) { distTable(body, ast.massBins, total, 'Mass', { sortByKey: true, stripPrefixes: true }); });
+    sectionCard(right, 'Albedo Distribution', '#c07040', function(body) { distTable(body, ast.albedoBins, total, 'Albedo', { sortByKey: true, stripPrefixes: true }); });
+    sectionCard(right, 'Orbital Distance', '#f59e0b', function(body) { distTable(body, ast.orbitalDistanceBins, total, 'Distance', { sortByKey: true, stripPrefixes: true }); });
+
+    c.appendChild(grid);
+  }
+
+  // Per spectral-type breakdown
+  if (ast.perSpectralType && Object.keys(ast.perSpectralType).length > 0) {
+    subHeading(c, 'Per Spectral Type Breakdown');
+    const sorted = Object.entries(ast.perSpectralType).sort((a, b) => (b[1].count || 0) - (a[1].count || 0));
+    for (const [typeName, td] of sorted) {
+      const count = td.count || 0;
+      collapsible(c, typeName + ' (' + fmt(count) + ' asteroids)', function(inner) {
+        const cards = [];
+        cards.push({ value: fmt(count), label: 'Count' });
+        if (td.avgDiameterKm != null) cards.push({ value: round2(td.avgDiameterKm) + ' km', label: 'Avg Diameter', cls: 'cyan' });
+        if (td.avgDensity != null) cards.push({ value: round2(td.avgDensity) + ' g/cm\u00B3', label: 'Avg Density' });
+        if (td.avgAlbedo != null) cards.push({ value: td.avgAlbedo.toFixed(3), label: 'Avg Albedo', cls: 'purple' });
+        cards.push({ value: fmt(td.differentiated || 0), label: 'Differentiated' });
+        cards.push({ value: fmt(td.withMoons || 0), label: 'With Moons', cls: 'cyan' });
+        if (cards.length > 0) statGrid(inner, cards);
+        if (td.sources) distTable(inner, td.sources, count, 'Source');
       }, false);
     }
   }

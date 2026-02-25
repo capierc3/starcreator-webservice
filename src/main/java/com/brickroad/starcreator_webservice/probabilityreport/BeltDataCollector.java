@@ -13,6 +13,15 @@ import java.util.Map;
 @Getter
 public class BeltDataCollector {
 
+    // ── Asteroid delegation ──
+    private AsteroidDataCollector asteroidDataCollector;
+
+    public BeltDataCollector() {}
+
+    public BeltDataCollector(AsteroidDataCollector asteroidDataCollector) {
+        this.asteroidDataCollector = asteroidDataCollector;
+    }
+
     // ── Existing ──
     private final Map<String, Integer> beltTypes = new HashMap<>();
     private final Map<String, Integer> asteroidTypes = new HashMap<>();
@@ -58,6 +67,9 @@ public class BeltDataCollector {
         counts.incrementAsteroidCount(band.getNotableAsteroids().size());
         for (Asteroid asteroid : band.getNotableAsteroids()) {
             asteroidTypes.merge(asteroid.getAsteroidType().getCode(), 1, Integer::sum);
+            if (asteroidDataCollector != null) {
+                asteroidDataCollector.analyzeData(asteroid, "Belt");
+            }
         }
         counts.incrementDwarfPlanetCount(band.getDwarfPlanets().size());
         if (!band.getDwarfPlanets().isEmpty()) beltsWithDwarfPlanets++;
