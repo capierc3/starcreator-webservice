@@ -40,8 +40,6 @@ public class AsteroidDataCollector {
 
     // ── Counters ──
     private int totalAsteroids = 0;
-    private int totalWithMoons = 0;
-    private int totalMoonCount = 0;
     private int totalDifferentiated = 0;
     private int totalWithRegolith = 0;
 
@@ -117,15 +115,6 @@ public class AsteroidDataCollector {
             typeBreakdown.incrementDifferentiated();
         }
 
-        // Moons
-        if (Boolean.TRUE.equals(asteroid.getHasMoon())) {
-            totalWithMoons++;
-            if (asteroid.getMoonCount() != null) {
-                totalMoonCount += asteroid.getMoonCount();
-            }
-            typeBreakdown.incrementWithMoons();
-        }
-
         // Cratering
         if (asteroid.getCrateringLevel() != null) {
             crateringLevels.merge(asteroid.getCrateringLevel(), 1, Integer::sum);
@@ -147,12 +136,17 @@ public class AsteroidDataCollector {
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Parse the largest dimension from "A x B x C" format.
+     * Parse the largest dimension from "A x B x C" (irregular) or "~Xkm spheroid" format.
      * Returns the first (largest) value, or 0 if unparseable.
      */
     private double parseLargestDimension(String dimensionsKm) {
         if (dimensionsKm == null || dimensionsKm.isBlank()) return 0;
         try {
+            // Handle "~Xkm spheroid" format for large round bodies
+            if (dimensionsKm.startsWith("~")) {
+                String numPart = dimensionsKm.replaceAll("[^0-9.]", "");
+                return Double.parseDouble(numPart);
+            }
             String[] parts = dimensionsKm.split("\\s*x\\s*");
             return Double.parseDouble(parts[0].trim());
         } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
@@ -222,7 +216,6 @@ public class AsteroidDataCollector {
         private double albedoSum = 0;
         private int albedoCount = 0;
         private int differentiated = 0;
-        private int withMoons = 0;
 
         void increment() { count++; }
         void addSource(String source) { sources.merge(source, 1, Integer::sum); }
@@ -230,7 +223,6 @@ public class AsteroidDataCollector {
         void addDensity(double d) { densitySum += d; densityCount++; }
         void addAlbedo(double a) { albedoSum += a; albedoCount++; }
         void incrementDifferentiated() { differentiated++; }
-        void incrementWithMoons() { withMoons++; }
 
         public Map<String, Object> toJson() {
             Map<String, Object> json = new LinkedHashMap<>();
@@ -240,7 +232,6 @@ public class AsteroidDataCollector {
             if (densityCount > 0) json.put("avgDensity", round(densitySum / densityCount));
             if (albedoCount > 0) json.put("avgAlbedo", round3(albedoSum / albedoCount));
             json.put("differentiated", differentiated);
-            json.put("withMoons", withMoons);
             return json;
         }
 

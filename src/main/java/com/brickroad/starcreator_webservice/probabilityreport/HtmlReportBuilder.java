@@ -1253,7 +1253,6 @@ public class HtmlReportBuilder {
         statCard(w, fmt(asteroidData.getTotalAsteroids()), "Total Notable");
         statCard(w, fmt(asteroidData.getSourceCounts().getOrDefault("Belt", 0)), "From Belts");
         statCard(w, fmt(asteroidData.getSourceCounts().getOrDefault("Trojan", 0)), "From Trojans");
-        statCard(w, fmt(asteroidData.getTotalWithMoons()), "With Moons");
         statCard(w, fmt(asteroidData.getTotalDifferentiated()), "Differentiated");
         statCard(w, fmt(asteroidData.getTotalWithRegolith()), "With Regolith");
         if (asteroidData.getDiameterCount() > 0) {
@@ -1335,8 +1334,6 @@ public class HtmlReportBuilder {
                 }
                 w.println("<p>Differentiated: " + atb.getDifferentiated()
                         + " (" + pct(atb.getDifferentiated(), atb.getCount()) + "%)</p>");
-                w.println("<p>With moons: " + atb.getWithMoons()
-                        + " (" + pct(atb.getWithMoons(), atb.getCount()) + "%)</p>");
                 endCollapsible(w);
             }
         }
@@ -1358,7 +1355,6 @@ public class HtmlReportBuilder {
             statCard(w, String.format("%.2f AU", beltData.getTotalWidthSum() / beltData.getWidthCount()), "Avg Width");
         }
         statCard(w, fmt(beltData.getBeltsWithGaps()), "With Gaps");
-        statCard(w, fmt(beltData.getBeltsWithResonanceGaps()), "Resonance Gaps");
         statCard(w, fmt(beltData.getBeltsWithCollisionalFamilies()), "Collisional Families");
         statCard(w, fmt(beltData.getBeltsWithDwarfPlanets()), "With Dwarf Planets");
         statCard(w, fmt(counts.getDwarfPlanetCount()), "Total Dwarf Planets");

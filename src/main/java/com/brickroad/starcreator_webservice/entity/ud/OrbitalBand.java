@@ -165,10 +165,6 @@ public class OrbitalBand {
 
     // ── Belt-Specific ──
 
-    @Column(name = "has_resonance_gaps")
-    @Schema(description = "Whether the belt has Kirkwood-style resonance gaps (belts only)")
-    private Boolean hasResonanceGaps;
-
     @Column(name = "has_collisional_families")
     @Schema(description = "Whether the belt contains collisional asteroid families (belts only)")
     private Boolean hasCollisionalFamilies;

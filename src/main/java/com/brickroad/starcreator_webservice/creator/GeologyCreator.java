@@ -125,16 +125,6 @@ public class GeologyCreator {
         return terrain;
     }
 
-    public TerrainProperties createAsteroidTerrain(String surfaceFeatures, String crateringLevel, Boolean hasRegolith, Double regolithDepthM) {
-        TerrainProperties terrain = new TerrainProperties();
-        terrain.setSurfaceFeatures(surfaceFeatures);
-        terrain.setCrateringLevel(crateringLevel);
-        terrain.setHasRegolith(hasRegolith);
-        terrain.setRegolithDepthM(regolithDepthM);
-        terrain.setLabel("Asteroid terrain");
-        return terrain;
-    }
-
     public PlanetaryGeology generateGeology(Planet planet) {
         double earthMass = planet.getEarthMass();
         double age = (planet.getAgeMY() != null ? planet.getAgeMY() : 4500.0) / 1000.0;

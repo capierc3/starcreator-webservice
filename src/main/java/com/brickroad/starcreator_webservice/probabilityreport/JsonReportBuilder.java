@@ -479,8 +479,6 @@ public class JsonReportBuilder {
         summary.put("totalNotableAsteroids", asteroidData.getTotalAsteroids());
         summary.put("fromBelts", asteroidData.getSourceCounts().getOrDefault("Belt", 0));
         summary.put("fromTrojans", asteroidData.getSourceCounts().getOrDefault("Trojan", 0));
-        summary.put("withMoons", asteroidData.getTotalWithMoons());
-        summary.put("totalMoonCount", asteroidData.getTotalMoonCount());
         summary.put("differentiated", asteroidData.getTotalDifferentiated());
         summary.put("withRegolith", asteroidData.getTotalWithRegolith());
         if (asteroidData.getDiameterCount() > 0) {
@@ -531,7 +529,6 @@ public class JsonReportBuilder {
         summary.put("totalBelts", counts.getBeltCount());
         summary.put("dwarfPlanetsInBelts", counts.getDwarfPlanetCount());
         summary.put("withGaps", beltData.getBeltsWithGaps());
-        summary.put("withResonanceGaps", beltData.getBeltsWithResonanceGaps());
         summary.put("withCollisionalFamilies", beltData.getBeltsWithCollisionalFamilies());
         summary.put("withDwarfPlanets", beltData.getBeltsWithDwarfPlanets());
         if (beltData.getMassCount() > 0) {

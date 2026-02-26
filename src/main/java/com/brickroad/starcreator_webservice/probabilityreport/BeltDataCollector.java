@@ -44,7 +44,6 @@ public class BeltDataCollector {
 
     // ── Boolean Counters ──
     private int beltsWithGaps = 0;
-    private int beltsWithResonanceGaps = 0;
     private int beltsWithCollisionalFamilies = 0;
     private int beltsWithDwarfPlanets = 0;
 
@@ -131,7 +130,6 @@ public class BeltDataCollector {
 
         // Structure flags
         if (Boolean.TRUE.equals(band.getHasGaps())) beltsWithGaps++;
-        if (Boolean.TRUE.equals(band.getHasResonanceGaps())) beltsWithResonanceGaps++;
         if (Boolean.TRUE.equals(band.getHasCollisionalFamilies())) {
             beltsWithCollisionalFamilies++;
             if (band.getFamilyCount() != null) {

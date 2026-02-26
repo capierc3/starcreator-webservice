@@ -37,9 +37,6 @@ public class TrojanCreator {
     private OrbitalCreator orbitalCreator;
 
     @Autowired
-    private GeologyCreator geologyCreator;
-
-    @Autowired
     private AsteroidTypeRefRepository asteroidTypeRefRepository;
 
     @Autowired
@@ -48,6 +45,7 @@ public class TrojanCreator {
     private List<AsteroidTypeRef> cachedAsteroidTypes;
 
     private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
     private static final double AU_IN_KM = ConversionFormulas.AU_TO_KM;
 
     // ── Mass thresholds for tiered content ──
@@ -87,6 +85,10 @@ public class TrojanCreator {
     private void tryCreateTrojansForPlanet(Planet planet, Star star) {
         // Skip dwarf planets (orbital position < 0)
         if (planet.getOrbitalPosition() != null && planet.getOrbitalPosition() < 0) return;
+
+        // Minimum mass for stable L4/L5 regions (dwarf planets < 0.5 M⊕ can't hold trojans)
+        Double planetMass = planet.getEarthMass();
+        if (planetMass != null && planetMass < 0.5) return;
 
         // Need a valid orbit
         Double sma = planet.getSemiMajorAxisAU();
@@ -155,8 +157,11 @@ public class TrojanCreator {
         // Hot Jupiter, Lava World, etc. — very close-in, tidal disruption
         if (lc.contains("hot") || lc.contains("lava") || lc.contains("puffy") || lc.contains("iron")) return 0.02;
 
-        // Dwarf planets, ice worlds, etc.
-        if (lc.contains("dwarf") || lc.contains("ice world")) return 0.02;
+        // Dwarf planets: insufficient mass for stable L4/L5 regions, often in MMR with giants
+        if (lc.contains("dwarf")) return 0.0;
+
+        // Ice worlds
+        if (lc.contains("ice world")) return 0.02;
 
         // Carbon planets, other exotic types
         return 0.05;
@@ -193,17 +198,20 @@ public class TrojanCreator {
     private void createTrojanSwarm(Planet planet, Star star, String lagrangePoint, double swarmMassEarth) {
         OrbitalBand swarm = new OrbitalBand();
         swarm.setBandCategory(BandCategory.TROJAN);
+        swarm.setBandType("TROJAN");
         swarm.setPlanet(planet);
         swarm.setLagrangePoint(lagrangePoint);
         swarm.deriveMeanLibrationOffset();
 
         // ── Libration amplitude (random per swarm) ──
-        // Mean ~33°, range 0.6–88° (observed distribution)
-        // Use log-normal-like distribution: most are moderate, a few are extreme
-        double rawAmplitude = RandomUtils.rollRange(0.6, 88.0);
-        // Weight toward mean: 70% chance of being within 15–55°
+        // Tadpole orbits require amplitudes < ~60° (beyond that → horseshoe orbits).
+        // Jupiter's trojans have amplitudes up to ~35°, capped here at 55° for safety.
+        // Use weighted distribution: 70% chance of moderate 10–35°, rest spans 0.5–55°.
+        double rawAmplitude;
         if (RandomUtils.rollRange(0.0, 1.0) < 0.70) {
-            rawAmplitude = RandomUtils.rollRange(15.0, 55.0);
+            rawAmplitude = RandomUtils.rollRange(10.0, 35.0);
+        } else {
+            rawAmplitude = RandomUtils.rollRange(0.5, 55.0);
         }
         swarm.setLibrationAmplitudeDeg(rawAmplitude);
 
@@ -262,7 +270,6 @@ public class TrojanCreator {
 
         // ── No structural features ──
         swarm.setHasGaps(false);
-        swarm.setHasResonanceGaps(false);
         swarm.setHasCollisionalFamilies(false);
 
         // ── Description ──
@@ -295,10 +302,13 @@ public class TrojanCreator {
         int count = determineTrojanAsteroidCount(planet, swarmMassEarth);
         if (count <= 0) return;
 
-        // D, P, C types are dominant in Trojan populations
+        // D, P, C types are dominant in Trojan populations.
+        // Exclude Centaurs (CE) and Scattered Disk (SD) — dynamically unstable
+        // populations that cannot exist in stable L4/L5 resonance.
         List<AsteroidTypeRef> eligibleTypes = cachedAsteroidTypes.stream()
                 .filter(t -> {
                     String code = t.getCode();
+                    if ("CE".equals(code) || "SD".equals(code)) return false;
                     return "D".equals(code) || "P".equals(code) || "C".equals(code)
                             || "KUIPER".equals(t.getBeltAffinity());
                 })
@@ -380,12 +390,17 @@ public class TrojanCreator {
         asteroid.setRadius(radiusKm);
         asteroid.setCircumference(2.0 * Math.PI * radiusKm);
 
-        // Irregular shape (Trojans are generally irregular)
+        // Persist earthRadius (radius is @Transient and lost on DB reload)
+        asteroid.setEarthRadius(radiusKm / EARTH_RADIUS_KM);
+
+        // Irregular shape (Trojans are generally irregular — all < 400km)
         if (diameterKm < 400) {
             double a = diameterKm * RandomUtils.rollRange(0.9, 1.1);
             double b = diameterKm * RandomUtils.rollRange(0.7, 0.95);
             double c = diameterKm * RandomUtils.rollRange(0.5, 0.85);
             asteroid.setDimensionsKm(String.format("%.0f x %.0f x %.0f", a, b, c));
+        } else {
+            asteroid.setDimensionsKm(String.format("~%.0fkm spheroid", diameterKm));
         }
 
         // Density from type
@@ -410,12 +425,7 @@ public class TrojanCreator {
             sma = Math.max(innerSma, Math.min(outerSma, sma));
         }
 
-        double ecc = RandomUtils.rollRange(
-                swarm.getAverageEccentricity() * 0.5,
-                swarm.getMaxEccentricity());
-        double inc = RandomUtils.rollRange(0.0, swarm.getMaxInclinationDeg());
-
-        asteroid.setOrbit(orbitalCreator.createAsteroidOrbit(sma, stellarMass, ecc, inc));
+        asteroid.setSemiMajorAxisAu(sma);
 
         // Rotation
         asteroid.setRotationPeriodHours(RandomUtils.rollRange(4.0, 24.0));
@@ -432,26 +442,23 @@ public class TrojanCreator {
         asteroid.setSurfaceGravity(surfaceGravity);
         asteroid.setEscapeVelocity(PhysicsFormulas.escapeVelocityKmS(massKg, radiusKm));
 
-        // Terrain
-        String surfaceFeatures = type.getTypicalSurfaceFeatures();
-        String crateringLevel = selectCrateringLevel();
+        // Terrain (direct fields)
+        asteroid.setSurfaceFeatures(type.getTypicalSurfaceFeatures());
+        asteroid.setCrateringLevel(selectCrateringLevel());
         boolean hasRegolith = diameterKm > 1.0;
-        Double regolithDepthM = hasRegolith
+        asteroid.setHasRegolith(hasRegolith);
+        asteroid.setRegolithDepthM(hasRegolith
                 ? RandomUtils.rollRange(0.1, Math.min(100, diameterKm * 0.1))
-                : null;
-        TerrainProperties terrain = geologyCreator.createAsteroidTerrain(
-                surfaceFeatures, crateringLevel, hasRegolith, regolithDepthM);
-        asteroid.setTerrain(terrain);
+                : null);
 
         // Composition
         asteroid.setComposition(type.getPrimaryComposition());
         asteroid.setIsDifferentiated(false); // Trojans are too small
 
-        // Moons (binary asteroids)
-        generateAsteroidMoons(asteroid, diameterKm);
+        // Ice content (trojans are organic-ice mixtures)
+        asteroid.setIcePercent(RandomUtils.rollRange(10.0, 40.0));
 
         // Identity
-        asteroid.setIsNotable(true);
         asteroid.setNotableReason(generateNotableReason(asteroid, rank, swarm));
         asteroid.setDesignationCode(generateDesignationCode(rank));
         asteroid.setAgeMY(swarm.getAgeMY());
@@ -522,7 +529,8 @@ public class TrojanCreator {
     private boolean isGasIceGiant(Planet planet) {
         String type = planet.getPlanetType();
         return type != null && (type.contains("Gas Giant") || type.contains("Ice Giant")
-                || type.contains("Jupiter") || type.contains("Sub-Neptune"));
+                || type.contains("Jupiter"));
+        // Sub-Neptune excluded: 2-10 M⊕ bodies lack the mass for stable Trojan moons
     }
 
     private AsteroidTypeRef selectAsteroidType(List<AsteroidTypeRef> types) {
@@ -547,27 +555,13 @@ public class TrojanCreator {
         return "EXTREME";
     }
 
-    private void generateAsteroidMoons(Asteroid asteroid, double diameterKm) {
-        double moonChance = diameterKm > 100 ? 0.15 : 0.05;
-        if (RandomUtils.rollRange(0.0, 1.0) < moonChance) {
-            asteroid.setHasMoon(true);
-            asteroid.setMoonCount(1);
-            double moonSize = diameterKm * RandomUtils.rollRange(0.02, 0.15);
-            double moonDistance = diameterKm * RandomUtils.rollRange(2, 10);
-            asteroid.setMoonDescription(String.format(
-                    "1 small satellite (~%.0f km diameter at %.0f km distance)",
-                    moonSize, moonDistance));
-        } else {
-            asteroid.setHasMoon(false);
-            asteroid.setMoonCount(0);
-        }
-    }
-
     private String generateNotableReason(Asteroid asteroid, int rank, OrbitalBand swarm) {
         List<String> reasons = new ArrayList<>();
         if (rank == 1) reasons.add("Largest object in the " + swarm.getLagrangePoint() + " Trojan swarm");
-        if (Boolean.TRUE.equals(asteroid.getHasMoon())) reasons.add("Has a small satellite");
         if (asteroid.getRadius() > 75) reasons.add("Significant size");
+        if (asteroid.getIcePercent() != null && asteroid.getIcePercent() > 30) {
+            reasons.add(String.format("Ice-rich body (%.0f%% ice by mass)", asteroid.getIcePercent()));
+        }
         if (reasons.isEmpty()) reasons.add("Notable Trojan asteroid");
         return String.join("; ", reasons);
     }

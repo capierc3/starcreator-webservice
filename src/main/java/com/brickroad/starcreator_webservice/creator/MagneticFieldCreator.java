@@ -60,11 +60,9 @@ public class MagneticFieldCreator {
         String coreType = planet.getCoreType();
         String planetType = planet.getPlanetType();
 
-        // Gas/ice giant types above 5 M⊕ have enough internal pressure
-        // and heat for ionic fluid or metallic hydrogen dynamos
-        if (planetType != null && (planetType.contains("Ice Giant") ||
-                planetType.contains("Sub-Neptune") ||
-                planetType.contains("Mini-Neptune"))) {
+        // Neptune-class and ice giant types above 5 M⊕ have enough internal pressure
+        // and heat for ionic fluid dynamos
+        if (isNeptuneClass(planetType)) {
             if (planet.getEarthMass() != null && planet.getEarthMass() > 5.0) {
                 return true;
             }
@@ -101,21 +99,52 @@ public class MagneticFieldCreator {
     }
 
     private void generateActiveDynamoField(PlanetaryMagneticField field, Planet planet, Star parentStar) {
-        double rotationFactor = calculateRotationFactor(planet);
         double massFactor = planet.getEarthMass() != null ? planet.getEarthMass() : 1.0;
-        double densityFactor = calculateDensityFactor(planet);
         double ageFactor = calculateAgeFactor(planet);
-        //double massLimit = planet.getEarthMass() * 3.0;
-        double massLimit = planet.getEarthMass() * densityFactor * 2.5;
-        double baseStrength = rotationFactor * Math.sqrt(massFactor) * densityFactor * ageFactor;
 
         String pType = planet.getPlanetType();
-        if (pType != null && (pType.contains("Ice World") || pType.contains("Dwarf Planet"))) {
-            baseStrength = RandomUtils.rollRange(0.005, 0.03);
-        } else {
+        boolean isGasGiant = pType != null && pType.contains("Gas") && !pType.contains("Ice");
+        boolean isNeptune = isNeptuneClass(pType);
+
+        double baseStrength;
+
+        if (isGasGiant) {
+            // Metallic hydrogen dynamo: convection-driven, only weakly rotation-dependent.
+            // Jupiter ~20× Earth, Saturn ~0.7× Earth. Scales roughly with mass^0.5-0.8.
+            // Tidally-locked hot Jupiters still produce strong fields.
+            double rotFloor = RandomUtils.rollRange(0.6, 1.0);
+            double rotationFactor = Math.max(calculateRotationFactor(planet), rotFloor);
+            baseStrength = rotationFactor * Math.pow(massFactor, 0.6) * ageFactor;
             baseStrength *= RandomUtils.rollRange(0.5, 2.0);
+            // Cap: even the largest gas giant shouldn't exceed ~50× Earth
+            baseStrength = Math.min(baseStrength, 50.0);
+
+        } else if (isNeptune) {
+            // Ionic fluid dynamo: driven by convection in water/ammonia/methane ices
+            // under extreme pressure. Neptune ~27× Earth, Uranus ~0.75× Earth.
+            // Less rotation-dependent than rocky core dynamos.
+            double rotFloor = RandomUtils.rollRange(0.3, 0.7);
+            double rotationFactor = Math.max(calculateRotationFactor(planet), rotFloor);
+            baseStrength = rotationFactor * Math.pow(massFactor, 0.5) * ageFactor;
+            baseStrength *= RandomUtils.rollRange(0.3, 1.5);
+            // Cap: Neptune-class tops out around ~30× Earth
+            baseStrength = Math.min(baseStrength, 30.0);
+
+        } else {
+            // Rocky core dynamo: strongly rotation-dependent (Earth, Mars, Mercury).
+            // Original formula: rotation × √mass × density_ratio × age
+            double rotationFactor = calculateRotationFactor(planet);
+            double densityFactor = calculateDensityFactor(planet);
+            double massLimit = massFactor * densityFactor * 2.5;
+            baseStrength = rotationFactor * Math.sqrt(massFactor) * densityFactor * ageFactor;
+
+            if (pType != null && (pType.contains("Ice World") || pType.contains("Dwarf Planet"))) {
+                baseStrength = RandomUtils.rollRange(0.005, 0.03);
+            } else {
+                baseStrength *= RandomUtils.rollRange(0.5, 2.0);
+            }
+            baseStrength = Math.min(baseStrength, massLimit);
         }
-        baseStrength = Math.min(baseStrength, massLimit);
         
         field.setStrengthComparedToEarth(baseStrength);
 
@@ -351,10 +380,8 @@ public class MagneticFieldCreator {
                 field.setDynamoEfficiency(RandomUtils.rollRange(0.6, 0.95));
                 field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.EXTREME);
             }
-            // Ice giants & Sub-Neptunes: ionic fluid dynamo
-            else if (planetType.contains("Ice Giant") ||
-                    planetType.contains("Sub-Neptune") ||
-                    planetType.contains("Mini-Neptune")) {
+            // Ice giants & Neptune-class: ionic fluid dynamo
+            else if (isNeptuneClass(planetType)) {
                 field.setDynamoType(PlanetaryMagneticField.DynamoType.IONIC_FLUID);
                 field.setDynamoEfficiency(RandomUtils.rollRange(0.4, 0.7));
                 field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.STRONG);
@@ -464,7 +491,7 @@ public class MagneticFieldCreator {
         boolean veryStrong = baseStrength > 2.0;
         boolean weak = baseStrength < 0.5;
         boolean isGasGiant = planet.getPlanetType() != null &&
-                (planet.getPlanetType().contains("Gas") || planet.getPlanetType().contains("Ice Giant"));
+                (planet.getPlanetType().contains("Gas") || isNeptuneClass(planet.getPlanetType()));
         boolean fastRotation = planet.getRotationPeriodHours() != null &&
                 Math.abs(planet.getRotationPeriodHours()) < 10;
 
@@ -1063,6 +1090,20 @@ public class MagneticFieldCreator {
         // Dipole: B(r) = B_surface * (R_planet / r)^3
         double ratio = planetRadiusKm / moonDistKm;
         return surfaceFieldNT * ratio * ratio * ratio;
+    }
+
+    /**
+     * Returns true for all Neptune-class planet types: Sub-Neptune, Mini-Neptune,
+     * Warm Neptune, Hot Neptune. These share ionic fluid interiors and should
+     * receive IONIC_FLUID dynamo treatment rather than rocky CORE_DYNAMO.
+     */
+    private boolean isNeptuneClass(String planetType) {
+        return planetType != null && (
+                planetType.contains("Sub-Neptune") ||
+                planetType.contains("Mini-Neptune") ||
+                planetType.contains("Warm Neptune") ||
+                planetType.contains("Hot Neptune") ||
+                planetType.contains("Ice Giant"));
     }
 
     private enum MoonFieldType {

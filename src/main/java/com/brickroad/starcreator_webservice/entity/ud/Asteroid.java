@@ -49,65 +49,65 @@ public class Asteroid {
     @JsonIgnore
     private String nameColumn;
 
-    // ── Physical Properties (extracted to PhysicalProperties entity) ──
+    // ── Physical Properties ──
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "physical_properties_id")
     @Schema(description = "Physical properties including mass, radius, density, and gravity")
     private PhysicalProperties physicalProperties;
 
-    // ── Orbital Properties ──
-
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "orbital_elements_id")
-    @Schema(description = "Keplerian orbital elements for this asteroid's orbit")
-    private OrbitalElements orbit;
-
-    // ── Rotation (extracted to RotationProperties entity) ──
+    // ── Rotation ──
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "rotation_properties_id")
     @Schema(description = "Rotation and spin-axis properties")
     private RotationProperties rotation;
 
-    // ── Terrain (extracted to TerrainProperties) ──
+    // ── Orbital (persisted SMA — unique per asteroid, derived from parent band range) ──
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "terrain_id")
-    @Schema(description = "Terrain and surface morphology data")
-    private TerrainProperties terrain;
+    @Column(name = "semi_major_axis_au")
+    @Schema(description = "Semi-major axis in AU", example = "2.77")
+    private Double semiMajorAxisAu;
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "water_id")
-    @Schema(description = "Water and hydrological properties")
-    private WaterProperties water;
+    // ── Terrain (flattened — asteroid-specific surface data) ──
 
-    // ── Composition (extracted to CompositionProperties entity) ──
+    @Column(name = "surface_features", columnDefinition = "TEXT")
+    @Schema(description = "Notable surface features")
+    private String surfaceFeatures;
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "composition_properties_id")
-    @Schema(description = "Composition properties")
-    private CompositionProperties compositionProperties;
+    @Column(name = "cratering_level", length = 20)
+    @Schema(description = "Impact cratering level", example = "MODERATE")
+    private String crateringLevel;
 
-    // ── Moons ──
+    @Column(name = "has_regolith")
+    @Schema(description = "Whether surface has a regolith layer")
+    private Boolean hasRegolith;
 
-    @Column(name = "has_moon")
-    @Schema(description = "Whether this asteroid has its own moon(s)")
-    private Boolean hasMoon;
+    @Column(name = "regolith_depth_m")
+    @Schema(description = "Regolith depth in meters")
+    private Double regolithDepthM;
 
-    @Column(name = "moon_count")
-    @Schema(description = "Number of moons")
-    private Integer moonCount;
+    // ── Composition (flattened) ──
 
-    @Column(name = "moon_description")
-    @Schema(description = "Description of the asteroid's moon(s)")
-    private String moonDescription;
+    @Column(name = "composition", columnDefinition = "TEXT")
+    @Schema(description = "Composition breakdown", example = "Silicates 60%, Iron-Nickel 30%, Carbon 10%")
+    private String composition;
+
+    @Column(name = "is_differentiated")
+    @Schema(description = "Whether the asteroid has differentiated interior layers")
+    private Boolean isDifferentiated;
+
+    @Column(name = "core_type", length = 50)
+    @Schema(description = "Core composition type for differentiated asteroids", example = "Iron-Nickel")
+    private String coreType;
+
+    // ── Water/Ice ──
+
+    @Column(name = "ice_percent")
+    @Schema(description = "Ice content as percentage of mass (0-100)", example = "45.2")
+    private Double icePercent;
 
     // ── Notable Status ──
-
-    @Column(name = "is_notable")
-    @JsonIgnore
-    private Boolean isNotable;
 
     @Column(name = "notable_reason")
     @Schema(description = "Reason this asteroid is notable", example = "Largest object in the belt")
@@ -227,6 +227,12 @@ public class Asteroid {
     }
     public void setEscapeVelocity(Double escapeVelocity) { ensurePhysicalProperties().setEscapeVelocity(escapeVelocity); }
 
+    @JsonIgnore
+    public Double getEarthRadius() {
+        return physicalProperties != null ? physicalProperties.getEarthRadius() : null;
+    }
+    public void setEarthRadius(Double earthRadius) { ensurePhysicalProperties().setEarthRadius(earthRadius); }
+
     // ── Rotation Convenience Getters/Setters ──
 
     private RotationProperties ensureRotation() {
@@ -245,73 +251,4 @@ public class Asteroid {
         return rotation != null ? rotation.getAxialTilt() : null;
     }
     public void setAxialTilt(Double axialTilt) { ensureRotation().setAxialTilt(axialTilt); }
-
-    // ── Composition Convenience Getters/Setters ──
-
-    private CompositionProperties ensureCompositionProperties() {
-        if (compositionProperties == null) compositionProperties = new CompositionProperties();
-        return compositionProperties;
-    }
-
-    @JsonIgnore
-    public String getComposition() {
-        return compositionProperties != null ? compositionProperties.getComposition() : null;
-    }
-    public void setComposition(String composition) { ensureCompositionProperties().setComposition(composition); }
-
-    @JsonIgnore
-    public Boolean getIsDifferentiated() {
-        return compositionProperties != null ? compositionProperties.getIsDifferentiated() : null;
-    }
-    public void setIsDifferentiated(Boolean isDifferentiated) { ensureCompositionProperties().setIsDifferentiated(isDifferentiated); }
-
-    @JsonIgnore
-    public String getCoreType() {
-        return compositionProperties != null ? compositionProperties.getCoreType() : null;
-    }
-    public void setCoreType(String coreType) { ensureCompositionProperties().setCoreType(coreType); }
-
-    // ── Orbital Convenience Getters (delegate to orbit object) ──
-
-    @JsonIgnore
-    public Double getSemiMajorAxisAu() {
-        return orbit != null ? orbit.getSemiMajorAxis() : null;
-    }
-
-    @JsonIgnore
-    public Double getEccentricity() {
-        return orbit != null ? orbit.getEccentricity() : null;
-    }
-
-    @JsonIgnore
-    public Double getInclinationDegrees() {
-        return orbit != null ? orbit.getInclinationDegrees() : null;
-    }
-
-    @JsonIgnore
-    public Double getOrbitalPeriodDays() {
-        return orbit != null ? orbit.getOrbitalPeriodDays() : null;
-    }
-
-    // ── Terrain Convenience Getters (delegate to terrain object) ──
-
-    @JsonIgnore
-    public String getSurfaceFeatures() {
-        return terrain != null ? terrain.getSurfaceFeatures() : null;
-    }
-
-    @JsonIgnore
-    public String getCrateringLevel() {
-        return terrain != null ? terrain.getCrateringLevel() : null;
-    }
-
-    @JsonIgnore
-    public Boolean getHasRegolith() {
-        return terrain != null ? terrain.getHasRegolith() : null;
-    }
-
-    @JsonIgnore
-    public Double getRegolithDepthM() {
-        return terrain != null ? terrain.getRegolithDepthM() : null;
-    }
 }

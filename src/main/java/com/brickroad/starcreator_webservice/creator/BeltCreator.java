@@ -33,9 +33,6 @@ public class BeltCreator {
     private OrbitalCreator orbitalCreator;
 
     @Autowired
-    private GeologyCreator geologyCreator;
-
-    @Autowired
     private PlanetCreator planetCreator;
 
     private List<BeltTypeRef> cachedBeltTypes;
@@ -515,7 +512,7 @@ public class BeltCreator {
         belt.setPrimaryComposition("Water Ice 50%, Methane Ice 15%, Ammonia Ice 10%, Rock 20%, Organics 5%");
 
         // No Kirkwood-style gaps, but resonance structures
-        belt.setHasResonanceGaps(false);
+        belt.setHasGaps(false);
         belt.setHasCollisionalFamilies(RandomUtils.rollRange(0.0, 1.0) < 0.3);
         if (Boolean.TRUE.equals(belt.getHasCollisionalFamilies())) {
             belt.setFamilyCount(RandomUtils.rollRange(1, 5));
@@ -594,7 +591,7 @@ public class BeltCreator {
         belt.setPeakDensityDistance(innerEdge * 1.5);
 
         belt.setPrimaryComposition("Water Ice 55%, Methane Ice 10%, Ammonia Ice 10%, Rock 20%, Organics 5%");
-        belt.setHasResonanceGaps(false);
+        belt.setHasGaps(false);
         belt.setHasCollisionalFamilies(false);
 
         belt.setDescription(generateBeltDescription(belt, beltType));
@@ -858,12 +855,17 @@ public class BeltCreator {
         asteroid.setRadius(radiusKm);
         asteroid.setCircumference(2.0 * Math.PI * radiusKm);
 
-        // Irregular shape for smaller asteroids
+        // Persist earthRadius (radius is @Transient and lost on DB reload)
+        asteroid.setEarthRadius(radiusKm / EARTH_RADIUS_KM);
+
+        // Dimensions — irregular shape for smaller bodies, spheroid label for large ones
         if (diameterKm < 400) {
             double a = diameterKm * RandomUtils.rollRange(0.9, 1.1);
             double b = diameterKm * RandomUtils.rollRange(0.7, 0.95);
             double c = diameterKm * RandomUtils.rollRange(0.5, 0.85);
             asteroid.setDimensionsKm(String.format("%.0f x %.0f x %.0f", a, b, c));
+        } else {
+            asteroid.setDimensionsKm(String.format("~%.0fkm spheroid", diameterKm));
         }
 
         // Density from type
@@ -888,9 +890,7 @@ public class BeltCreator {
             sma = Math.max(belt.getInnerOrbit().getSemiMajorAxis(), Math.min(belt.getOuterOrbit().getSemiMajorAxis(), sma));
         }
 
-        double ecc = RandomUtils.rollRange(belt.getAverageEccentricity() * 0.5, belt.getMaxEccentricity());
-        double inc = RandomUtils.rollRange(0.0, belt.getMaxInclinationDeg());
-        asteroid.setOrbit(orbitalCreator.createAsteroidOrbit(sma, arch.totalStellarMass, ecc, inc));
+        asteroid.setSemiMajorAxisAu(sma);
 
         asteroid.setRotationPeriodHours(RandomUtils.rollRange(2.0, 20.0));
         asteroid.setAxialTilt(RandomUtils.rollRange(0.0, 180.0));
@@ -907,14 +907,13 @@ public class BeltCreator {
 
         asteroid.setEscapeVelocity(PhysicsFormulas.escapeVelocityKmS(massKg, radiusKm));
 
-        String surfaceFeatures = type.getTypicalSurfaceFeatures();
-        String crateringLevel = selectCrateringLevel();
+        asteroid.setSurfaceFeatures(type.getTypicalSurfaceFeatures());
+        asteroid.setCrateringLevel(selectCrateringLevel());
         boolean hasRegolith = diameterKm > 1.0;
-        Double regolithDepthM = hasRegolith
+        asteroid.setHasRegolith(hasRegolith);
+        asteroid.setRegolithDepthM(hasRegolith
                 ? RandomUtils.rollRange(0.1, Math.min(100, diameterKm * 0.1))
-                : null;
-        TerrainProperties terrain = geologyCreator.createAsteroidTerrain(surfaceFeatures, crateringLevel, hasRegolith, regolithDepthM);
-        asteroid.setTerrain(terrain);
+                : null);
 
         asteroid.setComposition(type.getPrimaryComposition());
 
@@ -929,9 +928,16 @@ public class BeltCreator {
             asteroid.setIsDifferentiated(false);
         }
 
-        generateAsteroidMoons(asteroid, diameterKm);
+        // Ice content based on belt location and asteroid type
+        String beltCode = belt.getBandType();
+        String typeCode = type.getCode();
+        if ("KUIPER".equals(beltCode) || "SCATTERED_DISK".equals(beltCode)) {
+            asteroid.setIcePercent(RandomUtils.rollRange(30.0, 80.0));
+        } else if ("C".equals(typeCode) || "B".equals(typeCode)) {
+            asteroid.setIcePercent(RandomUtils.rollRange(1.0, 15.0));
+        }
+        // S, M, V, E types in inner belt: effectively dry, leave null
 
-        asteroid.setIsNotable(true);
         asteroid.setNotableReason(generateNotableReason(asteroid, rank, belt));
         asteroid.setDesignationCode(generateDesignationCode(rank));
 
@@ -942,7 +948,7 @@ public class BeltCreator {
 
     private void generateResonanceGaps(OrbitalBand belt, Planet giant) {
         if (giant == null || giant.getSemiMajorAxisAU() == null) {
-            belt.setHasResonanceGaps(false);
+            belt.setHasGaps(false);
             return;
         }
 
@@ -966,10 +972,10 @@ public class BeltCreator {
         }
 
         if (!gaps.isEmpty()) {
-            belt.setHasResonanceGaps(true);
+            belt.setHasGaps(true);
             belt.setGapDescription(String.join("; ", gaps));
         } else {
-            belt.setHasResonanceGaps(false);
+            belt.setHasGaps(false);
         }
     }
 
@@ -1083,53 +1089,33 @@ public class BeltCreator {
         return Math.max(minDiameter, Math.min(maxDiameter, diameter));
     }
 
-    private void generateAsteroidMoons(Asteroid asteroid, double diameterKm) {
-        double moonChance = 0.0;
-
-        if (diameterKm > 500) {
-            moonChance = 0.25;
-        } else if (diameterKm > 200) {
-            moonChance = 0.15;
-        } else if (diameterKm > 100) {
-            moonChance = 0.05;
-        }
-
-        if (RandomUtils.rollRange(0.0, 1.0) < moonChance) {
-            asteroid.setHasMoon(true);
-            asteroid.setMoonCount(RandomUtils.rollRange(0.0, 1.0) < 0.9 ? 1 : 2);
-
-            double moonSize = diameterKm * RandomUtils.rollRange(0.02, 0.15);
-            double moonDistance = diameterKm * RandomUtils.rollRange(2, 10);
-            asteroid.setMoonDescription(String.format(
-                    "%d small satellite%s (largest ~%.0f km diameter at %.0f km distance)",
-                    asteroid.getMoonCount(),
-                    asteroid.getMoonCount() > 1 ? "s" : "",
-                    moonSize,
-                    moonDistance
-            ));
-        } else {
-            asteroid.setHasMoon(false);
-            asteroid.setMoonCount(0);
-        }
-    }
-
     private String generateNotableReason(Asteroid asteroid, int rank, OrbitalBand belt) {
         List<String> reasons = new ArrayList<>();
 
         if (rank == 1) {
-            reasons.add("Largest object in the " + belt.getName());
+            // belt.getName() may be null at creation time (naming runs later in SystemCreator)
+            String beltLabel = belt.getName();
+            if (beltLabel == null) {
+                // Fall back to a readable belt-type label
+                String code = belt.getBandType();
+                beltLabel = switch (code != null ? code : "") {
+                    case "INNER_ROCKY" -> "inner asteroid belt";
+                    case "OUTER_ROCKY" -> "outer asteroid belt";
+                    case "KUIPER" -> "Kuiper belt";
+                    case "SCATTERED_DISK" -> "scattered disk";
+                    default -> "belt";
+                };
+            }
+            reasons.add("Largest object in the " + beltLabel);
         }
 
         if (Boolean.TRUE.equals(asteroid.getIsDifferentiated())) {
             reasons.add("Differentiated interior with " + asteroid.getCoreType() + " core");
         }
 
-        if (Boolean.TRUE.equals(asteroid.getHasMoon())) {
-            if (asteroid.getMoonCount() > 1) {
-                reasons.add("Binary/multiple system with " + asteroid.getMoonCount() + " satellites");
-            } else {
-                reasons.add("Has a small satellite moon");
-            }
+        // High ice content
+        if (asteroid.getIcePercent() != null && asteroid.getIcePercent() > 50) {
+            reasons.add(String.format("Ice-rich body (%.0f%% ice by mass)", asteroid.getIcePercent()));
         }
 
         // High albedo outlier
@@ -1183,7 +1169,7 @@ public class BeltCreator {
         sb.append(String.format("Spanning %.2f to %.2f AU with an estimated %,d objects. ",
                 belt.getInnerOrbit().getSemiMajorAxis(), belt.getOuterOrbit().getSemiMajorAxis(), belt.getEstimatedObjectCount()));
 
-        if (Boolean.TRUE.equals(belt.getHasResonanceGaps())) {
+        if (Boolean.TRUE.equals(belt.getHasGaps())) {
             sb.append("Features orbital resonance gaps. ");
         }
         if (Boolean.TRUE.equals(belt.getHasCollisionalFamilies())) {

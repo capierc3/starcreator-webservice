@@ -14,6 +14,6 @@ public interface AsteroidRepository extends JpaRepository<Asteroid, Long> {
     @Query("SELECT a FROM Asteroid a WHERE a.band.id = :bandId ORDER BY a.physicalProperties.earthMass DESC")
     List<Asteroid> findByBandIdOrderByMassDesc(@Param("bandId") Long bandId);
 
-    @Query("SELECT a FROM Asteroid a WHERE a.band.id = :bandId AND a.isNotable = true ORDER BY a.physicalProperties.earthMass DESC")
+    @Query("SELECT a FROM Asteroid a WHERE a.band.id = :bandId ORDER BY a.physicalProperties.earthMass DESC")
     List<Asteroid> findNotableByBandId(@Param("bandId") Long bandId);
 }

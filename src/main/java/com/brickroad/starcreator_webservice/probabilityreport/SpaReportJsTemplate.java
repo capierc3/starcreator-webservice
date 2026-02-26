@@ -1174,7 +1174,6 @@ function renderNotableAsteroids(c) {
     { value: fmt(total), label: 'Total Notable' },
     { value: fmt(summary.fromBelts || 0), label: 'From Belts', cls: 'cyan' },
     { value: fmt(summary.fromTrojans || 0), label: 'From Trojans', cls: 'purple' },
-    { value: fmt(summary.withMoons || 0), label: 'With Moons' },
     { value: fmt(summary.differentiated || 0), label: 'Differentiated', cls: 'cyan' },
     { value: fmt(summary.withRegolith || 0), label: 'With Regolith' },
     { value: summary.avgDiameterKm != null ? round2(summary.avgDiameterKm) + ' km' : '-', label: 'Avg Diameter', cls: 'purple' },
@@ -1214,7 +1213,6 @@ function renderNotableAsteroids(c) {
         if (td.avgDensity != null) cards.push({ value: round2(td.avgDensity) + ' g/cm\u00B3', label: 'Avg Density' });
         if (td.avgAlbedo != null) cards.push({ value: td.avgAlbedo.toFixed(3), label: 'Avg Albedo', cls: 'purple' });
         cards.push({ value: fmt(td.differentiated || 0), label: 'Differentiated' });
-        cards.push({ value: fmt(td.withMoons || 0), label: 'With Moons', cls: 'cyan' });
         if (cards.length > 0) statGrid(inner, cards);
         if (td.sources) distTable(inner, td.sources, count, 'Source');
       }, false);
@@ -1240,7 +1238,6 @@ function renderBelts(c) {
     { value: summary.avgWidthAU != null ? round2(summary.avgWidthAU) + ' AU' : '-', label: 'Avg Width', cls: 'cyan' },
     { value: fmt(summary.dwarfPlanetsInBelts || 0), label: 'Dwarf Planets', cls: 'purple' },
     { value: fmt(summary.withGaps || 0), label: 'With Gaps' },
-    { value: fmt(summary.withResonanceGaps || 0), label: 'Resonance Gaps', cls: 'info' },
     { value: fmt(summary.withCollisionalFamilies || 0), label: 'Collisional Families' },
     { value: fmt(summary.withDwarfPlanets || 0), label: 'Belts w/ Dwarfs', cls: 'cyan' }
   ]);
