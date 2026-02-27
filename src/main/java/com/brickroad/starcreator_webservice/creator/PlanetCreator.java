@@ -324,6 +324,10 @@ public class PlanetCreator {
         WaterProperties water = waterCreator.createPlanetWaterProperties(planet, parentStar);
         planet.setWater(water);
 
+        // Now that water coverage is known, reduce visible crater count for submerged craters.
+        // Atmosphere and erosion adjustments were already applied in createPlanetTerrain().
+        refineCrateringForWaterCoverage(planet);
+
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);
 
@@ -429,11 +433,13 @@ public class PlanetCreator {
 
             double baseRotation = getBaseRotation(planet, type);
 
+            // Tidal braking: close-in planets around old stars spin down over time.
+            // Factor ≥ 1.0 always — tidal effects only slow rotation, never speed it up.
             double tidalBrakingFactor = 1.0;
             if (parentStar != null && planet.getSemiMajorAxisAU() != null && planet.getAgeMY() != null) {
                 double distanceFactor = Math.pow(planet.getSemiMajorAxisAU(), 2);
                 double ageFactor = 1.0 + (planet.getAgeMY() / 5000.0);
-                tidalBrakingFactor = Math.min(5.0, ageFactor / distanceFactor);
+                tidalBrakingFactor = Math.max(1.0, Math.min(5.0, ageFactor / distanceFactor));
             }
 
             rotationHours = baseRotation * tidalBrakingFactor;
@@ -462,45 +468,35 @@ public class PlanetCreator {
         }
     }
 
+    /**
+     * Physics-based minimum rotation period: 1.5× the rotational breakup limit.
+     *
+     * At breakup, centrifugal force at the equator exceeds self-gravity and the
+     * planet disintegrates. The 1.5× safety margin means no planet spins faster
+     * than 67% of its breakup speed — physically stable with room for oblateness.
+     *
+     * Reference floors (1.5× breakup):
+     *   Gas giant  (ρ ~1.3 g/cm³) → ~4.3 hrs   (Jupiter actual: 9.9 hrs)
+     *   Sub-Neptune (ρ ~1.0)       → ~4.9 hrs   (was hardcoded 10.0)
+     *   Super-Earth (ρ ~5.0)       → ~2.2 hrs   (was hardcoded 3.0-4.0)
+     *   Earth-like  (ρ ~5.5)       → ~2.1 hrs   (was hardcoded 4.0)
+     */
     private double getMinimumRotationPeriod(Planet planet, PlanetTypeRef type) {
-        String planetType = type.getName().toLowerCase();
-        double earthMass = planet.getEarthMass();
-
-        if (planetType.contains("gas giant") || planetType.contains("hot jupiter") ||
-                planetType.contains("super-jupiter")) {
-            return 9.0;
-        }
-        if (planetType.contains("ice giant") || planetType.contains("mini-neptune") ||
-                planetType.contains("sub-neptune")) {
-            return 10.0;
-        }
-        if (planetType.contains("terrestrial") || planetType.contains("super-earth") ||
-                planetType.contains("ocean world") || planetType.contains("desert")) {
-            if (earthMass > 2.0) {
-                return 3.0;
-            }
-            return 4.0;
-        }
-        if (planetType.contains("dwarf") || earthMass < 0.3) {
-            if (earthMass < 0.01) return 24.0;
-            else if (earthMass < 0.05) return 12.0;
-            else if (earthMass < 0.15) return 6.0;
-            else return 3.0;
-        }
-        if (planetType.contains("ice world")) {
-            return 3.0;
-        }
-        if (planetType.contains("lava") || planetType.contains("hot rocky")) {
-            return 6.0;
-        }
-        return 2.0;
+        double density = planet.getDensity(); // g/cm³
+        if (density <= 0) density = 1.0;      // safety fallback
+        double breakupHours = PhysicsFormulas.rotationalBreakupPeriodHours(density);
+        return breakupHours * 1.5;
     }
 
     private static double getBaseRotation(Planet planet, PlanetTypeRef type) {
         double baseRotation;
         String typeName = type.getName().toLowerCase();
 
-        if (typeName.contains("gas giant") || typeName.contains("ice giant")) {
+        // Gas giants, ice giants, and all Neptune/Jupiter-class planets are fast rotators.
+        // "neptune" catches Sub-Neptune, Mini-Neptune, Warm Neptune, Hot Neptune.
+        // "jupiter" catches Hot Jupiter, Super-Jupiter.
+        if (typeName.contains("gas giant") || typeName.contains("ice giant")
+                || typeName.contains("neptune") || typeName.contains("jupiter")) {
             baseRotation = 8.0 + (planet.getEarthMass() / 100.0) * 5.0; // 8-13 hours typical
         } else if (typeName.contains("super-earth")) {
             baseRotation = 15.0 + (planet.getEarthMass() * 3.0); // 15-35 hours
@@ -508,6 +504,38 @@ public class PlanetCreator {
             baseRotation = 24.0 * Math.pow(planet.getEarthMass(), -0.25);
         }
         return baseRotation;
+    }
+
+    /**
+     * Reduces visible crater count for water coverage — craters under oceans or
+     * ice sheets aren't visible from orbit. Called after water properties are set,
+     * since water data isn't available when terrain is initially generated.
+     */
+    private void refineCrateringForWaterCoverage(Planet planet) {
+        TerrainProperties terrain = planet.getTerrain();
+        if (terrain == null) return;
+
+        Integer craters = terrain.getEstimatedVisibleCraters();
+        if (craters == null || craters <= 0) return;
+
+        Double waterCoverage = planet.getWaterCoveragePercent();
+        if (waterCoverage == null || waterCoverage <= 0) return;
+
+        // Only exposed dry land preserves visible craters
+        double landFraction = Math.max(0.1, 1.0 - (waterCoverage / 100.0));
+        int adjusted = Math.max(0, (int) Math.round(craters * landFraction));
+
+        terrain.setEstimatedVisibleCraters(adjusted);
+
+        // Reclassify if the level dropped
+        String level;
+        if (adjusted < 50)           level = "Pristine";
+        else if (adjusted < 500)     level = "Light";
+        else if (adjusted < 5_000)   level = "Moderate";
+        else if (adjusted < 50_000)  level = "Heavy";
+        else if (adjusted < 500_000) level = "Extreme";
+        else                         level = "Saturated";
+        terrain.setCrateringLevel(level);
     }
 
     private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type) {

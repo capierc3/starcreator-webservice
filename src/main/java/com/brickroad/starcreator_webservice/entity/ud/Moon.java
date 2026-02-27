@@ -1,5 +1,7 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
+import com.brickroad.starcreator_webservice.model.climate.*;
+import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;

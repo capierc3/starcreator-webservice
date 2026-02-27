@@ -302,15 +302,14 @@ public class TrojanCreator {
         int count = determineTrojanAsteroidCount(planet, swarmMassEarth);
         if (count <= 0) return;
 
-        // D, P, C types are dominant in Trojan populations.
-        // Exclude Centaurs (CE) and Scattered Disk (SD) — dynamically unstable
-        // populations that cannot exist in stable L4/L5 resonance.
+        // Trojans are dominated by D-type (primitive dark), P-type (primitive),
+        // and C-type (carbonaceous) asteroids — the same spectral types found in
+        // Jupiter's L4/L5 swarms. KBO types (KC, KH, KR) are Kuiper Belt objects
+        // and should never appear in trojan swarms regardless of orbital distance.
         List<AsteroidTypeRef> eligibleTypes = cachedAsteroidTypes.stream()
                 .filter(t -> {
                     String code = t.getCode();
-                    if ("CE".equals(code) || "SD".equals(code)) return false;
-                    return "D".equals(code) || "P".equals(code) || "C".equals(code)
-                            || "KUIPER".equals(t.getBeltAffinity());
+                    return "D".equals(code) || "P".equals(code) || "C".equals(code);
                 })
                 .collect(Collectors.toList());
 

@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.brickroad.starcreator_webservice.enums.ColonizationSuitability;
 import com.brickroad.starcreator_webservice.enums.HabitabilityClass;
 import com.brickroad.starcreator_webservice.enums.TerraformingPotential;
@@ -465,9 +466,6 @@ public class HabitabilityCreator {
         Double pressure = planet.getSurfacePressure();
         String waterInv = planet.getWaterInventory();
 
-        // Mean surface temp in habitable range?
-        hab.setMeanSurfaceTempHabitable(temp != null && temp >= 273.0 && temp <= 373.0);
-
         // Surface liquid water possible? (from WaterCreator's assessment)
         Double liquidPercent = planet.getLiquidWaterCoveragePercent();
         hab.setSurfaceLiquidWaterPossible(liquidPercent != null && liquidPercent > 0.1);
@@ -518,8 +516,6 @@ public class HabitabilityCreator {
         Double temp = moon.getSurfaceTemp();
         Double pressure = moon.getSurfacePressure();
         String waterInv = moon.getWaterInventory();
-
-        hab.setMeanSurfaceTempHabitable(temp != null && temp >= 273.0 && temp <= 373.0);
 
         Double liquidPercent = moon.getLiquidWaterCoveragePercent();
         hab.setSurfaceLiquidWaterPossible(liquidPercent != null && liquidPercent > 0.1);

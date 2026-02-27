@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
 import org.springframework.stereotype.Component;
 

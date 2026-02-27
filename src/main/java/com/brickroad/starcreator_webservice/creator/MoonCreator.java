@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ref.PlanetTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.enums.AtmosphereClassification;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -174,6 +175,10 @@ public class MoonCreator {
         // Water system — self-contained: handles subsurface ocean, surface water, tiny moonlet defaults
         WaterProperties water = waterCreator.createMoonWaterProperties(moon);
         moon.setWater(water);
+
+        // Now that composition classification, ice coverage, and cryovolcanism are all
+        // known, replace the preliminary density-based albedo with a physics-informed value.
+        refineAlbedo(moon);
 
         // Capture a deterministic seed for climate/habitability regeneration on load
         // Names aren't assigned yet (SystemCreator names after creation),
@@ -414,10 +419,84 @@ public class MoonCreator {
         moon.setRadius(radiusKm);
         moon.setCircumference(2 * Math.PI * radiusKm);
 
-        double albedo = "ICY".equals(moon.getCompositionType()) ?
-                RandomUtils.rollRange(0.5, 0.9) :
-                RandomUtils.rollRange(0.1, 0.3);
-        moon.setAlbedo(albedo);
+        // Preliminary albedo for temperature estimation — uses density as an ice
+        // fraction proxy. Pure ice ≈ 0.92 g/cm³, silicate rock ≈ 3.3 g/cm³.
+        // Refined later in refineAlbedo() once ice coverage and composition are known.
+        double albedo;
+        if ("ICY".equals(moon.getCompositionType())) {
+            // Density 0.9-1.8 → higher density = more rock mixed in = darker
+            double iceFraction = Math.max(0.0, Math.min(1.0, (1.8 - density) / (1.8 - 0.9)));
+            double rockAlbedo = 0.12;
+            double agedIceAlbedo = 0.55;
+            albedo = rockAlbedo + iceFraction * (agedIceAlbedo - rockAlbedo);
+            albedo *= RandomUtils.rollRange(0.9, 1.1);
+        } else {
+            albedo = RandomUtils.rollRange(0.08, 0.25);
+        }
+        moon.setAlbedo(Math.max(0.02, Math.min(0.95, albedo)));
+    }
+
+    /**
+     * Refines the preliminary albedo using composition classification, surface ice
+     * coverage, and cryovolcanism status — all of which are set after the initial
+     * physical properties pass.
+     *
+     * The model treats the surface as a linear mix of dark silicate regolith and ice,
+     * where the ice brightness depends on whether active cryovolcanism continuously
+     * resurfaces it with fresh material.
+     *
+     * Reference values from the solar system:
+     *   Enceladus  (cryo-active, ~100% ice)  → 0.81
+     *   Europa     (no cryo, ~90% ice)        → 0.67
+     *   Ganymede   (no cryo, ~50% ice)        → 0.43
+     *   Callisto   (no cryo, ~40% ice, dark)  → 0.22
+     *   Io         (volcanic, sulfur-coated)  → 0.63
+     *   Earth Moon (rocky, no ice)            → 0.12
+     */
+    private void refineAlbedo(Moon moon) {
+        Double iceCoverage = moon.getIceCoveragePercent();
+        if (iceCoverage == null) {
+            // No water data (tiny moonlets, etc.) — keep the preliminary albedo
+            return;
+        }
+
+        double iceFraction = iceCoverage / 100.0;
+        boolean hasCryo = Boolean.TRUE.equals(moon.getHasCryovolcanism());
+
+        // Dark silicate/regolith baseline: radiation-darkened rocky surface
+        double rockAlbedo = 0.10;
+
+        // Ice albedo depends on resurfacing:
+        //   Fresh ice (cryovolcanism) → 0.85-0.95: continuous eruptions coat the surface
+        //   Aged ice (no resurfacing) → 0.45-0.60: radiation darkening, micrometeorite
+        //     gardening, and dust contamination over geological time
+        double iceAlbedo;
+        if (hasCryo) {
+            iceAlbedo = RandomUtils.rollRange(0.85, 0.95);
+        } else {
+            iceAlbedo = RandomUtils.rollRange(0.45, 0.60);
+        }
+
+        // Linear mix weighted by surface ice fraction
+        double albedo = rockAlbedo * (1.0 - iceFraction) + iceAlbedo * iceFraction;
+
+        // Composition classification adjustment: iron-rich and carbon-rich surfaces
+        // are darker than typical silicates even without ice
+        String classification = moon.getCompositionClassification();
+        if (classification != null) {
+            if (classification.contains("IRON")) {
+                rockAlbedo = 0.06;
+                albedo = rockAlbedo * (1.0 - iceFraction) + iceAlbedo * iceFraction;
+            } else if (classification.contains("CARBON")) {
+                rockAlbedo = 0.04;
+                albedo = rockAlbedo * (1.0 - iceFraction) + iceAlbedo * iceFraction;
+            }
+        }
+
+        // Small random variance (±5%) for natural variation
+        albedo *= RandomUtils.rollRange(0.95, 1.05);
+
+        moon.setAlbedo(Math.max(0.02, Math.min(0.95, albedo)));
     }
 
     // ═══════════════════════════════════════════════════════════════

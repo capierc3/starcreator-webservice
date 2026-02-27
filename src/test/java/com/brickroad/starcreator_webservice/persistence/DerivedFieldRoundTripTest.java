@@ -1,6 +1,8 @@
 package com.brickroad.starcreator_webservice.persistence;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
+import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.brickroad.starcreator_webservice.service.CreationService;
 import com.brickroad.starcreator_webservice.service.SystemPersistenceService;
 import org.junit.jupiter.api.Test;

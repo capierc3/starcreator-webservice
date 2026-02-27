@@ -158,7 +158,12 @@ public class MagneticFieldCreator {
         determineSpatialVariation(field, planet);
         determineTemporalProperties(field, planet, baseStrength);
 
-        if (baseStrength > 0.1) {
+        // Any measurable active dynamo gets the full Chapman-Ferraro magnetosphere
+        // calculation. The physics formula naturally handles weak fields by producing
+        // small, compressed magnetospheres (Mercury-like). Previously the threshold
+        // was 0.1, which excluded tidally-locked terrestrial planets that have real
+        // core dynamos but weak fields (e.g. 0.03× Earth).
+        if (baseStrength > 0.001) {
             calculateMagnetosphere(field, planet, baseStrength, parentStar);
         }
         determineProtectionLevel(field, baseStrength, parentStar, planet);
@@ -545,8 +550,6 @@ public class MagneticFieldCreator {
 
     private void calculateMagnetosphere(PlanetaryMagneticField field, Planet planet,
                                         double baseStrength, Star parentStar) {
-        field.setMagnetosphereExists(true);
-
         double magnetopauseRadii;
 
         if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
@@ -566,6 +569,15 @@ public class MagneticFieldCreator {
             magnetopauseRadii = 10.0 * Math.sqrt(baseStrength) * RandomUtils.rollRange(0.8, 1.2);
         }
 
+        // Let the physics decide: if the magnetopause is at the formula floor (1.5 radii),
+        // stellar wind has overwhelmed the field and there's no meaningful magnetosphere.
+        // Above that, even a small compressed magnetosphere exists (Mercury-like).
+        if (magnetopauseRadii <= 1.5) {
+            field.setMagnetosphereExists(false);
+            return;
+        }
+
+        field.setMagnetosphereExists(true);
         field.setMagnetopauseDistancePlanetRadii(magnetopauseRadii);
 
         // Bow shock: deterministic multiplier (shared) + creator-only variance

@@ -69,6 +69,28 @@ public final class PhysicsFormulas {
     }
 
     /**
+     * Minimum rotation period before rotational breakup (centrifugal force
+     * exceeds self-gravity at the equator).
+     *
+     * Derived from balancing centripetal acceleration with gravitational:
+     *   T_breakup = sqrt(3π / (G × ρ))
+     *
+     * Reference values:
+     *   Jupiter  (ρ 1.33 g/cm³) → 2.85 hrs  (actual 9.9 hrs, ~3.5× margin)
+     *   Saturn   (ρ 0.69 g/cm³) → 3.97 hrs  (actual 10.7 hrs, ~2.7× margin)
+     *   Neptune  (ρ 1.64 g/cm³) → 2.57 hrs  (actual 16.1 hrs, ~6.3× margin)
+     *   Earth    (ρ 5.51 g/cm³) → 1.40 hrs  (actual 24 hrs, ~17× margin)
+     *
+     * @param densityGCm3 mean density in g/cm³
+     * @return breakup period in hours
+     */
+    public static double rotationalBreakupPeriodHours(double densityGCm3) {
+        double densityKgM3 = densityGCm3 * 1000.0;
+        double periodSeconds = Math.sqrt(3.0 * Math.PI / (ConversionFormulas.GRAVITATIONAL_CONSTANT * densityKgM3));
+        return periodSeconds / 3600.0;
+    }
+
+    /**
      * Surface gravity as a multiple of Earth gravity (g).
      *
      * @param massKg   body mass in kilograms

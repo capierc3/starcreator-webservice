@@ -1,6 +1,8 @@
 package com.brickroad.starcreator_webservice.baseline;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
+import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.brickroad.starcreator_webservice.service.CreationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

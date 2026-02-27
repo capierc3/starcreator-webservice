@@ -1,6 +1,8 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.brickroad.starcreator_webservice.enums.BandCategory;
+import com.brickroad.starcreator_webservice.model.climate.*;
+import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.fasterxml.jackson.annotation.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;

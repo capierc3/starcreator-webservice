@@ -66,6 +66,12 @@ public class GeologyCreator {
         terrain.setErosionLevel(geology.getErosionLevel());
         terrain.setPrimaryErosionAgent(geology.getPrimaryErosionAgent());
 
+        // Adjust crater count for environmental factors the template doesn't consider:
+        // atmosphere (ablates impactors), erosion (degrades craters), water (submerges craters)
+        if (!isGasGiant(planet.getPlanetType())) {
+            adjustCrateringForEnvironment(terrain, planet);
+        }
+
         // Storm fields stay on Planet directly
         planet.setHasGreatStorm(geology.getHasGreatStorm());
         planet.setNumberOfMajorStorms(geology.getNumberOfMajorStorms());
@@ -101,6 +107,88 @@ public class GeologyCreator {
 
         terrain.setLabel("Planet terrain");
         return terrain;
+    }
+
+    /**
+     * Adjusts the template/hardcoded crater count for environmental factors that
+     * erase, degrade, or hide impact craters over geological time.
+     *
+     * Templates set cratering based on geological activity alone (mass/age ratio),
+     * which determines how fast the surface is resurfaced by tectonics/volcanism.
+     * But three additional factors are equally important:
+     *
+     * 1. Atmospheric shielding — thick atmospheres ablate small impactors before
+     *    they reach the surface. Mars (0.006 bar) has heavy cratering; Earth (1 bar)
+     *    has ~190 confirmed craters; Venus (90 bar) has only ~1000 despite no tectonics.
+     *
+     * 2. Surface erosion — wind and water degrade crater rims and fill basins.
+     *    On Earth, most craters are invisible within tens of millions of years.
+     *
+     * 3. Water coverage — craters under oceans or ice sheets aren't visible.
+     *    Only exposed continental craters count as "visible."
+     *
+     * Reference: Earth has activity score ~0.22 (same "Heavy" template range),
+     * yet has only ~190 confirmed craters. This method brings the numbers in line.
+     */
+    private void adjustCrateringForEnvironment(TerrainProperties terrain, Planet planet) {
+        Integer baseCraters = terrain.getEstimatedVisibleCraters();
+        if (baseCraters == null || baseCraters <= 0) return;
+
+        double adjustedCraters = baseCraters;
+
+        // ── 1. Atmospheric shielding ──
+        // Formula: factor = 1 / (1 + pressure × 3)
+        // Produces a smooth curve that matches observed solar system cratering:
+        //   0.006 bar (Mars)   → 0.98  (almost no protection)
+        //   0.1 bar            → 0.77  (thin atmosphere, moderate shielding)
+        //   1.0 bar (Earth)    → 0.25  (strong shielding, small impactors burn up)
+        //   5.0 bar            → 0.06  (very few craters form)
+        //   90 bar (Venus)     → 0.004 (essentially only the largest impactors survive)
+        Double pressure = planet.getSurfacePressure();
+        if (pressure != null && pressure > 0.01) {
+            double atmFactor = 1.0 / (1.0 + pressure * 3.0);
+            adjustedCraters *= atmFactor;
+        }
+
+        // ── 2. Erosion ──
+        // Active erosion agents degrade crater rims and fill basins over time.
+        // Wind is less effective than water; volcanic resurfacing is the strongest.
+        String erosionLevel = terrain.getErosionLevel();
+        if (erosionLevel != null) {
+            double erosionFactor = switch (erosionLevel) {
+                case "Extreme" -> 0.10;
+                case "Heavy"   -> 0.25;
+                case "Moderate" -> 0.45;
+                case "Light"   -> 0.65;
+                case "Minimal" -> 0.85;
+                default        -> 1.0;  // "None" or unrecognized
+            };
+            adjustedCraters *= erosionFactor;
+        }
+
+        // Note: water coverage adjustment is handled separately in PlanetCreator
+        // after water properties are set (terrain is generated before water).
+
+        int finalCraters = Math.max(0, (int) Math.round(adjustedCraters));
+
+        // Reclassify cratering level based on adjusted count
+        String adjustedLevel;
+        if (finalCraters < 50) {
+            adjustedLevel = "Pristine";
+        } else if (finalCraters < 500) {
+            adjustedLevel = "Light";
+        } else if (finalCraters < 5_000) {
+            adjustedLevel = "Moderate";
+        } else if (finalCraters < 50_000) {
+            adjustedLevel = "Heavy";
+        } else if (finalCraters < 500_000) {
+            adjustedLevel = "Extreme";
+        } else {
+            adjustedLevel = "Saturated";
+        }
+
+        terrain.setEstimatedVisibleCraters(finalCraters);
+        terrain.setCrateringLevel(adjustedLevel);
     }
 
     public TerrainProperties createMoonTerrain(Moon moon, String geologicalActivity, Boolean hasCryovolcanism) {
