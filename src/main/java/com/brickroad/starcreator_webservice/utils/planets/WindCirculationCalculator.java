@@ -30,20 +30,22 @@ public class WindCirculationCalculator {
 
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
             calculateGasGiantCirculation(weather, rotationHours, earthRadius, tempGradient, atmClass);
-            return;
-        }
-
-        if (tidallyLocked) {
+        } else if (tidallyLocked) {
             calculateTidallyLockedCirculation(weather, pressureAtm, tempGradient);
-            return;
+        } else {
+            // Standard rocky world circulation
+            calculateRockyCirculation(weather, rotationHours, earthRadius, pressureAtm,
+                    surfaceGravity, scaleHeightKm, tempGradient, surfaceTemp, atmClass);
+
+            // Super-rotation check
+            checkSuperRotation(weather, rotationHours, pressureAtm, surfaceTemp);
         }
 
-        // Standard rocky world circulation
-        calculateRockyCirculation(weather, rotationHours, earthRadius, pressureAtm,
-                surfaceGravity, scaleHeightKm, tempGradient, surfaceTemp, atmClass);
-
-        // Super-rotation check
-        checkSuperRotation(weather, rotationHours, pressureAtm, surfaceTemp);
+        // Apply speed-of-sound cap to all wind speeds.
+        // Sustained supersonic winds are physically implausible — shock heating
+        // dissipates energy faster than any driving mechanism can sustain.
+        // Neptune's ~580 m/s peak is roughly Mach 1.1 in its atmosphere.
+        applySpeedOfSoundCap(weather, surfaceTemp, atmClass, planet.getAtmosphereComposition());
     }
 
     // ================================================================
@@ -283,6 +285,57 @@ public class WindCirculationCalculator {
             weather.setJetStreamSpeedMs(round2(Math.max(weather.getJetStreamSpeedMs(), superWind)));
         } else {
             weather.setHasSuperRotation(false);
+        }
+    }
+
+    // ================================================================
+    // SPEED-OF-SOUND CAP
+    // ================================================================
+
+    /**
+     * Caps all wind speeds to physically plausible fractions of the local speed of sound.
+     * <p>
+     * Speed of sound: c = sqrt(γ × R × T / M), where γ ≈ 1.4 for diatomic,
+     * R = 8.314 J/(mol·K), T = temperature (K), M = mean molecular weight (g/mol → kg/mol).
+     * <p>
+     * Mean winds capped at 0.9c (subsonic). Gusts capped at 1.2c (brief transonic,
+     * matching Neptune's observed peak of ~Mach 1.1). Jet streams capped at 0.95c.
+     */
+    private void applySpeedOfSoundCap(PlanetaryClimate weather, double surfaceTemp,
+                                       String atmClass, String compositionSummary) {
+        // Determine mean molecular weight (g/mol)
+        double meanMolWeight = 0;
+        if (compositionSummary != null) {
+            meanMolWeight = CelestialBodyUtils.calculateMeanMolecularWeightFromString(compositionSummary);
+        }
+        if (meanMolWeight <= 0 && atmClass != null) {
+            meanMolWeight = CelestialBodyUtils.estimateMolecularWeightFromClassification(atmClass);
+        }
+        if (meanMolWeight <= 0) {
+            meanMolWeight = 29.0; // Earth-like fallback
+        }
+
+        // Speed of sound: c = sqrt(gamma * R * T / M)
+        // gamma ≈ 1.4 (diatomic H2, N2, O2; reasonable for most atmospheres)
+        // R = 8.314 J/(mol·K), M in kg/mol
+        double gamma = 1.4;
+        double R = 8.314;
+        double speedOfSound = Math.sqrt(gamma * R * surfaceTemp / (meanMolWeight / 1000.0));
+
+        // Cap thresholds
+        double meanCap = speedOfSound * 0.9;    // Sustained winds stay subsonic
+        double gustCap = speedOfSound * 1.2;    // Brief gusts can be transonic
+        double jetCap  = speedOfSound * 0.95;   // Jet streams near but below sonic
+
+        if (weather.getMeanSurfaceWindSpeedMs() != null && weather.getMeanSurfaceWindSpeedMs() > meanCap) {
+            weather.setMeanSurfaceWindSpeedMs(round2(meanCap));
+            weather.setWindIntensity(classifyWindIntensity(meanCap));
+        }
+        if (weather.getMaxGustSpeedMs() != null && weather.getMaxGustSpeedMs() > gustCap) {
+            weather.setMaxGustSpeedMs(round2(gustCap));
+        }
+        if (weather.getJetStreamSpeedMs() != null && weather.getJetStreamSpeedMs() > jetCap) {
+            weather.setJetStreamSpeedMs(round2(jetCap));
         }
     }
 

@@ -96,7 +96,7 @@ public class StarCreator {
         star.setCircumference(ConversionFormulas.radiusToCircumference(star.getRadius()));
 
         star.setSolarLuminosity(calculateLuminosity(solarMass, type));
-        star.setSurfaceTemp(calculateSurfaceTemp(type, solarMass));
+        star.setSurfaceTemp(calculateSurfaceTemp(type, solarMass, star.getSolarLuminosity(), solarRadius));
         star.setColorIndex(determineColor(star.getSurfaceTemp()));
 
         star.setAgeMY(calculateStarAge(solarMass, type));
@@ -159,7 +159,15 @@ public class StarCreator {
         String name = type.getName().toLowerCase();
 
         if (name.contains("main sequence")) {
-            return Math.pow(mass, 3.5);
+            // Piecewise mass-luminosity relation (Duric 2004 / Eker et al. 2018)
+            // The exponent steepens for higher masses and flattens for the lowest
+            if (mass < 0.43) {
+                return 0.23 * Math.pow(mass, 2.3);   // Very low mass MS stars
+            } else if (mass < 2.0) {
+                return Math.pow(mass, 4.0);           // Solar-neighbourhood MS
+            } else {
+                return 1.4 * Math.pow(mass, 3.5);    // Intermediate/high mass MS
+            }
         } else if (name.contains("brown dwarf")) {
             return Math.pow(mass, 2.3) * 0.001;
         } else if (name.contains("giant")) {
@@ -173,27 +181,43 @@ public class StarCreator {
         return Math.pow(mass, 3.5); // Default
     }
 
-    private double calculateSurfaceTemp(StarTypeRef type, double mass) {
+    /**
+     * Calculate surface temperature for the star.
+     * <p>
+     * For main-sequence stars, temperature is derived from luminosity and radius
+     * via the Stefan-Boltzmann law: T = T_sun × (L / R²)^(1/4), with ±3% scatter
+     * for natural variance. This guarantees self-consistency between L, R, and T.
+     * <p>
+     * For non-MS types (giants, white dwarfs, neutron stars, brown dwarfs),
+     * temperature is set independently since their L-R-T relationships are more
+     * complex and type-specific.
+     */
+    private double calculateSurfaceTemp(StarTypeRef type, double mass,
+                                        double luminosity, double radius) {
+        String name = type.getName().toLowerCase();
+
+        if (name.contains("main sequence")) {
+            // Stefan-Boltzmann: T = T_sun * (L_sun / R_sun^2)^(1/4)
+            // where L and R are in solar units
+            double tEffective = 5778.0 * Math.pow(luminosity / (radius * radius), 0.25);
+            // Add ±3% natural scatter (starspots, magnetic activity, metallicity effects)
+            tEffective *= RandomUtils.rollRange(0.97, 1.03);
+            return Math.round(tEffective);
+        }
+
+        // Non-main-sequence types: temperature is not tightly coupled to MS relations
         String spectral = type.getSpectralClass();
 
         if (spectral == null) {
-            String name = type.getName().toLowerCase();
             if (name.contains("white dwarf")) return RandomUtils.rollRange(8000, 40000);
             if (name.contains("neutron")) return RandomUtils.rollRange(600000, 1000000);
             if (name.contains("giant")) return RandomUtils.rollRange(3000, 5000);
             if (name.contains("brown dwarf")) return RandomUtils.rollRange(500, 2400);
-            return 5778; // Default to Sun-like
+            return 5778;
         }
 
-        // Main sequence temperatures by spectral class
+        // Brown dwarfs (L, T, Y spectral classes) — temperature set by spectral type
         return switch (spectral) {
-            case "O" -> RandomUtils.rollRange(30000, 50000);
-            case "B" -> RandomUtils.rollRange(10000, 30000);
-            case "A" -> RandomUtils.rollRange(7500, 10000);
-            case "F" -> RandomUtils.rollRange(6000, 7500);
-            case "G" -> RandomUtils.rollRange(5200, 6000);
-            case "K" -> RandomUtils.rollRange(3700, 5200);
-            case "M" -> RandomUtils.rollRange(2400, 3700);
             case "L" -> RandomUtils.rollRange(1300, 2400);
             case "T" -> RandomUtils.rollRange(500, 1300);
             case "Y" -> RandomUtils.rollRange(250, 500);

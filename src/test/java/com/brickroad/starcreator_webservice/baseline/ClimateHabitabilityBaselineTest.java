@@ -186,7 +186,7 @@ class ClimateHabitabilityBaselineTest {
                 assertNotNull(violations, prefix + ".waterPhaseAtSurface", h.getWaterPhaseAtSurface());
 
                 // Geological
-                assertNotNull(violations, prefix + ".hasCarbonCycle", h.getHasCarbonCycle());
+                assertNotNull(violations, prefix + ".hasGeochemicalCycle", h.getHasGeochemicalCycle());
                 assertNotNull(violations, prefix + ".nutrientCyclingPotential", h.getNutrientCyclingPotential());
                 assertNotNull(violations, prefix + ".magneticProtectionAdequate", h.getMagneticProtectionAdequate());
 

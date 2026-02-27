@@ -155,6 +155,13 @@ public class StormCalculator {
 
         double jetSpeed = weather.getJetStreamSpeedMs() != null ? weather.getJetStreamSpeedMs() : 150.0;
         double stormWind = jetSpeed * RandomUtils.rollRange(0.8, 1.5);
+
+        // Cap storm winds to speed of sound — same physics limit as mean/gust winds
+        double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 100.0;
+        double meanMolWeight = CelestialBodyUtils.estimateMolecularWeightFromClassification(atmClass);
+        double soundSpeed = Math.sqrt(1.4 * 8.314 * surfaceTemp / (meanMolWeight / 1000.0));
+        stormWind = Math.min(stormWind, soundSpeed * 1.1); // Storm winds: allow near-sonic
+
         weather.setTypicalStormWindSpeedMs(round2(Math.min(800.0, stormWind)));
 
         // Great storms / persistent vortices
@@ -167,6 +174,8 @@ public class StormCalculator {
                 ExtremeClimateEvent greatStorm = new ExtremeClimateEvent();
                 double diameterFactor = RandomUtils.rollRange(0.05, 0.3); // Fraction of planet diameter
                 double vortexWindMs = jetSpeed * RandomUtils.rollRange(1.0, 2.5);
+                // Cap vortex winds to speed of sound — same physics limit as other wind fields
+                vortexWindMs = Math.min(vortexWindMs, soundSpeed * 1.1);
                 double ageYears = Math.pow(10, RandomUtils.rollRange(1.0, 3.0)); // 10 to 1000 years
 
                 String stormName;

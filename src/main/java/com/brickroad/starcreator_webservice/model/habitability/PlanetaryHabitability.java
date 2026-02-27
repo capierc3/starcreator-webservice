@@ -105,11 +105,11 @@ public class PlanetaryHabitability {
     // ================================================================
     // GEOLOGICAL HABITABILITY
     // ================================================================
-    @Schema(description = "Whether a carbon-silicate cycle operates")
-    private Boolean hasCarbonCycle = false;
+    @Schema(description = "Whether an active geochemical cycle operates (carbon-silicate, nitrogen-ammonia, etc.)")
+    private Boolean hasGeochemicalCycle = false;
 
-    @Schema(description = "Strength of the carbon cycle", example = "STRONG")
-    private String carbonCycleStrength;
+    @Schema(description = "Strength of the geochemical cycle", example = "STRONG")
+    private String geochemicalCycleStrength;
 
     @Schema(description = "Geothermal heat flux in mW/m\u00b2", example = "95")
     private Double geothermalHeatFluxMwM2;

@@ -14,6 +14,8 @@ public class WaterCreator {
     private static final double WATER_TRIPLE_POINT_TEMP_K = 273.16;
     private static final double WATER_TRIPLE_POINT_PRESSURE_ATM = 0.00604;
     private static final double WATER_BOILING_100C_K = 373.15;
+    /** Above this temperature, surface ice sublimates too fast to persist in vacuum. */
+    private static final double ICE_SUBLIMATION_LIMIT_K = 170.0;
 
     /**
      * Creates water properties for a planet. Returns null for gaseous bodies
@@ -65,10 +67,17 @@ public class WaterCreator {
 
         // Step 2: Tiny moonlets get simplified defaults
         if (moonMass < 0.0005) {
+            double tinyTemp = moon.getSurfaceTemp() != null ? moon.getSurfaceTemp() : 100.0;
+            double tinyPressure = moon.getSurfacePressure() != null ? moon.getSurfacePressure() : 0.0;
+            boolean tinySurfaceIcePossible = (tinyPressure >= WATER_TRIPLE_POINT_PRESSURE_ATM)
+                    ? tinyTemp < WATER_TRIPLE_POINT_TEMP_K
+                    : tinyTemp < ICE_SUBLIMATION_LIMIT_K;
+
             if (Boolean.TRUE.equals(wp.getHasSubsurfaceOcean())) {
                 wp.setWaterInventory("MODERATE");
                 wp.setLiquidWaterCoveragePercent(0.0);
-                wp.setIceCoveragePercent(RandomUtils.rollRange(40.0, 90.0));
+                wp.setIceCoveragePercent(tinySurfaceIcePossible
+                        ? RandomUtils.rollRange(40.0, 90.0) : 0.0);
                 wp.setWaterCoveragePercent(wp.getIceCoveragePercent());
                 wp.setHasSubsurfaceWater(true);
                 if (wp.getSubsurfaceWaterDepthKm() == null && wp.getIceShellThicknessKm() != null) {
@@ -534,20 +543,12 @@ public class WaterCreator {
         double temp = moon.getSurfaceTemp() != null ? moon.getSurfaceTemp() : 100.0;
         double pressure = moon.getSurfacePressure() != null ? moon.getSurfacePressure() : 0.0;
 
-        if (temp < WATER_TRIPLE_POINT_TEMP_K || pressure < WATER_TRIPLE_POINT_PRESSURE_ATM) {
-            double icePercent = getBaseIcePercent(inventory) * RandomUtils.rollRange(0.7, 1.3);
+        boolean liquidPossible = temp >= WATER_TRIPLE_POINT_TEMP_K
+                && temp <= WATER_BOILING_100C_K
+                && pressure >= WATER_TRIPLE_POINT_PRESSURE_ATM;
 
-            if (temp < 80) {
-                icePercent *= 0.5;
-            }
-
-            wp.setLiquidWaterCoveragePercent(0.0);
-            wp.setIceCoveragePercent(Math.max(0, Math.min(100, icePercent)));
-            return;
-        }
-
-        if (temp >= WATER_TRIPLE_POINT_TEMP_K && temp <= WATER_BOILING_100C_K
-                && pressure >= WATER_TRIPLE_POINT_PRESSURE_ATM) {
+        if (liquidPossible) {
+            // Warm enough + enough pressure for liquid water (rare for moons)
             double liquidPercent = getBaseLiquidPercent(inventory) * RandomUtils.rollRange(0.3, 0.7);
             double icePercent = getBaseIcePercent(inventory) * RandomUtils.rollRange(0.3, 0.6);
 
@@ -556,14 +557,29 @@ public class WaterCreator {
             return;
         }
 
-        if (temp > WATER_BOILING_100C_K) {
+        // No liquid possible — check if surface ice can persist
+        boolean icePossible;
+        if (pressure < WATER_TRIPLE_POINT_PRESSURE_ATM) {
+            // Vacuum/near-vacuum: ice sublimates above ~170K
+            icePossible = temp < ICE_SUBLIMATION_LIMIT_K;
+        } else {
+            // Has atmosphere: ice stable below freezing
+            icePossible = temp < WATER_TRIPLE_POINT_TEMP_K;
+        }
+
+        if (icePossible) {
+            double icePercent = getBaseIcePercent(inventory) * RandomUtils.rollRange(0.7, 1.3);
+            if (temp < 80) {
+                icePercent *= 0.5; // Very cold = deeply buried/thin frost
+            }
             wp.setLiquidWaterCoveragePercent(0.0);
-            wp.setIceCoveragePercent(0.0);
+            wp.setIceCoveragePercent(Math.max(0, Math.min(100, icePercent)));
             return;
         }
 
+        // Too hot for any surface water/ice
         wp.setLiquidWaterCoveragePercent(0.0);
-        wp.setIceCoveragePercent(getBaseIcePercent(inventory) * RandomUtils.rollRange(0.5, 1.0));
+        wp.setIceCoveragePercent(0.0);
     }
 
     private void assessMoonSubsurfaceWater(WaterProperties wp, Moon moon, WaterInventory inventory) {

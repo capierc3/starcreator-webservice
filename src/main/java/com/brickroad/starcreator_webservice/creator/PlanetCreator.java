@@ -579,8 +579,29 @@ public class PlanetCreator {
             } else {
                 radius = type.getMaxRadiusEarth() * (1.0 - (mass - 500) / 10000.0);
             }
-        } else if (typeName.contains("ice")) {
+        } else if (typeName.contains("dwarf")) {
+            // Rocky-ice mass-radius for KBO-class bodies.
+            // No ice-inflation coefficient — real KBOs are 50-70% rock by mass
+            // (Pluto ~70% rock, Eris ~70% rock) despite icy surfaces.
+            // At 0.0022 M⊕ → R=0.191 (1218 km, ρ ≈ 1.7) — matches Pluto (1188 km).
+            // At 0.001  M⊕ → R=0.155 (990 km,  ρ ≈ 1.5) — small KBO.
             radius = Math.pow(mass, 0.27);
+        } else if (typeName.contains("ice giant")) {
+            // Ice giants have H/He envelopes over ice-rock cores (Uranus/Neptune analogs).
+            // Use min/max radius interpolation from the type ref (3.5-5.0 R⊕ for 10-25 M⊕).
+            // Must come BEFORE the "ice" check — "Ice Giant" contains "ice".
+            double minRadius = type.getMinRadiusEarth();
+            double maxRadius = type.getMaxRadiusEarth();
+            double massPosition = Math.max(0, Math.min(1,
+                    (mass - type.getMinMassEarth()) /
+                    (type.getMaxMassEarth() - type.getMinMassEarth())));
+            radius = minRadius + Math.pow(massPosition, 0.55) * (maxRadius - minRadius);
+        } else if (typeName.contains("ice")) {
+            // Ice World: ice-dominated terrestrial planets, puffier than rocky at same mass.
+            // Coefficient 1.2 = ~50/50 ice-rock mix (Fortney et al. 2007).
+            // Pure ice would be ~1.26; pure rock is 1.0 (Earth calibration).
+            // At 1 M⊕ → R = 1.2 (ρ ≈ 3.2 g/cm³), matching ice-rock interiors.
+            radius = 1.2 * Math.pow(mass, 0.27);
         } else if (typeName.contains("terrestrial") || typeName.contains("rocky") ||
                 typeName.contains("super-earth")) {
             radius = Math.pow(mass, 0.27);

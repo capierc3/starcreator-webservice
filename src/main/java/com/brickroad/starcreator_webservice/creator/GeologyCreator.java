@@ -289,7 +289,10 @@ public class GeologyCreator {
 
             switch (type) {
                 case "TECTONICS":
-                    hasTectonics = !value.equals("None") && !value.equals("N/A");
+                    // Only "Active" and "Hyperactive" represent true plate tectonics.
+                    // "Stagnant Lid", "Molten", "Ice Shell" are tectonic regimes
+                    // without plate tectonics (no subduction/spreading ridges).
+                    hasTectonics = value.equals("Active") || value.equals("Hyperactive");
                     tectonicLevel = value;
                     break;
                 case "PLATE_TECTONICS":
