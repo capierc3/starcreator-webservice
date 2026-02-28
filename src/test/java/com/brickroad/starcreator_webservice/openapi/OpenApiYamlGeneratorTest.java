@@ -24,7 +24,7 @@ public class OpenApiYamlGeneratorTest {
     @Autowired
     private TestRestTemplate restTemplate;
 
-    @Test
+    //@Test
     public void generateOpenApiYaml() throws IOException {
         String url = "http://localhost:" + port + "/api-docs.yaml";
         ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);

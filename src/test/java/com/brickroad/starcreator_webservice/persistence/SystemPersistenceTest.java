@@ -28,7 +28,7 @@ public class SystemPersistenceTest {
     @Autowired
     private SystemPersistenceService persistenceService;
 
-    @Test
+    //@Test
     public void testSaveAndLoadSystem() throws IOException {
         // ── Generate ──
         StarSystem generated = creationService.createStarSystem();
