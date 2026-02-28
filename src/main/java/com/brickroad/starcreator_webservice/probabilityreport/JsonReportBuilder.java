@@ -143,6 +143,17 @@ public class JsonReportBuilder {
             perType.put(entry.getKey(), typeEntry);
         }
         stars.put("perType", perType);
+
+        // Companion star orbital element distributions
+        if (!starData.getCompanionEccentricityBins().isEmpty()) {
+            Map<String, Object> companionOrbits = new LinkedHashMap<>();
+            companionOrbits.put("eccentricity", starData.getCompanionEccentricityBins());
+            companionOrbits.put("inclination", starData.getCompanionInclinationBins());
+            companionOrbits.put("separation", starData.getCompanionSeparationBins());
+            companionOrbits.put("orbitalPeriod", starData.getCompanionOrbitalPeriodBins());
+            stars.put("companionOrbits", companionOrbits);
+        }
+
         return stars;
     }
 

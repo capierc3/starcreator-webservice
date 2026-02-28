@@ -95,6 +95,36 @@ public class OrbitalCreator {
     }
 
     /**
+     * Create orbital elements for a companion star orbiting a barycenter.
+     * <p>
+     * Uses Kepler's 3rd law with total system mass: P² = a³ / (M₁ + M₂).
+     * For binary stars, semiMajorAxis is the star's distance from the barycenter
+     * (not the full star-to-star separation).
+     *
+     * @param semiMajorAxisAU  distance from barycenter in AU
+     * @param totalMassSolar   sum of all masses in the orbital subsystem (solar masses)
+     * @param eccentricity     orbital eccentricity
+     * @param inclination      orbital inclination in degrees
+     * @return fully populated OrbitalElements with unit = AU
+     */
+    public OrbitalElements createStarOrbit(double semiMajorAxisAU, double totalMassSolar,
+                                            double eccentricity, double inclination) {
+        OrbitalElements orbit = new OrbitalElements();
+        orbit.setSemiMajorAxis(semiMajorAxisAU);
+        orbit.setSemiMajorAxisUnit(DistanceUnit.AU);
+        if (semiMajorAxisAU > 0 && totalMassSolar > 0) {
+            orbit.setOrbitalPeriodDays(calculateOrbitalPeriodAU(semiMajorAxisAU, totalMassSolar));
+        }
+        orbit.setEccentricity(eccentricity);
+        orbit.setInclinationDegrees(inclination);
+        if (semiMajorAxisAU > 0) {
+            randomizeAngularElements(orbit);
+        }
+        orbit.setLabel("Star orbit");
+        return orbit;
+    }
+
+    /**
      * Create orbital elements for an asteroid within a belt.
      *
      * @param smaAU           semi-major axis in AU

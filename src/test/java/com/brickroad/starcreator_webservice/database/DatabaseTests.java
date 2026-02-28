@@ -3,18 +3,21 @@ package com.brickroad.starcreator_webservice.database;
 import com.brickroad.starcreator_webservice.entity.ud.Faction;
 import com.brickroad.starcreator_webservice.service.FactionService;
 import com.brickroad.starcreator_webservice.utils.FactionUtils;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@Tag("integration")
 public class DatabaseTests {
 
     @Autowired
     private FactionService factionService;
 
-    //@Test
+    @Test
     void testCreateAndFindUser() {
         factionService.createFaction("United Stellar Coalition","Galactic Empires & Governments", "", FactionUtils.getRandomAlignment());
 
@@ -23,7 +26,7 @@ public class DatabaseTests {
         assertEquals("United Stellar Coalition", found.getName());
     }
 
-    //@Test
+    @Test
     void testRandomFaction() {
         Faction faction = factionService.getRandomFaction();
         assertNotNull(faction);

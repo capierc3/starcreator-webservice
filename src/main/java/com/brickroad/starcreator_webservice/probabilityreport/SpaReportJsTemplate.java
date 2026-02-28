@@ -538,6 +538,33 @@ function renderStars(c) {
     }
   );
 
+  // Companion star orbital distributions
+  const co = stars.companionOrbits;
+  if (co) {
+    const companionTotal = Object.values(co.eccentricity || {}).reduce((a,b) => a+b, 0);
+    subHeading(c, 'Companion Star Orbital Elements (' + fmt(companionTotal) + ' companions)');
+    note(c, 'Orbital element distributions for secondary and tertiary stars in multi-star systems.');
+
+    twoCol(c,
+      function(left) {
+        sectionCard(left, 'Barycenter Distance', '#40d8d8', function(body) {
+          distTable(body, co.separation, companionTotal, 'Distance', { sortByKey: true });
+        });
+        sectionCard(left, 'Eccentricity', '#f59e0b', function(body) {
+          distTable(body, co.eccentricity, companionTotal, 'Eccentricity', { sortByKey: true });
+        });
+      },
+      function(right) {
+        sectionCard(right, 'Inclination', '#a78bfa', function(body) {
+          distTable(body, co.inclination, companionTotal, 'Inclination', { sortByKey: true });
+        });
+        sectionCard(right, 'Orbital Period', '#c07040', function(body) {
+          distTable(body, co.orbitalPeriod, companionTotal, 'Period', { sortByKey: true });
+        });
+      }
+    );
+  }
+
   // Per-type breakdown
   const perType = stars.perType;
   if (perType && Object.keys(perType).length > 0) {

@@ -6,6 +6,7 @@ import com.brickroad.starcreator_webservice.creator.SystemCreator;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 public class PlanetTests extends AbstractCreatorTest {
 
     @Autowired
@@ -31,7 +33,7 @@ public class PlanetTests extends AbstractCreatorTest {
     @Autowired
     private SystemCreator systemCreator;
 
-    //@Test
+    @Test
     public void findPlanetByType() throws JsonProcessingException {
         String targetType = "Lava Planet";
         int maxAttempts = 1000;
@@ -73,7 +75,7 @@ public class PlanetTests extends AbstractCreatorTest {
 
     }
 
-    //@Test
+    @Test
     public void findMultiplePlanetsOfType() throws JsonProcessingException {
         String targetType = "Terrestrial Planet";
         int examplesNeeded = 10;
@@ -129,7 +131,7 @@ public class PlanetTests extends AbstractCreatorTest {
         //printJSON(output, title);
     }
 
-    //@Test
+    @Test
     public void planetProbabilityTest() throws JsonProcessingException {
         int systemsAmount = 1000;
         List<Planet> capturedPlanets = new ArrayList<>();

@@ -5,6 +5,7 @@ import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.brickroad.starcreator_webservice.service.CreationService;
 import com.brickroad.starcreator_webservice.service.SystemPersistenceService;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 class DerivedFieldRoundTripTest {
 
     @Autowired
@@ -44,7 +46,7 @@ class DerivedFieldRoundTripTest {
     //  Main Round-Trip Test — Deterministic Fields
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testDeterministicFieldsSurviveRoundTrip() {
         StarSystem generated = creationService.createStarSystem();
         assertNotNull(generated);
@@ -75,7 +77,7 @@ class DerivedFieldRoundTripTest {
     //  Presence Test — All Transient Fields Non-Null After Load
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testAllTransientFieldsPopulatedAfterRoundTrip() {
         StarSystem generated = creationService.createStarSystem();
 
@@ -114,7 +116,7 @@ class DerivedFieldRoundTripTest {
     //  Climate & Habitability Presence After Round-Trip
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testClimateAndHabitabilityPresentAfterRoundTrip() {
         StarSystem generated = creationService.createStarSystem();
 

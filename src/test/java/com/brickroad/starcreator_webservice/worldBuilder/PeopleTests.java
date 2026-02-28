@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.creator.PersonCreator;
 import com.brickroad.starcreator_webservice.entity.ud.Person;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +17,7 @@ import java.util.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 public class PeopleTests extends AbstractCreatorTest {
 
     @Autowired
@@ -26,7 +28,7 @@ public class PeopleTests extends AbstractCreatorTest {
     private static int isMale = 0;
     private static final Map<String, Integer> origins = new java.util.HashMap<>();
 
-    //@Test
+    @Test
     void buildISSWayfarersRest() throws JsonProcessingException {
         System.out.println("---------------------------");
         System.out.println("Building ISS Wayfarers Rest");
@@ -79,14 +81,14 @@ public class PeopleTests extends AbstractCreatorTest {
         System.out.println("---------------------------");
     }
 
-    //@Test
+    @Test
     void testCreatePerson() throws JsonProcessingException {
         Person person = personCreator.createPerson("Male", "English", "adult");
         Map<String, Object> testResults = Map.of("person", person);
         saveJson(listToJsonString(testResults), person.getFullName());
     }
 
-    //@Test
+    @Test
     void testCreatePeople() throws JsonProcessingException {
         List<Person> people = new ArrayList<>();
         for (int i = 0; i < PERSON_COUNT; i++) {
@@ -96,7 +98,7 @@ public class PeopleTests extends AbstractCreatorTest {
         saveJson(listToJsonString(testResults), "people");
     }
 
-    //@Test
+    @Test
     void testPeopleProbability() throws JsonProcessingException {
         int peopleAmount = 100_000;
         PerformanceTimer timer = new PerformanceTimer();

@@ -6,6 +6,7 @@ import com.brickroad.starcreator_webservice.service.SystemPersistenceService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 public class SystemPersistenceTest {
 
     @Autowired
@@ -28,7 +30,7 @@ public class SystemPersistenceTest {
     @Autowired
     private SystemPersistenceService persistenceService;
 
-    //@Test
+    @Test
     public void testSaveAndLoadSystem() throws IOException {
         // ── Generate ──
         StarSystem generated = creationService.createStarSystem();

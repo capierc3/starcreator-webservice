@@ -44,6 +44,7 @@ public class DerivedFieldCalculator {
         // Stars first — other calculations depend on star properties
         system.getStars().forEach(star -> {
             recalculateStarFields(star);
+            recalculateStarOrbitalPeriod(star, system);
 
             star.getPlanets().forEach(planet -> {
                 recalculatePhysicalProps(planet.getPhysicalProperties(), false);
@@ -138,6 +139,34 @@ public class DerivedFieldCalculator {
             star.setEstimatedRemainingMsMy(
                     PhysicsFormulas.estimatedRemainingMsMy(pp.getSolarMass(), star.getAgeMY()));
         }
+    }
+
+    /**
+     * Re-derive orbital period for companion stars from Kepler's 3rd law.
+     * P² = a³ / (M₁ + M₂) — uses total mass of the orbital subsystem.
+     * <p>
+     * For inner binary pair (PRIMARY/SECONDARY): uses sum of primary + secondary masses.
+     * For tertiary star: uses total system mass (all three stars).
+     * Primary stars at origin (SMA=0) are skipped — no orbit to derive.
+     */
+    private void recalculateStarOrbitalPeriod(Star star, StarSystem system) {
+        OrbitalElements orbit = star.getOrbit();
+        if (orbit == null || orbit.getSemiMajorAxis() == null || orbit.getSemiMajorAxis() == 0.0) return;
+
+        double totalMass;
+        if (star.getStarRole() == Star.StarRole.TERTIARY) {
+            // Outer orbit: tertiary orbits (AB) barycenter — use total system mass
+            totalMass = computeTotalStellarMass(system);
+        } else {
+            // Inner orbit: A-B pair — use sum of primary + secondary only
+            totalMass = system.getStars().stream()
+                    .filter(s -> s.getStarRole() != Star.StarRole.TERTIARY)
+                    .mapToDouble(Star::getSolarMass)
+                    .sum();
+        }
+
+        orbit.setOrbitalPeriodDays(
+                PhysicsFormulas.orbitalPeriodDaysAU(orbit.getSemiMajorAxis(), totalMass));
     }
 
     // ══════════════════════════════════════════════════════════════════

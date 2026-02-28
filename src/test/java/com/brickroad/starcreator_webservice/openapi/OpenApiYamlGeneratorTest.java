@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.openapi;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@Tag("integration")
 public class OpenApiYamlGeneratorTest {
 
     @LocalServerPort
@@ -24,7 +26,7 @@ public class OpenApiYamlGeneratorTest {
     @Autowired
     private TestRestTemplate restTemplate;
 
-    //@Test
+    @Test
     public void generateOpenApiYaml() throws IOException {
         String url = "http://localhost:" + port + "/api-docs.yaml";
         ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);

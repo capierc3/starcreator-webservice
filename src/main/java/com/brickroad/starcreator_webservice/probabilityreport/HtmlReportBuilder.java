@@ -147,6 +147,16 @@ public class HtmlReportBuilder {
             printSortedTable(w, starData.getBinaryConfigurations(), counts.getSystemCount(), "Configuration");
         }
 
+        // Companion star orbital element distributions
+        if (!starData.getCompanionEccentricityBins().isEmpty()) {
+            int companionCount = starData.getCompanionEccentricityBins().values().stream().mapToInt(Integer::intValue).sum();
+            printSubSection(w, "Companion Star Orbits (" + fmt(companionCount) + " companions)");
+            printSortedTable(w, starData.getCompanionSeparationBins(), companionCount, "Barycenter Distance");
+            printSortedTable(w, starData.getCompanionEccentricityBins(), companionCount, "Eccentricity");
+            printSortedTable(w, starData.getCompanionInclinationBins(), companionCount, "Inclination");
+            printSortedTable(w, starData.getCompanionOrbitalPeriodBins(), companionCount, "Orbital Period");
+        }
+
         printLinkedTable(w, starData.getStarTypes(), counts.getStarCount(), "Star Type");
 
         printSubSection(w, "Star Roles");

@@ -7,6 +7,7 @@ import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.utils.BinaryStabilityLimits;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 public class BeltTests extends AbstractCreatorTest {
 
     @Autowired
@@ -31,7 +33,7 @@ public class BeltTests extends AbstractCreatorTest {
 
     private static final int SYSTEM_COUNT = 100;
 
-    //@Test
+    @Test
     public void testBeltGeneration() throws JsonProcessingException {
         int systemsWithBelts = 0;
         int totalInnerBelts = 0;
@@ -102,7 +104,7 @@ public class BeltTests extends AbstractCreatorTest {
                 (totalAsteroids / (double) Math.max(1, totalInnerBelts + totalKuiperBelts + totalScatteredDisks)));
     }
 
-    //@Test
+    @Test
     public void findSystemWithBelts() throws JsonProcessingException {
         int maxAttempts = 100;
         StarSystem foundSystem = null;
@@ -136,7 +138,7 @@ public class BeltTests extends AbstractCreatorTest {
         }
     }
 
-    //@Test
+    @Test
     public void validateBeltPhysics() throws JsonProcessingException {
         for (int i = 0; i < 50; i++) {
             StarSystem system = systemCreator.generateSystem();
@@ -177,7 +179,7 @@ public class BeltTests extends AbstractCreatorTest {
         }
     }
 
-    //@Test
+    @Test
     public void testAsteroidTypeDistribution() {
         Map<String, Integer> typeCount = new HashMap<>();
         var ref = new Object() {
@@ -210,7 +212,7 @@ public class BeltTests extends AbstractCreatorTest {
     //  Multi-Star Belt Tests
     // ═════════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     public void testWideBinaryBelts() {
         int systemsTested = 0;
         int systemsWithPrimaryBelts = 0;
@@ -287,7 +289,7 @@ public class BeltTests extends AbstractCreatorTest {
         assertEquals(0, stabilityViolations, "No belt should exceed Holman-Wiegert stability limit");
     }
 
-    //@Test
+    @Test
     public void testCircumbinaryBelts() {
         int systemsTested = 0;
         int systemsWithBelts = 0;
@@ -347,7 +349,7 @@ public class BeltTests extends AbstractCreatorTest {
         assertEquals(0, cavityViolations, "No circumbinary belt should encroach on the inner cavity");
     }
 
-    //@Test
+    @Test
     public void testHierarchicalBelts() {
         int systemsTested = 0;
         int systemsWithPairBelts = 0;
@@ -414,7 +416,7 @@ public class BeltTests extends AbstractCreatorTest {
         }
     }
 
-    //@Test
+    @Test
     public void testStabilityLimits() {
         // ── S-type: equal-mass binary at 30 AU ──
         // mu = 0.5, a_crit = (0.464 - 0.380*0.5) * 30 = 0.274 * 30 = 8.22 AU
@@ -469,7 +471,7 @@ public class BeltTests extends AbstractCreatorTest {
         System.out.printf("Dead zone edge prob: %.3f%n", deadEdge);
     }
 
-    //@Test
+    @Test
     public void testBeltParentStarIntegrity() {
         int systemsTested = 0;
         int beltsChecked = 0;

@@ -41,6 +41,9 @@ public class SystemCreator {
     @Autowired
     private SectorCreator sectorCreator;
 
+    @Autowired
+    private OrbitalCreator orbitalCreator;
+
     public StarSystem generateSystem() {
         Survey survey = surveyRepository.findByCode("SCS")
                 .orElseThrow(() -> new IllegalStateException("Default survey 'SCS' not found"));
@@ -233,7 +236,7 @@ public class SystemCreator {
                 Star single = starCreator.generateStar();
                 single.setSystem(system);
                 single.setStarRole(Star.StarRole.PRIMARY);
-                single.setDistanceFromStar(0.0);
+                single.setOrbit(orbitalCreator.createStarOrbit(0.0, 0.0, 0.0, 0.0));
                 stars.add(single);
                 break;
 
@@ -250,12 +253,7 @@ public class SystemCreator {
                 secondary.setStarRole(Star.StarRole.SECONDARY);
                 stars.add(secondary);
 
-                if (config == BinaryConfiguration.S_TYPE_CLOSE || config == BinaryConfiguration.P_TYPE) {
-                    setCloseBinaryDistances(primary, secondary, system.getBinarySeparationAu());
-                } else {
-                    primary.setDistanceFromStar(0.0);
-                    secondary.setDistanceFromStar(system.getBinarySeparationAu());
-                }
+                assignBinaryOrbits(primary, secondary, system.getBinarySeparationAu(), config);
                 break;
 
             case HIERARCHICAL_BINARY_THIRD:
@@ -271,31 +269,120 @@ public class SystemCreator {
                 secondary3.setStarRole(Star.StarRole.SECONDARY);
                 stars.add(secondary3);
 
-                // Generate distant third star (can be more different)
+                // Inner pair: close binary orbit
+                assignBinaryOrbits(primary3, secondary3, system.getBinarySeparationAu(), BinaryConfiguration.S_TYPE_CLOSE);
+
+                // Generate distant third star
                 Star tertiary = starCreator.generateStar();
                 tertiary.setSystem(system);
                 tertiary.setStarRole(Star.StarRole.TERTIARY);
                 stars.add(tertiary);
 
-                setCloseBinaryDistances(primary3, secondary3, system.getBinarySeparationAu());
-                tertiary.setDistanceFromStar(system.getBinarySeparationAu() * 3);
+                // Outer orbit: tertiary orbits the (AB) barycenter
+                double innerMass = primary3.getSolarMass() + secondary3.getSolarMass();
+                double tertiaryMass = tertiary.getSolarMass();
+                double outerTotalMass = innerMass + tertiaryMass;
+                double tertiaryDistance = system.getBinarySeparationAu() * 3;
+
+                // Tertiary SMA = distance from system barycenter (mass-weighted)
+                double tertiarySMA = tertiaryDistance * (innerMass / outerTotalMass);
+                double outerEcc = generateBinaryEccentricity(tertiaryDistance);
+                double outerInc = generateBinaryInclination(tertiaryDistance);
+
+                tertiary.setOrbit(orbitalCreator.createStarOrbit(
+                        tertiarySMA, outerTotalMass, outerEcc, outerInc));
                 break;
         }
 
         return stars;
     }
 
-    private void setCloseBinaryDistances(Star primary, Star secondary, double separation) {
-
+    /**
+     * Assigns full Keplerian orbital elements to both stars in a binary pair.
+     * <p>
+     * For close binaries (S_TYPE_CLOSE, P_TYPE): both stars orbit the barycenter
+     * with mass-weighted semi-major axes, shared orbital plane (Ω, ω), same
+     * eccentricity, and mean anomalies offset by 180°.
+     * <p>
+     * For wide binaries (S_TYPE_WIDE): primary at origin, secondary orbits at
+     * the full separation distance.
+     */
+    private void assignBinaryOrbits(Star primary, Star secondary, double separation,
+                                     BinaryConfiguration config) {
         double m1 = primary.getSolarMass();
         double m2 = secondary.getSolarMass();
         double totalMass = m1 + m2;
+        double ecc = generateBinaryEccentricity(separation);
+        double inc = generateBinaryInclination(separation);
 
-        double primaryDistance = separation * (m2 / totalMass);
-        double secondaryDistance = separation * (m1 / totalMass);
+        if (config == BinaryConfiguration.S_TYPE_WIDE) {
+            // Wide binary: primary at origin, secondary orbits at full separation
+            primary.setOrbit(orbitalCreator.createStarOrbit(0.0, 0.0, 0.0, 0.0));
+            secondary.setOrbit(orbitalCreator.createStarOrbit(separation, totalMass, ecc, inc));
+        } else {
+            // Close binary: both stars orbit the barycenter
+            double primarySMA = separation * (m2 / totalMass);
+            double secondarySMA = separation * (m1 / totalMass);
 
-        primary.setDistanceFromStar(primaryDistance);
-        secondary.setDistanceFromStar(secondaryDistance);
+            primary.setOrbit(orbitalCreator.createStarOrbit(primarySMA, totalMass, ecc, inc));
+            secondary.setOrbit(orbitalCreator.createStarOrbit(secondarySMA, totalMass, ecc, inc));
+
+            // Both stars share the same orbital plane
+            secondary.getOrbit().setLongitudeOfAscendingNodeDeg(
+                    primary.getOrbit().getLongitudeOfAscendingNodeDeg());
+            secondary.getOrbit().setArgumentOfPeriapsisDeg(
+                    primary.getOrbit().getArgumentOfPeriapsisDeg());
+
+            // Secondary is 180° opposite the primary in its orbit
+            secondary.getOrbit().setMeanAnomalyDeg(
+                    (primary.getOrbit().getMeanAnomalyDeg() + 180.0) % 360.0);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Binary Star Orbital Element Generation
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Generate eccentricity for a binary star orbit based on separation.
+     * <p>
+     * Follows the observed period-eccentricity correlation from Raghavan et al. (2010)
+     * and Duchêne & Kraus (2013):
+     * <ul>
+     *   <li>Tight binaries (< 1 AU) — tidally circularized, nearly circular</li>
+     *   <li>Close binaries (1-5 AU) — moderate eccentricity</li>
+     *   <li>Wide binaries (5-50 AU) — thermal distribution peak</li>
+     *   <li>Very wide binaries (> 50 AU) — dynamically hot</li>
+     * </ul>
+     */
+    private double generateBinaryEccentricity(double separationAU) {
+        if (separationAU < 1.0) {
+            return RandomUtils.rollRange(0.0, 0.15);
+        } else if (separationAU < 5.0) {
+            return RandomUtils.rollRange(0.1, 0.4);
+        } else if (separationAU <= 50.0) {
+            return RandomUtils.rollRange(0.3, 0.6);
+        } else {
+            return RandomUtils.rollRange(0.4, 0.8);
+        }
+    }
+
+    /**
+     * Generate inclination for a binary star orbit based on separation.
+     * <p>
+     * Tight binaries are tidally aligned to near-zero inclination.
+     * Wide binaries have isotropic orientations: cos(i) uniform on [-1,1],
+     * so i = arccos(1 - 2*random) for proper isotropic sampling.
+     */
+    private double generateBinaryInclination(double separationAU) {
+        if (separationAU < 1.0) {
+            return RandomUtils.rollRange(0.0, 10.0);
+        } else if (separationAU < 5.0) {
+            return RandomUtils.rollRange(0.0, 30.0);
+        } else {
+            // Isotropic distribution: i = arccos(1 - 2*rand) → range [0°, 180°]
+            return Math.toDegrees(Math.acos(1.0 - 2.0 * Math.random()));
+        }
     }
 
     private BinaryConfiguration determineConfiguration(int starCount) {

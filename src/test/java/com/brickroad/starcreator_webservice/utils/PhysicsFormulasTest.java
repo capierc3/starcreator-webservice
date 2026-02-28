@@ -21,7 +21,7 @@ class PhysicsFormulasTest {
     // Mass / Radius Conversions
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testEarthMassToKg() {
         assertEquals(EARTH_MASS_KG, PhysicsFormulas.earthMassToKg(1.0), 1e18,
                 "1 Earth mass should be 5.972e24 kg");
@@ -31,7 +31,7 @@ class PhysicsFormulasTest {
         assertEquals(317.8 * EARTH_MASS_KG, PhysicsFormulas.earthMassToKg(317.8), 1e21);
     }
 
-    //@Test
+    @Test
     void testEarthRadiusToKm() {
         assertEquals(EARTH_RADIUS_KM, PhysicsFormulas.earthRadiusToKm(1.0), 1e-10,
                 "1 Earth radius should be 6371.0 km");
@@ -39,7 +39,7 @@ class PhysicsFormulasTest {
         assertEquals(11.2 * EARTH_RADIUS_KM, PhysicsFormulas.earthRadiusToKm(11.2), 1e-6);
     }
 
-    //@Test
+    @Test
     void testMassKgToEarthMasses() {
         assertEquals(1.0, PhysicsFormulas.massKgToEarthMasses(EARTH_MASS_KG), 1e-10,
                 "Earth mass in kg should convert back to 1.0 Earth masses");
@@ -50,7 +50,7 @@ class PhysicsFormulasTest {
     // Bulk Physical Properties
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testDensity_earth() {
         double density = PhysicsFormulas.density(EARTH_MASS_KG, EARTH_RADIUS_KM);
         // Earth's actual density: ~5.51 g/cm³
@@ -58,7 +58,7 @@ class PhysicsFormulasTest {
                 "Earth density should be approximately 5.51 g/cm³");
     }
 
-    //@Test
+    @Test
     void testSurfaceGravityG_earth() {
         double gravity = PhysicsFormulas.surfaceGravityG(EARTH_MASS_KG, EARTH_RADIUS_KM);
         // Should be very close to 1.0g (may not be exact due to equatorial vs mean radius)
@@ -66,7 +66,7 @@ class PhysicsFormulasTest {
                 "Earth surface gravity should be approximately 1.0g");
     }
 
-    //@Test
+    @Test
     void testEscapeVelocityKmS_earth() {
         double escapeVel = PhysicsFormulas.escapeVelocityKmS(EARTH_MASS_KG, EARTH_RADIUS_KM);
         // Earth's escape velocity: ~11.186 km/s
@@ -74,7 +74,7 @@ class PhysicsFormulasTest {
                 "Earth escape velocity should be approximately 11.186 km/s");
     }
 
-    //Test
+    @Test
     void testDensity_surfaceGravity_escapeVelocity_consistency() {
         // Mars: 0.107 Earth masses, 0.532 Earth radii
         double marsMassKg = PhysicsFormulas.earthMassToKg(0.107);
@@ -94,14 +94,14 @@ class PhysicsFormulasTest {
     // Orbital Period
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testOrbitalPeriodDaysAU_earth() {
         double period = PhysicsFormulas.orbitalPeriodDaysAU(1.0, 1.0);
         assertEquals(365.25, period, 1e-10,
                 "Earth orbital period should be exactly 365.25 days (by formula)");
     }
 
-    //@Test
+    @Test
     void testOrbitalPeriodDaysAU_mars() {
         double period = PhysicsFormulas.orbitalPeriodDaysAU(1.524, 1.0);
         // Mars period: ~687 days
@@ -109,7 +109,7 @@ class PhysicsFormulasTest {
                 "Mars orbital period should be approximately 687 days");
     }
 
-    //@Test
+    @Test
     void testOrbitalPeriodDaysKM_moon() {
         // Earth-Moon system: SMA = 384,400 km, central mass = Earth
         double period = PhysicsFormulas.orbitalPeriodDaysKM(384400.0, EARTH_MASS_KG);
@@ -122,21 +122,21 @@ class PhysicsFormulasTest {
     // Stellar Derived Properties
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testHabitableZoneInnerAU() {
         double inner = PhysicsFormulas.habitableZoneInnerAU(1.0);
         assertEquals(Math.sqrt(1.0 / 1.1), inner, 1e-10,
                 "HZ inner for solar luminosity should be sqrt(1/1.1)");
     }
 
-    //@Test
+    @Test
     void testHabitableZoneOuterAU() {
         double outer = PhysicsFormulas.habitableZoneOuterAU(1.0);
         assertEquals(Math.sqrt(1.0 / 0.53), outer, 1e-10,
                 "HZ outer for solar luminosity should be sqrt(1/0.53)");
     }
 
-    //@Test
+    @Test
     void testHabitableZone_higherLuminosity() {
         // A 4x solar luminosity star should have HZ at 2x the distance (sqrt scaling)
         double inner1 = PhysicsFormulas.habitableZoneInnerAU(1.0);
@@ -145,7 +145,7 @@ class PhysicsFormulasTest {
                 "4x luminosity HZ should be 2x farther out");
     }
 
-    //@Test
+    @Test
     void testEstimatedRemainingMsMy_sun() {
         // Sun: 1.0 solar mass, 4600 My old
         // MS lifetime = 10000 / 1.0^2.5 = 10000 My
@@ -154,7 +154,7 @@ class PhysicsFormulasTest {
         assertEquals(5400.0, remaining, 1e-10);
     }
 
-    //@Test
+    @Test
     void testEstimatedRemainingMsMy_expired() {
         // Star that outlived its MS lifetime — should clamp to 0
         double remaining = PhysicsFormulas.estimatedRemainingMsMy(1.0, 15000.0);
@@ -162,7 +162,7 @@ class PhysicsFormulasTest {
                 "Expired star should return 0 remaining MS lifetime");
     }
 
-    //@Test
+    @Test
     void testEstimatedRemainingMsMy_massiveStar() {
         // 2.0 solar masses: MS lifetime = 10000 / 2^2.5 = 10000 / 5.657 ≈ 1768 My
         double remaining = PhysicsFormulas.estimatedRemainingMsMy(2.0, 500.0);
@@ -174,7 +174,7 @@ class PhysicsFormulasTest {
     // Gravitational Boundaries
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testHillSphereRadiusKm() {
         // Earth-Sun: a = 1 AU in km, mass = Earth, parent = Sun
         double earthOrbitKm = 1.496e8; // ~1 AU in km
@@ -185,7 +185,7 @@ class PhysicsFormulasTest {
                 "Earth's Hill sphere should be approximately 1.5 million km");
     }
 
-    //@Test
+    @Test
     void testRocheLimitKm() {
         // Using Earth as primary (ρ=5.51), rocky secondary (ρ=3.3)
         double roche = PhysicsFormulas.rocheLimitKm(EARTH_RADIUS_KM, 5.51, 3.3);
@@ -199,7 +199,7 @@ class PhysicsFormulasTest {
     // Atmosphere — Scale Height
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testScaleHeightKm_earth() {
         // Earth: T=288K, g=9.80665 m/s², mean mol weight ≈29 Da (N2/O2 mix)
         double scaleHeight = PhysicsFormulas.scaleHeightKm(288.0, 9.80665, 29.0);
@@ -208,19 +208,19 @@ class PhysicsFormulasTest {
                 "Earth atmospheric scale height should be approximately 8.5 km");
     }
 
-    //@Test
+    @Test
     void testScaleHeightKm_zeroGravity() {
         assertEquals(0.0, PhysicsFormulas.scaleHeightKm(300.0, 0.0, 29.0), 1e-10,
                 "Zero gravity should return 0 scale height");
     }
 
-    //@Test
+    @Test
     void testScaleHeightKm_zeroMolWeight() {
         assertEquals(0.0, PhysicsFormulas.scaleHeightKm(300.0, 9.8, 0.0), 1e-10,
                 "Zero molecular weight should return 0 scale height");
     }
 
-    //@Test
+    @Test
     void testScaleHeightKm_negativeGravity() {
         assertEquals(0.0, PhysicsFormulas.scaleHeightKm(300.0, -5.0, 29.0), 1e-10,
                 "Negative gravity should return 0 scale height");
@@ -230,7 +230,7 @@ class PhysicsFormulasTest {
     // Magnetic Field — Surface Field
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testSurfaceFieldMicrotesla_earth() {
         double avg = PhysicsFormulas.surfaceFieldAvgMicrotesla(1.0);
         assertEquals(50.0, avg, 1e-10, "Earth-strength field avg should be 50 µT");
@@ -242,7 +242,7 @@ class PhysicsFormulasTest {
         assertEquals(70.0, max, 1e-10, "Max should be 140% of avg");
     }
 
-    //@Test
+    @Test
     void testMagneticMoment_earth() {
         // For strength=1.0, radius=Earth: should return EARTH_MAGNETIC_MOMENT
         double moment = PhysicsFormulas.magneticMoment(1.0, EARTH_RADIUS_KM);
@@ -250,7 +250,7 @@ class PhysicsFormulasTest {
                 "Earth-equivalent magnetic moment should be ~7.91e22 A·m²");
     }
 
-   // @Test
+   @Test
     void testMagneticMoment_scaling() {
         // Moment scales with strength and radius³
         double moment1 = PhysicsFormulas.magneticMoment(1.0, EARTH_RADIUS_KM);
@@ -268,7 +268,7 @@ class PhysicsFormulasTest {
     // Magnetic Field — Magnetosphere
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testMagnetopauseStandoffRadii_positiveInputs() {
         double moment = 7.91e22; // Earth-like
         double ramPressure = 2e-9; // ~typical solar wind at 1 AU in Pascals
@@ -279,14 +279,14 @@ class PhysicsFormulasTest {
         assertTrue(standoff <= 100.0, "Standoff should be at most 100 planet radii");
     }
 
-    //@Test
+    @Test
     void testMagnetopauseStandoffRadii_zeroPressure() {
         double standoff = PhysicsFormulas.magnetopauseStandoffRadii(7.91e22, 0.0, 6.371e6);
         assertEquals(10.0, standoff, 1e-10,
                 "Zero ram pressure should return 10.0 default");
     }
 
-    //@Test
+    @Test
     void testBowShockMultiplier() {
         assertEquals(1.45, PhysicsFormulas.bowShockMultiplier(300), 1e-10,
                 "Low wind speed → 1.45 multiplier");
@@ -302,7 +302,7 @@ class PhysicsFormulasTest {
                 "Exactly 600 km/s → 1.35 (not > 600)");
     }
 
-    //@Test
+    @Test
     void testMagnetotailMultiplier() {
         // At 400 km/s: 15 + 10*(400/400) = 25
         assertEquals(25.0, PhysicsFormulas.magnetotailMultiplier(400), 1e-10,
@@ -315,7 +315,7 @@ class PhysicsFormulasTest {
                 "0 km/s wind → 15x base multiplier");
     }
 
-    //@Test
+    @Test
     void testSurfacePowerFluxWm2_positive() {
         double flux = PhysicsFormulas.surfacePowerFluxWm2(7.91e22, 6.371e6);
         assertTrue(flux > 0, "Surface power flux should be positive for real inputs");
@@ -325,7 +325,7 @@ class PhysicsFormulasTest {
     // Magnetic Field — Protection Level
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testProtectionLevel_none() {
         var result = PhysicsFormulas.calculateProtectionLevel(0.01, 1.0);
         assertEquals(ProtectionLevel.NONE, result.level());
@@ -333,7 +333,7 @@ class PhysicsFormulasTest {
         assertFalse(result.shieldsFromCosmicRays());
     }
 
-    //@Test
+    @Test
     void testProtectionLevel_strong_earthlike() {
         // Earth-like: strength=1.0, threat=1.0
         // effectiveThreat = cbrt(1.0) = 1.0
@@ -344,7 +344,7 @@ class PhysicsFormulasTest {
         assertTrue(result.shieldsFromCosmicRays());
     }
 
-    //@Test
+    @Test
     void testProtectionLevel_exceptional() {
         // Very strong field, low threat → EXCEPTIONAL
         var result = PhysicsFormulas.calculateProtectionLevel(5.0, 1.0);
@@ -353,7 +353,7 @@ class PhysicsFormulasTest {
         assertTrue(result.shieldsFromCosmicRays());
     }
 
-    //@Test
+    @Test
     void testProtectionLevel_weakFieldCap() {
         // Weak field (0.05) with very low threat (0.01)
         // Without cap: ratio = 0.05 / cbrt(0.01) = 0.05 / 0.2154 = 0.232 → MINIMAL
@@ -372,7 +372,7 @@ class PhysicsFormulasTest {
                 "Weak field cap should prevent EXCEPTIONAL classification");
     }
 
-    //@Test
+    @Test
     void testProtectionLevel_highThreat_dampening() {
         // Strong field in very hostile environment
         // strength=1.0, threat=100.0

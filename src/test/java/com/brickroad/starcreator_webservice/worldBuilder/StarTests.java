@@ -8,6 +8,7 @@ import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 public class StarTests extends AbstractCreatorTest {
 
     @Autowired
@@ -33,7 +35,7 @@ public class StarTests extends AbstractCreatorTest {
 
     private static final int SYSTEM_COUNT = 100;
 
-    //@Test
+    @Test
     void getStars() throws JsonProcessingException {
         List<Star> stars = new ArrayList<>();
         for (int i = 0; i < SYSTEM_COUNT; i++) {

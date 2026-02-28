@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.creator.SystemCreator;
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.ColonizationSuitability;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,12 +22,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 public class SystemTests extends AbstractCreatorTest {
 
     @Autowired
     private SystemCreator systemCreator;
 
-    //@Test
+    @Test
     public void findSystem() throws JsonProcessingException {
 
         int starCount = 1;
