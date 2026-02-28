@@ -3,9 +3,14 @@ package com.brickroad.starcreator_webservice.creator;
 import com.brickroad.starcreator_webservice.entity.ref.AsteroidTypeRef;
 import com.brickroad.starcreator_webservice.entity.ref.BeltTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.enums.DistanceUnit;
 import com.brickroad.starcreator_webservice.repository.AsteroidTypeRefRepository;
 import com.brickroad.starcreator_webservice.repository.BeltTypeRefRepository;
+import com.brickroad.starcreator_webservice.utils.BinaryStabilityLimits;
+import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import jakarta.annotation.PostConstruct;
@@ -24,19 +29,29 @@ public class BeltCreator {
     @Autowired
     private AsteroidTypeRefRepository asteroidTypeRefRepository;
 
+    @Autowired
+    private OrbitalCreator orbitalCreator;
+
+    @Autowired
+    private PlanetCreator planetCreator;
+
     private List<BeltTypeRef> cachedBeltTypes;
     private List<AsteroidTypeRef> cachedAsteroidTypes;
 
-    private static final double EARTH_MASS_KG = 5.972e24;
-    private static final double EARTH_RADIUS_KM = 6371.0;
-    private static final double GRAVITATIONAL_CONSTANT = 6.674e-11;
+    // Physical constants — delegates to PhysicsFormulas (single source of truth)
+    private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
     private static final double AU_IN_KM = 1.496e8;
 
     // Giant planet threshold in Earth masses
     private static final double GIANT_PLANET_MASS_THRESHOLD = 15.0;
-    
+
     // Minimum gap ratio for inner belt formation
     private static final double MIN_GAP_RATIO = 1.5;
+
+    // Minimum belt widths (AU) — below these the belt is too narrow to be meaningful
+    private static final double MIN_KUIPER_WIDTH_AU = 0.5;
+    private static final double MIN_SCATTERED_DISK_WIDTH_AU = 1.0;
 
     @PostConstruct
     public void init() {
@@ -44,68 +59,178 @@ public class BeltCreator {
         cachedAsteroidTypes = asteroidTypeRefRepository.findAllAsteroidTypes();
     }
 
-    public List<Belt> createBelts(StarSystem system, Star primaryStar) {
-        List<Belt> belts = new ArrayList<>();
+    // ═════════════════════════════════════════════════════════════════════
+    //  Public Entry Point — dispatches per binary configuration
+    // ═════════════════════════════════════════════════════════════════════
 
-        List<Planet> planets = system.getPlanets().stream()
-                .map(b -> (Planet) b)
+    /**
+     * Creates all belts for a star system. Dispatches by binary configuration
+     * to ensure each star gets its own belt set (S_TYPE_WIDE) or the system
+     * gets circumbinary belts (P_TYPE / hierarchical).
+     * <p>
+     * Belts are added directly to their parent Star via {@link Star#addBand}.
+     */
+    public void createBeltsForSystem(StarSystem system) {
+        BinaryConfiguration config = system.getBinaryConfiguration();
+        if (config == null) config = BinaryConfiguration.SINGLE;
+
+        switch (config) {
+            case SINGLE -> {
+                Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
+                createCircumstellarBelts(primary, primary.getSolarLuminosity(), primary.getSolarMass(), null);
+            }
+            case S_TYPE_CLOSE -> {
+                // Companion at 0.1-5 AU, planets orbit primary only. No outer cap needed.
+                Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
+                createCircumstellarBelts(primary, primary.getSolarLuminosity(), primary.getSolarMass(), null);
+            }
+            case S_TYPE_WIDE -> {
+                Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
+                Star secondary = findStarByRole(system, Star.StarRole.SECONDARY);
+
+                // Yelverton et al. (2019) dead zone — medium-separation binaries suppress belt formation
+                double beltChance = BinaryStabilityLimits.beltFormationProbability(system.getBinarySeparationAu());
+
+                // Holman-Wiegert S-type outer stability limits
+                double outerCapPrimary = BinaryStabilityLimits.sTypeCriticalSMA(
+                        system.getBinarySeparationAu(), primary.getSolarMass(), secondary.getSolarMass());
+                double outerCapSecondary = BinaryStabilityLimits.sTypeCriticalSMA(
+                        system.getBinarySeparationAu(), secondary.getSolarMass(), primary.getSolarMass());
+
+                if (RandomUtils.rollRange(0.0, 1.0) < beltChance) {
+                    createCircumstellarBelts(primary, primary.getSolarLuminosity(), primary.getSolarMass(), outerCapPrimary);
+                }
+                if (secondary != null && RandomUtils.rollRange(0.0, 1.0) < beltChance) {
+                    createCircumstellarBelts(secondary, secondary.getSolarLuminosity(), secondary.getSolarMass(), outerCapSecondary);
+                }
+            }
+            case P_TYPE -> {
+                // Circumbinary — belts parented to primary star (same convention as planets)
+                Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
+                Star secondary = findStarByRole(system, Star.StarRole.SECONDARY);
+                double totalLuminosity = sumLuminosity(system);
+                double totalMass = sumMass(system);
+                double innerCavity = BinaryStabilityLimits.pTypeCriticalSMA(
+                        system.getBinarySeparationAu(), primary.getSolarMass(),
+                        secondary != null ? secondary.getSolarMass() : 0);
+                createCircumbinaryBelts(primary, totalLuminosity, totalMass, innerCavity);
+            }
+            case HIERARCHICAL_BINARY_THIRD, HIERARCHICAL_TRIPLE -> {
+                // Close pair gets circumbinary belts
+                Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
+                Star secondary = findStarByRole(system, Star.StarRole.SECONDARY);
+                double pairLuminosity = primary.getSolarLuminosity()
+                        + (secondary != null ? secondary.getSolarLuminosity() : 0);
+                double pairMass = primary.getSolarMass()
+                        + (secondary != null ? secondary.getSolarMass() : 0);
+                double innerCavity = BinaryStabilityLimits.pTypeCriticalSMA(
+                        system.getBinarySeparationAu(), primary.getSolarMass(),
+                        secondary != null ? secondary.getSolarMass() : 0);
+
+                // Outer cap for the close pair's circumbinary belts: tertiary's gravitational influence
+                Star tertiary = findStarByRole(system, Star.StarRole.TERTIARY);
+                Double pairOuterCap = null;
+                if (tertiary != null) {
+                    double tertiarySep = system.getBinarySeparationAu() * 3.0;
+                    pairOuterCap = BinaryStabilityLimits.sTypeCriticalSMA(
+                            tertiarySep, pairMass, tertiary.getSolarMass());
+                }
+                createCircumbinaryBelts(primary, pairLuminosity, pairMass, innerCavity, pairOuterCap);
+
+                // Tertiary gets its own circumstellar belts, capped by the outer binary
+                if (tertiary != null) {
+                    double tertiarySep = system.getBinarySeparationAu() * 3.0;
+                    double outerCapTertiary = BinaryStabilityLimits.sTypeCriticalSMA(
+                            tertiarySep, tertiary.getSolarMass(), pairMass);
+                    createCircumstellarBelts(tertiary, tertiary.getSolarLuminosity(),
+                            tertiary.getSolarMass(), outerCapTertiary);
+                }
+            }
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    //  Circumstellar Belts — one star, its own planets
+    // ═════════════════════════════════════════════════════════════════════
+
+    private void createCircumstellarBelts(Star star, double luminosity, double stellarMass, Double outerCapAU) {
+        // CRITICAL: Only use planets from THIS star — no cross-star mixing
+        List<Planet> planets = star.getPlanets().stream()
                 .sorted(Comparator.comparingDouble(p -> p.getSemiMajorAxisAU() != null ? p.getSemiMajorAxisAU() : 0.0))
                 .collect(Collectors.toList());
 
-        if (planets.isEmpty()) {
-            return belts;
+        if (planets.isEmpty()) return;
+
+        SystemArchitecture arch = analyzeSystem(planets, star, luminosity, stellarMass);
+        if (outerCapAU != null) {
+            arch.outerStabilityCapAU = outerCapAU;
         }
 
-        SystemArchitecture arch = analyzeSystem(planets, primaryStar);
-
-        Belt innerBelt = tryCreateInnerRockyBelt(system, arch, primaryStar);
+        OrbitalBand innerBelt = tryCreateInnerRockyBelt(arch, star);
         if (innerBelt != null) {
-            belts.add(innerBelt);
+            star.addBand(innerBelt);
         }
 
-        // Try to create Kuiper belt
-        Belt kuiperBelt = tryCreateKuiperBelt(system, arch, primaryStar);
+        OrbitalBand kuiperBelt = tryCreateKuiperBelt(arch, star);
         if (kuiperBelt != null) {
-            belts.add(kuiperBelt);
+            star.addBand(kuiperBelt);
 
-            // Try to create scattered disk (depends on Kuiper belt existing)
-            Belt scatteredDisk = tryCreateScatteredDisk(system, arch, kuiperBelt, primaryStar);
+            OrbitalBand scatteredDisk = tryCreateScatteredDisk(arch, kuiperBelt, star);
             if (scatteredDisk != null) {
-                belts.add(scatteredDisk);
+                star.addBand(scatteredDisk);
             }
         }
-        return belts;
     }
 
-    private SystemArchitecture analyzeSystem(List<Planet> planets, Star primaryStar) {
-        SystemArchitecture arch = new SystemArchitecture();
+    // ═════════════════════════════════════════════════════════════════════
+    //  Circumbinary Belts — P-TYPE and Hierarchical close pair
+    // ═════════════════════════════════════════════════════════════════════
 
-        double luminosity = primaryStar.getSolarLuminosity();
-        double totalStellarMass = primaryStar.getSolarMass();
+    private void createCircumbinaryBelts(Star primaryStar, double totalLuminosity, double totalMass, double innerCavityAU) {
+        createCircumbinaryBelts(primaryStar, totalLuminosity, totalMass, innerCavityAU, null);
+    }
 
-        StarSystem system = primaryStar.getSystem();
-        if (system != null && system.getBinaryConfiguration() != null) {
-            BinaryConfiguration config = system.getBinaryConfiguration();
-            if (config == BinaryConfiguration.P_TYPE ||
-                    config == BinaryConfiguration.HIERARCHICAL_BINARY_THIRD ||
-                    config == BinaryConfiguration.HIERARCHICAL_TRIPLE) {
-                luminosity = system.getStars().stream()
-                        .mapToDouble(Star::getSolarLuminosity)
-                        .sum();
-                totalStellarMass = system.getStars().stream()
-                        .mapToDouble(Star::getSolarMass)
-                        .sum();
-            }
+    private void createCircumbinaryBelts(Star primaryStar, double totalLuminosity, double totalMass, double innerCavityAU, Double outerCapAU) {
+        // Circumbinary planets are parented to the primary star
+        List<Planet> planets = primaryStar.getPlanets().stream()
+                .sorted(Comparator.comparingDouble(p -> p.getSemiMajorAxisAU() != null ? p.getSemiMajorAxisAU() : 0.0))
+                .collect(Collectors.toList());
+
+        if (planets.isEmpty()) return;
+
+        SystemArchitecture arch = analyzeSystem(planets, primaryStar, totalLuminosity, totalMass);
+        arch.innerCavityAU = innerCavityAU;
+        if (outerCapAU != null) {
+            arch.outerStabilityCapAU = outerCapAU;
         }
 
+        OrbitalBand innerBelt = tryCreateInnerRockyBelt(arch, primaryStar);
+        if (innerBelt != null) {
+            primaryStar.addBand(innerBelt);
+        }
+
+        OrbitalBand kuiperBelt = tryCreateKuiperBelt(arch, primaryStar);
+        if (kuiperBelt != null) {
+            primaryStar.addBand(kuiperBelt);
+
+            OrbitalBand scatteredDisk = tryCreateScatteredDisk(arch, kuiperBelt, primaryStar);
+            if (scatteredDisk != null) {
+                primaryStar.addBand(scatteredDisk);
+            }
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    //  System Analysis — builds architecture from a specific planet list
+    // ═════════════════════════════════════════════════════════════════════
+
+    private SystemArchitecture analyzeSystem(List<Planet> planets, Star star, double luminosity, double stellarMass) {
+        SystemArchitecture arch = new SystemArchitecture();
+        arch.star = star;
         arch.frostLineAu = 4.85 * Math.sqrt(luminosity);
-        arch.totalStellarMass = totalStellarMass;
-
-        // Get system age
-        arch.systemAgeMY = primaryStar.getAgeMY() != null ? primaryStar.getAgeMY() : 4600.0;
-
-        // Get metallicity (average for binaries, but primary is fine)
-        arch.starMetallicity = primaryStar.getMetallicity() != null ? primaryStar.getMetallicity() : 0.0;
+        arch.totalStellarMass = stellarMass;
+        arch.systemAgeMY = star.getAgeMY() != null ? star.getAgeMY() : 4600.0;
+        arch.starMetallicity = star.getMetallicity() != null ? star.getMetallicity() : 0.0;
 
         // Categorize planets
         for (Planet planet : planets) {
@@ -173,7 +298,11 @@ public class BeltCreator {
         return arch;
     }
 
-    private Belt tryCreateInnerRockyBelt(StarSystem system, SystemArchitecture arch, Star primaryStar) {
+    // ═════════════════════════════════════════════════════════════════════
+    //  Belt Creation Methods
+    // ═════════════════════════════════════════════════════════════════════
+
+    private OrbitalBand tryCreateInnerRockyBelt(SystemArchitecture arch, Star star) {
         if (arch.giantPlanets.isEmpty()) {
             return null;
         }
@@ -200,14 +329,20 @@ public class BeltCreator {
             return null;
         }
 
-        Belt belt = new Belt();
-        belt.setStarSystem(system);
+        OrbitalBand belt = new OrbitalBand();
         belt.setBeltType(beltType);
+        belt.setBandCategory(BandCategory.BELT);
+        belt.setBandType(beltType.getCode());
         belt.setAgeMY(arch.systemAgeMY);
         belt.setCompositionType(beltType.getTypicalCompositionType());
 
         double innerEdge = arch.outermostRockyAu * 1.3;
         double outerEdge = arch.innermostGiantAu * 0.6;
+
+        // For circumbinary: inner edge must be outside the cavity
+        if (arch.innerCavityAU > 0) {
+            innerEdge = Math.max(innerEdge, arch.innerCavityAU);
+        }
 
         if (outerEdge - innerEdge < 0.3) {
             outerEdge = innerEdge + 0.5;
@@ -216,9 +351,11 @@ public class BeltCreator {
             outerEdge = arch.innermostGiantAu * 0.8;
         }
 
-        belt.setInnerRadiusAu(innerEdge);
-        belt.setOuterRadiusAu(outerEdge);
-        belt.setPeakDensityAu((innerEdge + outerEdge) / 2.0);
+        // Enforce stability cap
+        if (arch.outerStabilityCapAU < Double.MAX_VALUE) {
+            outerEdge = Math.min(outerEdge, arch.outerStabilityCapAU);
+            if (outerEdge <= innerEdge) return null;
+        }
 
         double baseMass = RandomUtils.rollRange(
                 beltType.getTypicalMassEarthMassesMin(),
@@ -240,6 +377,7 @@ public class BeltCreator {
 
         belt.setEstimatedObjectCount((long) (totalMassEarth * 1e12 * RandomUtils.rollRange(0.5, 2.0)));
 
+        // Compute eccentricity and inclination BEFORE creating orbital elements
         belt.setAverageEccentricity(RandomUtils.rollRange(
                 beltType.getMinEccentricity(),
                 (beltType.getMinEccentricity() + beltType.getMaxEccentricity()) / 2.0
@@ -248,14 +386,21 @@ public class BeltCreator {
                 belt.getAverageEccentricity(),
                 beltType.getMaxEccentricity()
         ));
-        belt.setAverageInclinationDegrees(RandomUtils.rollRange(
+        belt.setAverageInclinationDeg(RandomUtils.rollRange(
                 beltType.getMinInclinationDegrees(),
                 (beltType.getMinInclinationDegrees() + beltType.getMaxInclinationDegrees()) / 2.0
         ));
-        belt.setMaxInclinationDegrees(RandomUtils.rollRange(
-                belt.getAverageInclinationDegrees(),
+        belt.setMaxInclinationDeg(RandomUtils.rollRange(
+                belt.getAverageInclinationDeg(),
                 beltType.getMaxInclinationDegrees()
         ));
+
+        // Create orbital elements for inner and outer edges
+        double avgEcc = belt.getAverageEccentricity() != null ? belt.getAverageEccentricity() : 0.05;
+        double avgInc = belt.getAverageInclinationDeg() != null ? belt.getAverageInclinationDeg() : 5.0;
+        belt.setInnerOrbit(orbitalCreator.createBandEdgeOrbit(innerEdge, DistanceUnit.AU, arch.totalStellarMass, avgEcc, avgInc, "Inner rocky belt inner edge"));
+        belt.setOuterOrbit(orbitalCreator.createBandEdgeOrbit(outerEdge, DistanceUnit.AU, arch.totalStellarMass, avgEcc, avgInc, "Inner rocky belt outer edge"));
+        belt.setPeakDensityDistance((innerEdge + outerEdge) / 2.0);
 
         generateBeltComposition(belt, arch.frostLineAu);
 
@@ -270,12 +415,15 @@ public class BeltCreator {
 
         belt.setDescription(generateBeltDescription(belt, beltType));
 
-        generateNotableAsteroids(belt, beltType, primaryStar, arch);
+        generateNotableAsteroids(belt, beltType, star, arch);
+
+        // Attempt to spawn belt-born dwarf planets (e.g. Ceres-like bodies)
+        trySpawnBeltDwarfPlanets(belt, arch, star);
 
         return belt;
     }
 
-    private Belt tryCreateKuiperBelt(StarSystem system, SystemArchitecture arch, Star primaryStar) {
+    private OrbitalBand tryCreateKuiperBelt(SystemArchitecture arch, Star star) {
         // Requires giant planet
         if (arch.giantPlanets.isEmpty()) {
             return null;
@@ -296,9 +444,10 @@ public class BeltCreator {
             return null;
         }
 
-        Belt belt = new Belt();
-        belt.setStarSystem(system);
+        OrbitalBand belt = new OrbitalBand();
         belt.setBeltType(beltType);
+        belt.setBandCategory(BandCategory.BELT);
+        belt.setBandType(beltType.getCode());
         belt.setAgeMY(arch.systemAgeMY);
         belt.setCompositionType(beltType.getTypicalCompositionType());
 
@@ -311,9 +460,13 @@ public class BeltCreator {
         }
         double outerEdge = innerEdge * RandomUtils.rollRange(1.8, 2.5);
 
-        belt.setInnerRadiusAu(innerEdge);
-        belt.setOuterRadiusAu(outerEdge);
-        belt.setPeakDensityAu(innerEdge + (outerEdge - innerEdge) * 0.3);
+        // Enforce stability cap (Holman-Wiegert limit)
+        if (arch.outerStabilityCapAU < Double.MAX_VALUE) {
+            outerEdge = Math.min(outerEdge, arch.outerStabilityCapAU);
+            // If inner edge already exceeds cap, no room for a belt
+            if (innerEdge >= arch.outerStabilityCapAU) return null;
+            if (outerEdge - innerEdge < MIN_KUIPER_WIDTH_AU) return null;
+        }
 
         // Calculate mass (Kuiper belt is more massive than asteroid belt)
         double baseMass = RandomUtils.rollRange(
@@ -330,7 +483,7 @@ public class BeltCreator {
 
         belt.setEstimatedObjectCount((long) (totalMassEarth * 1e10 * RandomUtils.rollRange(0.5, 2.0)));
 
-        // Orbital characteristics
+        // Compute eccentricity and inclination BEFORE creating orbital elements
         belt.setAverageEccentricity(RandomUtils.rollRange(
                 beltType.getMinEccentricity(),
                 (beltType.getMinEccentricity() + beltType.getMaxEccentricity()) / 2.0
@@ -339,20 +492,27 @@ public class BeltCreator {
                 belt.getAverageEccentricity(),
                 beltType.getMaxEccentricity()
         ));
-        belt.setAverageInclinationDegrees(RandomUtils.rollRange(
+        belt.setAverageInclinationDeg(RandomUtils.rollRange(
                 beltType.getMinInclinationDegrees(),
                 10.0
         ));
-        belt.setMaxInclinationDegrees(RandomUtils.rollRange(
-                belt.getAverageInclinationDegrees(),
+        belt.setMaxInclinationDeg(RandomUtils.rollRange(
+                belt.getAverageInclinationDeg(),
                 beltType.getMaxInclinationDegrees()
         ));
+
+        // Create orbital elements for inner and outer edges
+        double avgEcc = belt.getAverageEccentricity() != null ? belt.getAverageEccentricity() : 0.05;
+        double avgInc = belt.getAverageInclinationDeg() != null ? belt.getAverageInclinationDeg() : 5.0;
+        belt.setInnerOrbit(orbitalCreator.createBandEdgeOrbit(innerEdge, DistanceUnit.AU, arch.totalStellarMass, avgEcc, avgInc, "Kuiper belt inner edge"));
+        belt.setOuterOrbit(orbitalCreator.createBandEdgeOrbit(outerEdge, DistanceUnit.AU, arch.totalStellarMass, avgEcc, avgInc, "Kuiper belt outer edge"));
+        belt.setPeakDensityDistance(innerEdge + (outerEdge - innerEdge) * 0.3);
 
         // Icy composition
         belt.setPrimaryComposition("Water Ice 50%, Methane Ice 15%, Ammonia Ice 10%, Rock 20%, Organics 5%");
 
         // No Kirkwood-style gaps, but resonance structures
-        belt.setHasResonanceGaps(false);
+        belt.setHasGaps(false);
         belt.setHasCollisionalFamilies(RandomUtils.rollRange(0.0, 1.0) < 0.3);
         if (Boolean.TRUE.equals(belt.getHasCollisionalFamilies())) {
             belt.setFamilyCount(RandomUtils.rollRange(1, 5));
@@ -363,14 +523,17 @@ public class BeltCreator {
         // Link any dwarf planets that fall within the belt
         linkDwarfPlanets(belt, arch.dwarfPlanets);
 
+        // Attempt to spawn belt-born dwarf planets (skips if already has linked dwarfs)
+        trySpawnBeltDwarfPlanets(belt, arch, star);
+
         // Generate notable KBOs (fewer if we already have dwarf planets)
         int dwarfCount = belt.getDwarfPlanets().size();
-        generateNotableAsteroids(belt, beltType, primaryStar, arch, dwarfCount);
+        generateNotableAsteroids(belt, beltType, star, arch, dwarfCount);
 
         return belt;
     }
 
-    private Belt tryCreateScatteredDisk(StarSystem system, SystemArchitecture arch, Belt kuiperBelt, Star primaryStar) {
+    private OrbitalBand tryCreateScatteredDisk(SystemArchitecture arch, OrbitalBand kuiperBelt, Star star) {
         BeltTypeRef beltType = findBeltTypeByCode("SCATTERED_DISK");
         if (beltType == null) {
             return null;
@@ -386,19 +549,23 @@ public class BeltCreator {
             return null;
         }
 
-        Belt belt = new Belt();
-        belt.setStarSystem(system);
+        OrbitalBand belt = new OrbitalBand();
         belt.setBeltType(beltType);
+        belt.setBandCategory(BandCategory.BELT);
+        belt.setBandType(beltType.getCode());
         belt.setAgeMY(arch.systemAgeMY);
         belt.setCompositionType(beltType.getTypicalCompositionType());
 
         // Starts where Kuiper belt ends
-        double innerEdge = kuiperBelt.getOuterRadiusAu();
+        double innerEdge = kuiperBelt.getOuterOrbit().getSemiMajorAxis();
         double outerEdge = innerEdge * RandomUtils.rollRange(3.0, 5.0);
 
-        belt.setInnerRadiusAu(innerEdge);
-        belt.setOuterRadiusAu(outerEdge);
-        belt.setPeakDensityAu(innerEdge * 1.5);
+        // Enforce stability cap (Holman-Wiegert limit)
+        if (arch.outerStabilityCapAU < Double.MAX_VALUE) {
+            outerEdge = Math.min(outerEdge, arch.outerStabilityCapAU);
+            if (innerEdge >= arch.outerStabilityCapAU) return null;
+            if (outerEdge - innerEdge < MIN_SCATTERED_DISK_WIDTH_AU) return null;
+        }
 
         // Mass (less than Kuiper)
         double baseMass = RandomUtils.rollRange(
@@ -410,27 +577,215 @@ public class BeltCreator {
 
         belt.setEstimatedObjectCount((long) (baseMass * 1e9 * RandomUtils.rollRange(0.5, 2.0)));
 
-        // High eccentricities and inclinations
+        // Compute eccentricity and inclination BEFORE creating orbital elements
         belt.setAverageEccentricity(RandomUtils.rollRange(0.3, 0.5));
         belt.setMaxEccentricity(RandomUtils.rollRange(0.5, 0.85));
-        belt.setAverageInclinationDegrees(RandomUtils.rollRange(15.0, 30.0));
-        belt.setMaxInclinationDegrees(RandomUtils.rollRange(30.0, 60.0));
+        belt.setAverageInclinationDeg(RandomUtils.rollRange(15.0, 30.0));
+        belt.setMaxInclinationDeg(RandomUtils.rollRange(30.0, 60.0));
+
+        // Create orbital elements for inner and outer edges
+        double avgEcc = belt.getAverageEccentricity() != null ? belt.getAverageEccentricity() : 0.05;
+        double avgInc = belt.getAverageInclinationDeg() != null ? belt.getAverageInclinationDeg() : 5.0;
+        belt.setInnerOrbit(orbitalCreator.createBandEdgeOrbit(innerEdge, DistanceUnit.AU, arch.totalStellarMass, avgEcc, avgInc, "Scattered disk inner edge"));
+        belt.setOuterOrbit(orbitalCreator.createBandEdgeOrbit(outerEdge, DistanceUnit.AU, arch.totalStellarMass, avgEcc, avgInc, "Scattered disk outer edge"));
+        belt.setPeakDensityDistance(innerEdge * 1.5);
 
         belt.setPrimaryComposition("Water Ice 55%, Methane Ice 10%, Ammonia Ice 10%, Rock 20%, Organics 5%");
-        belt.setHasResonanceGaps(false);
+        belt.setHasGaps(false);
         belt.setHasCollisionalFamilies(false);
 
         belt.setDescription(generateBeltDescription(belt, beltType));
 
         // Generate 0-2 notable objects
-        generateNotableAsteroids(belt, beltType, primaryStar, arch);
+        generateNotableAsteroids(belt, beltType, star, arch);
+
+        // Attempt to spawn belt-born dwarf planets
+        trySpawnBeltDwarfPlanets(belt, arch, star);
 
         return belt;
     }
 
-    private void linkDwarfPlanets(Belt belt, List<Planet> dwarfPlanets) {
-        double innerBound = belt.getInnerRadiusAu() * 0.8; // Allow some margin
-        double outerBound = belt.getOuterRadiusAu() * 1.5;
+    // ═════════════════════════════════════════════════════════════════════
+    //  Belt-Born Dwarf Planet Formation
+    // ═════════════════════════════════════════════════════════════════════
+
+    /**
+     * Attempts to spawn dwarf planets from a belt's own mass budget.
+     * Models in-situ formation where belt material concentrates into one
+     * or more bodies (like Ceres in the asteroid belt, Pluto in the Kuiper belt).
+     *
+     * @param belt the belt to spawn dwarfs in
+     * @param arch system architecture for modifiers
+     * @param star parent star for the dwarf planet
+     * @return list of newly created dwarf planets (may be empty)
+     */
+    private List<Planet> trySpawnBeltDwarfPlanets(OrbitalBand belt, SystemArchitecture arch, Star star) {
+        List<Planet> spawnedDwarfs = new ArrayList<>();
+
+        String beltCode = belt.getBeltType() != null ? belt.getBeltType().getCode() : "";
+
+        // ── Formation probability ──
+        double baseChance;
+        double minMassEarth, maxMassEarth;
+        int maxDwarfs;
+
+        switch (beltCode) {
+            case "INNER_ROCKY" -> {
+                baseChance = 0.15; // Ceres-like; giant planet prevents runaway accretion
+                minMassEarth = 0.0001;
+                maxMassEarth = 0.002; // Ceres = 0.00016 M⊕
+                maxDwarfs = 1;        // Ceres is unique in our belt — rarely 2
+            }
+            case "KUIPER" -> {
+                // Skip if belt already has linked dwarfs from planet generation
+                if (!belt.getDwarfPlanets().isEmpty()) return spawnedDwarfs;
+                baseChance = 0.25;    // ~1 in 4 Kuiper belts form a Pluto-class body
+                minMassEarth = 0.001;
+                maxMassEarth = 0.004; // Pluto = 0.0022 M⊕
+                maxDwarfs = 2;
+            }
+            case "SCATTERED_DISK" -> {
+                baseChance = 0.08; // Highly disrupted, rarely concentrates mass
+                minMassEarth = 0.001;
+                maxMassEarth = 0.003;
+                maxDwarfs = 1;
+            }
+            default -> {
+                return spawnedDwarfs; // Unknown belt type — no dwarfs
+            }
+        }
+
+        // ── Modifiers (gentle — keep rates near baseChance) ──
+        // Mass modifier: more massive belts → slightly higher formation chance
+        double typicalMass = switch (beltCode) {
+            case "INNER_ROCKY" -> 0.0005; // typical asteroid belt mass
+            case "KUIPER" -> 0.03;         // typical Kuiper belt mass
+            case "SCATTERED_DISK" -> 0.01;
+            default -> 0.01;
+        };
+        double beltMass = belt.getTotalMassEarthMasses() != null ? belt.getTotalMassEarthMasses() : typicalMass;
+        double massMod = Math.max(0.7, Math.min(1.5, beltMass / typicalMass));
+
+        // Age modifier: older systems have had more time for accretion
+        double ageMod = Math.max(0.9, Math.min(1.2, arch.systemAgeMY / 4000.0));
+
+        double formationChance = Math.min(0.60, baseChance * massMod * ageMod);
+
+        if (RandomUtils.rollRange(0.0, 1.0) > formationChance) {
+            return spawnedDwarfs; // No formation this time
+        }
+
+        // ── Determine count ──
+        int count = 1;
+        if (maxDwarfs > 1 && "KUIPER".equals(beltCode)) {
+            // Kuiper: 1, occasionally 2 (20% chance)
+            count = RandomUtils.rollRange(0.0, 1.0) < 0.20 ? 2 : 1;
+        }
+
+        // ── Generate dwarfs with mass conservation ──
+        double remainingBeltMass = beltMass;
+        double maxTotalDwarfMass = beltMass * 0.50; // cap at 50% of belt mass
+        double dwarfMassUsed = 0;
+
+        for (int i = 0; i < count; i++) {
+            if (dwarfMassUsed >= maxTotalDwarfMass) break;
+
+            double dwarfMass;
+            if (i == 0) {
+                // Largest dwarf: 15-35% of belt mass, clamped to type range
+                dwarfMass = beltMass * RandomUtils.rollRange(0.15, 0.35);
+                dwarfMass = Math.max(minMassEarth, Math.min(maxMassEarth, dwarfMass));
+            } else {
+                // Subsequent dwarfs: 20-60% of the largest
+                double largestMass = spawnedDwarfs.isEmpty() ? minMassEarth
+                        : spawnedDwarfs.get(0).getEarthMass();
+                dwarfMass = largestMass * RandomUtils.rollRange(0.20, 0.60);
+                dwarfMass = Math.max(minMassEarth, Math.min(maxMassEarth, dwarfMass));
+            }
+
+            // Check we don't exceed cap
+            if (dwarfMassUsed + dwarfMass > maxTotalDwarfMass) {
+                dwarfMass = maxTotalDwarfMass - dwarfMassUsed;
+                if (dwarfMass < minMassEarth) break;
+            }
+
+            // ── Placement: weighted toward peak density ──
+            double innerEdge = belt.getInnerOrbit().getSemiMajorAxis();
+            double outerEdge = belt.getOuterOrbit().getSemiMajorAxis();
+            double peakDensity = belt.getPeakDensityDistance() != null
+                    ? belt.getPeakDensityDistance()
+                    : (innerEdge + outerEdge) / 2.0;
+
+            double sma;
+            if (RandomUtils.rollRange(0.0, 1.0) < 0.70) {
+                // 70% chance: within ±30% of peak density
+                double spread = (outerEdge - innerEdge) * 0.30;
+                sma = peakDensity + RandomUtils.rollRange(-spread, spread);
+            } else {
+                // 30% chance: anywhere in the belt
+                sma = RandomUtils.rollRange(innerEdge, outerEdge);
+            }
+            sma = Math.max(innerEdge, Math.min(outerEdge, sma));
+
+            // ── Create the dwarf planet via reusable method ──
+            // Override eccentricity/inclination to match belt properties
+            Planet dwarf = planetCreator.createPlanetAtLocation("Dwarf Planet", star, sma, dwarfMass);
+            if (dwarf == null) break; // Type not found — shouldn't happen, but be safe
+
+            // Override orbit with belt-appropriate eccentricity and inclination
+            double beltEcc = belt.getAverageEccentricity() != null ? belt.getAverageEccentricity() : 0.05;
+            double beltInc = belt.getAverageInclinationDeg() != null ? belt.getAverageInclinationDeg() : 5.0;
+            double ecc = beltEcc * RandomUtils.rollRange(0.5, 1.5);
+            double inc = beltInc * RandomUtils.rollRange(0.5, 1.5);
+            double stellarMass = star.getSolarMass() > 0 ? star.getSolarMass() : 1.0;
+            dwarf.setOrbit(orbitalCreator.createPlanetOrbit(sma, stellarMass, ecc, inc));
+            dwarf.setOrbitalPosition(-1); // Re-set after orbit override (setOrbit replaces OrbitalElements)
+
+            // Link to belt and star
+            belt.addDwarfPlanet(dwarf);
+            star.addPlanet(dwarf);
+            spawnedDwarfs.add(dwarf);
+            dwarfMassUsed += dwarfMass;
+        }
+
+        // ── Post-processing: subtract dwarf mass from belt ──
+        if (dwarfMassUsed > 0 && beltMass > dwarfMassUsed) {
+            double newBeltMass = beltMass - dwarfMassUsed;
+            belt.setTotalMassEarthMasses(newBeltMass);
+            belt.setTotalMassKg(newBeltMass * EARTH_MASS_KG);
+
+            // Reduce object count proportionally
+            if (belt.getEstimatedObjectCount() != null && belt.getEstimatedObjectCount() > 0) {
+                double massFraction = newBeltMass / beltMass;
+                belt.setEstimatedObjectCount((long) (belt.getEstimatedObjectCount() * massFraction));
+            }
+        }
+
+        return spawnedDwarfs;
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    //  Helper Methods
+    // ═════════════════════════════════════════════════════════════════════
+
+    private Star findStarByRole(StarSystem system, Star.StarRole role) {
+        return system.getStars().stream()
+                .filter(s -> s.getStarRole() == role)
+                .findFirst()
+                .orElse(system.getStars().iterator().next());
+    }
+
+    private double sumLuminosity(StarSystem system) {
+        return system.getStars().stream().mapToDouble(Star::getSolarLuminosity).sum();
+    }
+
+    private double sumMass(StarSystem system) {
+        return system.getStars().stream().mapToDouble(Star::getSolarMass).sum();
+    }
+
+    private void linkDwarfPlanets(OrbitalBand belt, List<Planet> dwarfPlanets) {
+        double innerBound = belt.getInnerOrbit().getSemiMajorAxis() * 0.8; // Allow some margin
+        double outerBound = belt.getOuterOrbit().getSemiMajorAxis() * 1.5;
 
         Planet largestInBelt = null;
         double largestMass = 0;
@@ -449,17 +804,13 @@ public class BeltCreator {
                 }
             }
         }
-
-        // Note: We can't easily mark "is_largest_in_belt" without a custom entity
-        // for the junction table. For now, the largest is implicitly the first
-        // when ordered by mass. This could be enhanced later.
     }
 
-    private void generateNotableAsteroids(Belt belt, BeltTypeRef beltType, Star primaryStar, SystemArchitecture arch) {
-        generateNotableAsteroids(belt, beltType, primaryStar, arch, 0);
+    private void generateNotableAsteroids(OrbitalBand belt, BeltTypeRef beltType, Star star, SystemArchitecture arch) {
+        generateNotableAsteroids(belt, beltType, star, arch, 0);
     }
 
-    private void generateNotableAsteroids(Belt belt, BeltTypeRef beltType, Star primaryStar, SystemArchitecture arch, int existingNotableCount) {
+    private void generateNotableAsteroids(OrbitalBand belt, BeltTypeRef beltType, Star star, SystemArchitecture arch, int existingNotableCount) {
         if (RandomUtils.rollRange(0.0, 1.0) > beltType.getNotableObjectChance()) {
             return;
         }
@@ -482,15 +833,15 @@ public class BeltCreator {
 
         for (int i = 0; i < count; i++) {
             Asteroid asteroid = createNotableAsteroid(
-                    belt, eligibleTypes, primaryStar, arch,
+                    belt, eligibleTypes, star, arch,
                     sizeDistribution[i], i + 1
             );
             belt.addNotableAsteroid(asteroid);
         }
     }
 
-    private Asteroid createNotableAsteroid(Belt belt, List<AsteroidTypeRef> eligibleTypes,
-                                           Star primaryStar, SystemArchitecture arch,
+    private Asteroid createNotableAsteroid(OrbitalBand belt, List<AsteroidTypeRef> eligibleTypes,
+                                           Star star, SystemArchitecture arch,
                                            double sizeFraction, int rank) {
         Asteroid asteroid = new Asteroid();
 
@@ -504,12 +855,17 @@ public class BeltCreator {
         asteroid.setRadius(radiusKm);
         asteroid.setCircumference(2.0 * Math.PI * radiusKm);
 
-        // Irregular shape for smaller asteroids
+        // Persist earthRadius (radius is @Transient and lost on DB reload)
+        asteroid.setEarthRadius(radiusKm / EARTH_RADIUS_KM);
+
+        // Dimensions — irregular shape for smaller bodies, spheroid label for large ones
         if (diameterKm < 400) {
             double a = diameterKm * RandomUtils.rollRange(0.9, 1.1);
             double b = diameterKm * RandomUtils.rollRange(0.7, 0.95);
             double c = diameterKm * RandomUtils.rollRange(0.5, 0.85);
             asteroid.setDimensionsKm(String.format("%.0f x %.0f x %.0f", a, b, c));
+        } else {
+            asteroid.setDimensionsKm(String.format("~%.0fkm spheroid", diameterKm));
         }
 
         // Density from type
@@ -518,52 +874,46 @@ public class BeltCreator {
 
         // Mass
         double volumeM3 = (4.0 / 3.0) * Math.PI * Math.pow(radiusKm * 1000, 3);
-        double massKg = volumeM3 * density * 1000; // density in g/cm³ = 1000 kg/m³
+        double massKg = volumeM3 * density * 1000; // density in g/cm3 = 1000 kg/m3
         asteroid.setMass(massKg);
         asteroid.setEarthMass(massKg / EARTH_MASS_KG);
 
         // Albedo
         asteroid.setAlbedo(RandomUtils.rollRange(type.getAlbedoMin(), type.getAlbedoMax()));
 
-        // Orbital elements
-        double sma = RandomUtils.rollRange(belt.getInnerRadiusAu(), belt.getOuterRadiusAu());
+        // Orbital elements via OrbitalCreator
+        double sma = RandomUtils.rollRange(belt.getInnerOrbit().getSemiMajorAxis(), belt.getOuterOrbit().getSemiMajorAxis());
         // Weight toward peak density
-        if (belt.getPeakDensityAu() != null && RandomUtils.rollRange(0.0, 1.0) < 0.6) {
-            double spread = belt.getWidthAu() * 0.3;
-            sma = belt.getPeakDensityAu() + RandomUtils.rollRange(-spread, spread);
-            sma = Math.max(belt.getInnerRadiusAu(), Math.min(belt.getOuterRadiusAu(), sma));
+        if (belt.getPeakDensityDistance() != null && RandomUtils.rollRange(0.0, 1.0) < 0.6) {
+            double spread = belt.getWidth() * 0.3;
+            sma = belt.getPeakDensityDistance() + RandomUtils.rollRange(-spread, spread);
+            sma = Math.max(belt.getInnerOrbit().getSemiMajorAxis(), Math.min(belt.getOuterOrbit().getSemiMajorAxis(), sma));
         }
+
         asteroid.setSemiMajorAxisAu(sma);
-
-        asteroid.setEccentricity(RandomUtils.rollRange(
-                belt.getAverageEccentricity() * 0.5,
-                belt.getMaxEccentricity()
-        ));
-        asteroid.setInclinationDegrees(RandomUtils.rollRange(0.0, belt.getMaxInclinationDegrees()));
-
-        double periodYears = Math.sqrt(Math.pow(sma, 3) / arch.totalStellarMass);
-        asteroid.setOrbitalPeriodDays(periodYears * 365.25);
 
         asteroid.setRotationPeriodHours(RandomUtils.rollRange(2.0, 20.0));
         asteroid.setAxialTilt(RandomUtils.rollRange(0.0, 180.0));
 
         double temp = TemperatureCalculator.calculatePlanetTemperature(
-                primaryStar, sma, asteroid.getAlbedo()
+                star, sma, asteroid.getAlbedo()
         );
         asteroid.setSurfaceTemp(temp);
 
-        double surfaceGravity = (GRAVITATIONAL_CONSTANT * massKg) / Math.pow(radiusKm * 1000, 2);
+        // Asteroids store gravity in raw m/s² (not g-multiples like planets/moons)
+        double radiusM = radiusKm * 1000;
+        double surfaceGravity = (ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) / (radiusM * radiusM);
         asteroid.setSurfaceGravity(surfaceGravity);
 
-        double escapeVelocity = Math.sqrt(2 * GRAVITATIONAL_CONSTANT * massKg / (radiusKm * 1000)) / 1000.0;
-        asteroid.setEscapeVelocity(escapeVelocity);
+        asteroid.setEscapeVelocity(PhysicsFormulas.escapeVelocityKmS(massKg, radiusKm));
 
         asteroid.setSurfaceFeatures(type.getTypicalSurfaceFeatures());
         asteroid.setCrateringLevel(selectCrateringLevel());
-        asteroid.setHasRegolith(diameterKm > 1.0);
-        if (Boolean.TRUE.equals(asteroid.getHasRegolith())) {
-            asteroid.setRegolithDepthM(RandomUtils.rollRange(0.1, Math.min(100, diameterKm * 0.1)));
-        }
+        boolean hasRegolith = diameterKm > 1.0;
+        asteroid.setHasRegolith(hasRegolith);
+        asteroid.setRegolithDepthM(hasRegolith
+                ? RandomUtils.rollRange(0.1, Math.min(100, diameterKm * 0.1))
+                : null);
 
         asteroid.setComposition(type.getPrimaryComposition());
 
@@ -578,9 +928,16 @@ public class BeltCreator {
             asteroid.setIsDifferentiated(false);
         }
 
-        generateAsteroidMoons(asteroid, diameterKm);
+        // Ice content based on belt location and asteroid type
+        String beltCode = belt.getBandType();
+        String typeCode = type.getCode();
+        if ("KUIPER".equals(beltCode) || "SCATTERED_DISK".equals(beltCode)) {
+            asteroid.setIcePercent(RandomUtils.rollRange(30.0, 80.0));
+        } else if ("C".equals(typeCode) || "B".equals(typeCode)) {
+            asteroid.setIcePercent(RandomUtils.rollRange(1.0, 15.0));
+        }
+        // S, M, V, E types in inner belt: effectively dry, leave null
 
-        asteroid.setIsNotable(true);
         asteroid.setNotableReason(generateNotableReason(asteroid, rank, belt));
         asteroid.setDesignationCode(generateDesignationCode(rank));
 
@@ -589,9 +946,9 @@ public class BeltCreator {
         return asteroid;
     }
 
-    private void generateResonanceGaps(Belt belt, Planet giant) {
+    private void generateResonanceGaps(OrbitalBand belt, Planet giant) {
         if (giant == null || giant.getSemiMajorAxisAU() == null) {
-            belt.setHasResonanceGaps(false);
+            belt.setHasGaps(false);
             return;
         }
 
@@ -609,21 +966,21 @@ public class BeltCreator {
             double ratio = Math.pow(res[0] / res[1], -2.0 / 3.0);
             double gapLocation = giantSma * ratio;
 
-            if (gapLocation > belt.getInnerRadiusAu() && gapLocation < belt.getOuterRadiusAu()) {
+            if (gapLocation > belt.getInnerOrbit().getSemiMajorAxis() && gapLocation < belt.getOuterOrbit().getSemiMajorAxis()) {
                 gaps.add(String.format("%.0f:%.0f resonance at %.2f AU", res[0], res[1], gapLocation));
             }
         }
 
         if (!gaps.isEmpty()) {
-            belt.setHasResonanceGaps(true);
+            belt.setHasGaps(true);
             belt.setGapDescription(String.join("; ", gaps));
         } else {
-            belt.setHasResonanceGaps(false);
+            belt.setHasGaps(false);
         }
     }
 
-    private void generateBeltComposition(Belt belt, double frostLineAu) {
-        double midpoint = (belt.getInnerRadiusAu() + belt.getOuterRadiusAu()) / 2.0;
+    private void generateBeltComposition(OrbitalBand belt, double frostLineAu) {
+        double midpoint = (belt.getInnerOrbit().getSemiMajorAxis() + belt.getOuterOrbit().getSemiMajorAxis()) / 2.0;
 
         if (midpoint < frostLineAu * 0.7) {
             belt.setPrimaryComposition("Silicates 55%, Iron-Nickel 25%, Carbonaceous 20%");
@@ -643,7 +1000,7 @@ public class BeltCreator {
         switch (beltCode) {
             case "INNER_ROCKY":
                 affinities.add("INNER_ROCKY");
-                affinities.add("OUTER_ROCKY"); // Some P/D types in outer main belt
+                affinities.add("OUTER_ROCKY");
                 break;
             case "OUTER_ROCKY":
                 affinities.add("OUTER_ROCKY");
@@ -703,7 +1060,7 @@ public class BeltCreator {
         return distribution;
     }
 
-    private double calculateAsteroidDiameter(Belt belt, double sizeFraction) {
+    private double calculateAsteroidDiameter(OrbitalBand belt, double sizeFraction) {
         String beltCode = belt.getBeltType().getCode();
 
         double maxDiameter;
@@ -732,57 +1089,37 @@ public class BeltCreator {
         return Math.max(minDiameter, Math.min(maxDiameter, diameter));
     }
 
-    private void generateAsteroidMoons(Asteroid asteroid, double diameterKm) {
-        double moonChance = 0.0;
-
-        if (diameterKm > 500) {
-            moonChance = 0.25;
-        } else if (diameterKm > 200) {
-            moonChance = 0.15;
-        } else if (diameterKm > 100) {
-            moonChance = 0.05;
-        }
-
-        if (RandomUtils.rollRange(0.0, 1.0) < moonChance) {
-            asteroid.setHasMoon(true);
-            asteroid.setMoonCount(RandomUtils.rollRange(0.0, 1.0) < 0.9 ? 1 : 2);
-
-            double moonSize = diameterKm * RandomUtils.rollRange(0.02, 0.15);
-            double moonDistance = diameterKm * RandomUtils.rollRange(2, 10);
-            asteroid.setMoonDescription(String.format(
-                    "%d small satellite%s (largest ~%.0f km diameter at %.0f km distance)",
-                    asteroid.getMoonCount(),
-                    asteroid.getMoonCount() > 1 ? "s" : "",
-                    moonSize,
-                    moonDistance
-            ));
-        } else {
-            asteroid.setHasMoon(false);
-            asteroid.setMoonCount(0);
-        }
-    }
-
-    private String generateNotableReason(Asteroid asteroid, int rank, Belt belt) {
+    private String generateNotableReason(Asteroid asteroid, int rank, OrbitalBand belt) {
         List<String> reasons = new ArrayList<>();
 
         if (rank == 1) {
-            reasons.add("Largest object in the " + belt.getName());
+            // belt.getName() may be null at creation time (naming runs later in SystemCreator)
+            String beltLabel = belt.getName();
+            if (beltLabel == null) {
+                // Fall back to a readable belt-type label
+                String code = belt.getBandType();
+                beltLabel = switch (code != null ? code : "") {
+                    case "INNER_ROCKY" -> "inner asteroid belt";
+                    case "OUTER_ROCKY" -> "outer asteroid belt";
+                    case "KUIPER" -> "Kuiper belt";
+                    case "SCATTERED_DISK" -> "scattered disk";
+                    default -> "belt";
+                };
+            }
+            reasons.add("Largest object in the " + beltLabel);
         }
 
         if (Boolean.TRUE.equals(asteroid.getIsDifferentiated())) {
             reasons.add("Differentiated interior with " + asteroid.getCoreType() + " core");
         }
 
-        if (Boolean.TRUE.equals(asteroid.getHasMoon())) {
-            if (asteroid.getMoonCount() > 1) {
-                reasons.add("Binary/multiple system with " + asteroid.getMoonCount() + " satellites");
-            } else {
-                reasons.add("Has a small satellite moon");
-            }
+        // High ice content
+        if (asteroid.getIcePercent() != null && asteroid.getIcePercent() > 50) {
+            reasons.add(String.format("Ice-rich body (%.0f%% ice by mass)", asteroid.getIcePercent()));
         }
 
         // High albedo outlier
-        double avgAlbedo = (asteroid.getAsteroidType().getAlbedoMin() + 
+        double avgAlbedo = (asteroid.getAsteroidType().getAlbedoMin() +
                            asteroid.getAsteroidType().getAlbedoMax()) / 2.0;
         if (asteroid.getAlbedo() > avgAlbedo * 1.5) {
             reasons.add("Unusually bright surface");
@@ -826,13 +1163,13 @@ public class BeltCreator {
         };
     }
 
-    private String generateBeltDescription(Belt belt, BeltTypeRef beltType) {
+    private String generateBeltDescription(OrbitalBand belt, BeltTypeRef beltType) {
         StringBuilder sb = new StringBuilder();
         sb.append(beltType.getDescription()).append(" ");
         sb.append(String.format("Spanning %.2f to %.2f AU with an estimated %,d objects. ",
-                belt.getInnerRadiusAu(), belt.getOuterRadiusAu(), belt.getEstimatedObjectCount()));
+                belt.getInnerOrbit().getSemiMajorAxis(), belt.getOuterOrbit().getSemiMajorAxis(), belt.getEstimatedObjectCount()));
 
-        if (Boolean.TRUE.equals(belt.getHasResonanceGaps())) {
+        if (Boolean.TRUE.equals(belt.getHasGaps())) {
             sb.append("Features orbital resonance gaps. ");
         }
         if (Boolean.TRUE.equals(belt.getHasCollisionalFamilies())) {
@@ -849,7 +1186,13 @@ public class BeltCreator {
                 .orElse(null);
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    //  System Architecture — internal analysis state
+    // ═════════════════════════════════════════════════════════════════════
+
     private static class SystemArchitecture {
+        Star star;
+
         List<Planet> rockyPlanets = new ArrayList<>();
         List<Planet> giantPlanets = new ArrayList<>();
         List<Planet> dwarfPlanets = new ArrayList<>();
@@ -864,5 +1207,11 @@ public class BeltCreator {
         double systemAgeMY = 0;
         double starMetallicity = 0;
         double totalStellarMass = 1.0;
+
+        /** Holman-Wiegert S-type outer stability limit, or MAX_VALUE if unconstrained. */
+        double outerStabilityCapAU = Double.MAX_VALUE;
+
+        /** P-type inner cavity (circumbinary minimum stable orbit), 0 for circumstellar. */
+        double innerCavityAU = 0.0;
     }
 }

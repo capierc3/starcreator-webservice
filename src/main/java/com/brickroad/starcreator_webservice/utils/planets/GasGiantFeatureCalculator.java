@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,7 @@ public class GasGiantFeatureCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet, Star parentStar) {
+    public void calculate(PlanetaryClimate weather, Planet planet, Star parentStar) {
         String atmClass = planet.getAtmosphereClassification();
         if (!CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
             return; // Only for gas giants
@@ -39,7 +40,7 @@ public class GasGiantFeatureCalculator {
     // BAND STRUCTURE
     // ================================================================
 
-    private void calculateBandStructure(PlanetaryWeather weather, String atmClass,
+    private void calculateBandStructure(PlanetaryClimate weather, String atmClass,
                                          double rotationHours, double earthRadius) {
         // Number of visible bands correlates with rotation speed and size
         // Jupiter (9.9h, 11.2 R⊕): ~15 visible bands
@@ -67,7 +68,7 @@ public class GasGiantFeatureCalculator {
     // INTERNAL HEAT
     // ================================================================
 
-    private void calculateInternalHeat(PlanetaryWeather weather, Planet planet,
+    private void calculateInternalHeat(PlanetaryClimate weather, Planet planet,
                                         Star parentStar, String atmClass) {
         // Gas giants radiate more energy than they receive from their star
         // Jupiter: emits 1.67x what it receives (internal heat from gravitational contraction)
@@ -108,7 +109,7 @@ public class GasGiantFeatureCalculator {
     // GREAT DARK SPOT
     // ================================================================
 
-    private void checkGreatDarkSpot(PlanetaryWeather weather, String atmClass, Planet planet) {
+    private void checkGreatDarkSpot(PlanetaryClimate weather, String atmClass, Planet planet) {
         if ("ICE_GIANT".equals(atmClass)) {
             // Dark spots correlate with atmospheric energy — driven by internal heat.
             // Neptune (ratio ~2.6) has persistent dark spots; Uranus (~1.06) does not.

@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +12,7 @@ public class AtmosphericStructureCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet, Star parentStar) {
+    public void calculate(PlanetaryClimate weather, Planet planet, Star parentStar) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double surfaceGravity = planet.getSurfaceGravity() != null ? planet.getSurfaceGravity() : 1.0;
@@ -41,7 +42,7 @@ public class AtmosphericStructureCalculator {
         calculateTwilightDuration(weather, scaleHeightKm, pressureAtm, planet);
     }
 
-    public void calculateForMoon(PlanetaryWeather weather, Moon moon, Star parentStar) {
+    public void calculateForMoon(PlanetaryClimate weather, Moon moon, Star parentStar) {
         double surfaceTemp = moon.getSurfaceTemp() != null ? moon.getSurfaceTemp() : 100.0;
         double surfaceGravityMs2 = moon.getSurfaceGravity() != null ? moon.getSurfaceGravity() : 1.0;
         // Moon surfaceGravity is already in m/s² (not multiples of Earth g)
@@ -75,7 +76,7 @@ public class AtmosphericStructureCalculator {
     // ATMOSPHERIC LAYERS
     // ================================================================
 
-    private void calculateLayers(PlanetaryWeather weather, String atmClass,
+    private void calculateLayers(PlanetaryClimate weather, String atmClass,
                                  double scaleHeightKm, double surfaceTemp, double pressureAtm) {
 
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
@@ -112,7 +113,7 @@ public class AtmosphericStructureCalculator {
     // SKY COLOR
     // ================================================================
 
-    private void calculateSkyColor(PlanetaryWeather weather, String atmClass,
+    private void calculateSkyColor(PlanetaryClimate weather, String atmClass,
                                    String composition, double pressureAtm, Star parentStar) {
         String skyColor;
         String description;
@@ -214,7 +215,7 @@ public class AtmosphericStructureCalculator {
     // TWILIGHT DURATION
     // ================================================================
 
-    private void calculateTwilightDuration(PlanetaryWeather weather, double scaleHeightKm,
+    private void calculateTwilightDuration(PlanetaryClimate weather, double scaleHeightKm,
                                            double pressureAtm, Planet planet) {
         if (pressureAtm < 0.0001) {
             weather.setTwilightDurationMinutes(0.0); // No atmosphere = instant transition

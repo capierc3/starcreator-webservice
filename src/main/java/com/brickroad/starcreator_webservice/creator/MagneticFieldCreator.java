@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.entity.ud.Moon;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.planets.StellarEnvironment;
 import org.springframework.stereotype.Service;
@@ -11,8 +12,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class MagneticFieldCreator {
 
-    private static final double EARTH_SURFACE_FIELD_MICROTESLAS = 50.0;
-    private static final double EARTH_MAGNETIC_MOMENT = 7.91e22; // A·m²
+    // Constants delegate to PhysicsFormulas (single source of truth)
+    private static final double EARTH_SURFACE_FIELD_MICROTESLAS = PhysicsFormulas.EARTH_SURFACE_FIELD_uT;
+    private static final double EARTH_MAGNETIC_MOMENT = PhysicsFormulas.EARTH_MAGNETIC_MOMENT;
 
     public PlanetaryMagneticField generateMagneticField(Planet planet) {
         return generateMagneticField(planet, planet.getParentStar());
@@ -20,7 +22,6 @@ public class MagneticFieldCreator {
 
     public PlanetaryMagneticField generateMagneticField(Planet planet, Star parentStar) {
         PlanetaryMagneticField field = new PlanetaryMagneticField();
-        field.setPlanet(planet);
 
         boolean canHaveDynamo = canGenerateDynamo(planet);
         if (!canHaveDynamo) {
@@ -33,7 +34,6 @@ public class MagneticFieldCreator {
 
     public PlanetaryMagneticField generateMoonMagneticField(Moon moon, Planet parentPlanet) {
         PlanetaryMagneticField field = new PlanetaryMagneticField();
-        field.setMoon(moon);
 
         MoonFieldType fieldType = determineMoonFieldType(moon, parentPlanet);
 
@@ -53,8 +53,6 @@ public class MagneticFieldCreator {
                 break;
         }
 
-        field.setCreatedAt(java.time.LocalDateTime.now());
-        field.setModifiedAt(java.time.LocalDateTime.now());
         return field;
     }
 
@@ -62,11 +60,9 @@ public class MagneticFieldCreator {
         String coreType = planet.getCoreType();
         String planetType = planet.getPlanetType();
 
-        // Gas/ice giant types above 5 M⊕ have enough internal pressure
-        // and heat for ionic fluid or metallic hydrogen dynamos
-        if (planetType != null && (planetType.contains("Ice Giant") ||
-                planetType.contains("Sub-Neptune") ||
-                planetType.contains("Mini-Neptune"))) {
+        // Neptune-class and ice giant types above 5 M⊕ have enough internal pressure
+        // and heat for ionic fluid dynamos
+        if (isNeptuneClass(planetType)) {
             if (planet.getEarthMass() != null && planet.getEarthMass() > 5.0) {
                 return true;
             }
@@ -103,38 +99,71 @@ public class MagneticFieldCreator {
     }
 
     private void generateActiveDynamoField(PlanetaryMagneticField field, Planet planet, Star parentStar) {
-        double rotationFactor = calculateRotationFactor(planet);
         double massFactor = planet.getEarthMass() != null ? planet.getEarthMass() : 1.0;
-        double densityFactor = calculateDensityFactor(planet);
         double ageFactor = calculateAgeFactor(planet);
-        //double massLimit = planet.getEarthMass() * 3.0;
-        double massLimit = planet.getEarthMass() * densityFactor * 2.5;
-        double baseStrength = rotationFactor * Math.sqrt(massFactor) * densityFactor * ageFactor;
 
         String pType = planet.getPlanetType();
-        if (pType != null && (pType.contains("Ice World") || pType.contains("Dwarf Planet"))) {
-            baseStrength = RandomUtils.rollRange(0.005, 0.03);
-        } else {
+        boolean isGasGiant = pType != null && pType.contains("Gas") && !pType.contains("Ice");
+        boolean isNeptune = isNeptuneClass(pType);
+
+        double baseStrength;
+
+        if (isGasGiant) {
+            // Metallic hydrogen dynamo: convection-driven, only weakly rotation-dependent.
+            // Jupiter ~20× Earth, Saturn ~0.7× Earth. Scales roughly with mass^0.5-0.8.
+            // Tidally-locked hot Jupiters still produce strong fields.
+            double rotFloor = RandomUtils.rollRange(0.6, 1.0);
+            double rotationFactor = Math.max(calculateRotationFactor(planet), rotFloor);
+            baseStrength = rotationFactor * Math.pow(massFactor, 0.6) * ageFactor;
             baseStrength *= RandomUtils.rollRange(0.5, 2.0);
+            // Cap: even the largest gas giant shouldn't exceed ~50× Earth
+            baseStrength = Math.min(baseStrength, 50.0);
+
+        } else if (isNeptune) {
+            // Ionic fluid dynamo: driven by convection in water/ammonia/methane ices
+            // under extreme pressure. Neptune ~27× Earth, Uranus ~0.75× Earth.
+            // Less rotation-dependent than rocky core dynamos.
+            double rotFloor = RandomUtils.rollRange(0.3, 0.7);
+            double rotationFactor = Math.max(calculateRotationFactor(planet), rotFloor);
+            baseStrength = rotationFactor * Math.pow(massFactor, 0.5) * ageFactor;
+            baseStrength *= RandomUtils.rollRange(0.3, 1.5);
+            // Cap: Neptune-class tops out around ~30× Earth
+            baseStrength = Math.min(baseStrength, 30.0);
+
+        } else {
+            // Rocky core dynamo: strongly rotation-dependent (Earth, Mars, Mercury).
+            // Original formula: rotation × √mass × density_ratio × age
+            double rotationFactor = calculateRotationFactor(planet);
+            double densityFactor = calculateDensityFactor(planet);
+            double massLimit = massFactor * densityFactor * 2.5;
+            baseStrength = rotationFactor * Math.sqrt(massFactor) * densityFactor * ageFactor;
+
+            if (pType != null && (pType.contains("Ice World") || pType.contains("Dwarf Planet"))) {
+                baseStrength = RandomUtils.rollRange(0.005, 0.03);
+            } else {
+                baseStrength *= RandomUtils.rollRange(0.5, 2.0);
+            }
+            baseStrength = Math.min(baseStrength, massLimit);
         }
-        baseStrength = Math.min(baseStrength, massLimit);
         
         field.setStrengthComparedToEarth(baseStrength);
 
-        double avgField = EARTH_SURFACE_FIELD_MICROTESLAS * baseStrength;
-        double minField = avgField * 0.6;
-        double maxField = avgField * 1.4;
-        
+        double avgField = PhysicsFormulas.surfaceFieldAvgMicrotesla(baseStrength);
         field.setSurfaceFieldMicroteslasAvg(avgField);
-        field.setSurfaceFieldMicroteslasMin(minField);
-        field.setSurfaceFieldMicroteslasMax(maxField);
+        field.setSurfaceFieldMicroteslasMin(PhysicsFormulas.surfaceFieldMinMicrotesla(avgField));
+        field.setSurfaceFieldMicroteslasMax(PhysicsFormulas.surfaceFieldMaxMicrotesla(avgField));
 
         determineDynamoType(field, planet);
         determineFieldGeometry(field, planet, baseStrength);
         determineSpatialVariation(field, planet);
         determineTemporalProperties(field, planet, baseStrength);
 
-        if (baseStrength > 0.1) {
+        // Any measurable active dynamo gets the full Chapman-Ferraro magnetosphere
+        // calculation. The physics formula naturally handles weak fields by producing
+        // small, compressed magnetospheres (Mercury-like). Previously the threshold
+        // was 0.1, which excluded tidally-locked terrestrial planets that have real
+        // core dynamos but weak fields (e.g. 0.03× Earth).
+        if (baseStrength > 0.001) {
             calculateMagnetosphere(field, planet, baseStrength, parentStar);
         }
         determineProtectionLevel(field, baseStrength, parentStar, planet);
@@ -356,10 +385,8 @@ public class MagneticFieldCreator {
                 field.setDynamoEfficiency(RandomUtils.rollRange(0.6, 0.95));
                 field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.EXTREME);
             }
-            // Ice giants & Sub-Neptunes: ionic fluid dynamo
-            else if (planetType.contains("Ice Giant") ||
-                    planetType.contains("Sub-Neptune") ||
-                    planetType.contains("Mini-Neptune")) {
+            // Ice giants & Neptune-class: ionic fluid dynamo
+            else if (isNeptuneClass(planetType)) {
                 field.setDynamoType(PlanetaryMagneticField.DynamoType.IONIC_FLUID);
                 field.setDynamoEfficiency(RandomUtils.rollRange(0.4, 0.7));
                 field.setCoreConvectionIntensity(PlanetaryMagneticField.CoreConvectionIntensity.STRONG);
@@ -469,7 +496,7 @@ public class MagneticFieldCreator {
         boolean veryStrong = baseStrength > 2.0;
         boolean weak = baseStrength < 0.5;
         boolean isGasGiant = planet.getPlanetType() != null &&
-                (planet.getPlanetType().contains("Gas") || planet.getPlanetType().contains("Ice Giant"));
+                (planet.getPlanetType().contains("Gas") || isNeptuneClass(planet.getPlanetType()));
         boolean fastRotation = planet.getRotationPeriodHours() != null &&
                 Math.abs(planet.getRotationPeriodHours()) < 10;
 
@@ -523,58 +550,44 @@ public class MagneticFieldCreator {
 
     private void calculateMagnetosphere(PlanetaryMagneticField field, Planet planet,
                                         double baseStrength, Star parentStar) {
-        field.setMagnetosphereExists(true);
-
         double magnetopauseRadii;
 
         if (parentStar != null && planet.getSemiMajorAxisAU() != null) {
             double ramPressure = StellarEnvironment.windRamPressureAtDistance(
                     parentStar, planet.getSemiMajorAxisAU());
 
-            // Magnetic moment scales with field strength and planet volume
             double planetRadiusM = planet.getRadius() * 1000.0;
-            double magneticMoment = EARTH_MAGNETIC_MOMENT * baseStrength
-                    * Math.pow(planetRadiusM / 6.371e6, 3);
+            double moment = PhysicsFormulas.magneticMoment(baseStrength, planet.getRadius());
 
-            // Chapman-Ferraro standoff distance (in meters)
-            // R_mp = (μ₀/(4π) * M² / (2 * P_ram))^(1/6)
-            double mu0_over_4pi = 1e-7; // T·m/A
-            double standoffM = Math.pow(
-                    mu0_over_4pi * magneticMoment * magneticMoment / (2.0 * ramPressure),
-                    1.0 / 6.0);
+            // Deterministic standoff (shared with DerivedFieldCalculator)
+            magnetopauseRadii = PhysicsFormulas.magnetopauseStandoffRadii(moment, ramPressure, planetRadiusM);
 
-            // Convert to planet radii
-            magnetopauseRadii = standoffM / planetRadiusM;
-
-            // Clamp to physical bounds (minimum ~1.5 radii, max ~100 radii)
-            magnetopauseRadii = Math.max(1.5, Math.min(100.0, magnetopauseRadii));
-
-            // Apply variance
+            // Creator-only random variance (±15%)
             magnetopauseRadii *= RandomUtils.rollRange(0.85, 1.15);
         } else {
             // Fallback: original generic scaling
             magnetopauseRadii = 10.0 * Math.sqrt(baseStrength) * RandomUtils.rollRange(0.8, 1.2);
         }
 
+        // Let the physics decide: if the magnetopause is at the formula floor (1.5 radii),
+        // stellar wind has overwhelmed the field and there's no meaningful magnetosphere.
+        // Above that, even a small compressed magnetosphere exists (Mercury-like).
+        if (magnetopauseRadii <= 1.5) {
+            field.setMagnetosphereExists(false);
+            return;
+        }
+
+        field.setMagnetosphereExists(true);
         field.setMagnetopauseDistancePlanetRadii(magnetopauseRadii);
 
-        // Bow shock: typically 1.3-1.5x the magnetopause distance
-        // Higher wind Mach number → shock closer to magnetopause
-        double machFactor = 1.45; // default
-        if (parentStar != null && parentStar.getStellarWindVelocityKmS() != null) {
-            double windSpeed = parentStar.getStellarWindVelocityKmS();
-            // Faster wind → higher Mach → compression ratio closer to 4 → shock closer
-            if (windSpeed > 600) machFactor = 1.3;
-            else if (windSpeed > 400) machFactor = 1.35;
-        }
+        // Bow shock: deterministic multiplier (shared) + creator-only variance
+        double windSpeed = (parentStar != null && parentStar.getStellarWindVelocityKmS() != null)
+                ? parentStar.getStellarWindVelocityKmS() : 400.0;
+        double machFactor = PhysicsFormulas.bowShockMultiplier(windSpeed);
         field.setBowShockDistancePlanetRadii(magnetopauseRadii * machFactor * RandomUtils.rollRange(0.95, 1.05));
 
-        // Magnetotail: length scales with wind speed (faster wind stretches tail further)
-        double tailMultiplier = 20.0; // default Earth-like
-        if (parentStar != null && parentStar.getStellarWindVelocityKmS() != null) {
-            tailMultiplier = 15.0 + 10.0 * (parentStar.getStellarWindVelocityKmS() / 400.0);
-            tailMultiplier = Math.min(60.0, tailMultiplier); // cap at 60x planet radii
-        }
+        // Magnetotail: deterministic multiplier (shared) + creator-only variance
+        double tailMultiplier = PhysicsFormulas.magnetotailMultiplier(windSpeed);
         field.setMagnetotailLengthPlanetRadii(magnetopauseRadii * tailMultiplier * RandomUtils.rollRange(0.8, 1.2));
 
         // Radiation belts (unchanged logic, but compressed magnetosphere = more intense belts)
@@ -674,49 +687,22 @@ public class MagneticFieldCreator {
                     parentStar, planet.getSemiMajorAxisAU());
         }
 
-        // Protection ratio: field strength vs. threat
-        // Using cube root instead of square root — still dampened (a 1000x threat
-        // doesn't need a 1000x field to deflect) but less forgiving than sqrt.
-        // Also apply a log boost for high-threat environments so VERY_ACTIVE/HYPERACTIVE
-        // stars maintain pressure even at moderate distances.
-        double effectiveThreat = Math.cbrt(threatFactor);
-        if (threatFactor > 3.0) {
-            // Bonus penalty for genuinely active environments
-            effectiveThreat *= (1.0 + 0.3 * Math.log10(threatFactor));
-        }
+        // Core protection classification — shared with DerivedFieldCalculator
+        PhysicsFormulas.ProtectionResult result =
+                PhysicsFormulas.calculateProtectionLevel(baseStrength, threatFactor);
+        field.setProtectionLevel(result.level());
+        field.setShieldsFromStellarWind(result.shieldsFromStellarWind());
+        field.setShieldsFromCosmicRays(result.shieldsFromCosmicRays());
 
-        double protectionRatio = baseStrength / Math.max(0.01, effectiveThreat);
-
-        if (baseStrength < 0.1) {
-            protectionRatio = Math.min(protectionRatio, 0.75);
-        }
-
-        if (protectionRatio < 0.05) {
-            field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.NONE);
-            field.setShieldsFromStellarWind(false);
-            field.setShieldsFromCosmicRays(false);
-            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 8.0));
-        } else if (protectionRatio < 0.3) {
-            field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.MINIMAL);
-            field.setShieldsFromStellarWind(false);
-            field.setShieldsFromCosmicRays(false);
-            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 5.0));
-        } else if (protectionRatio < 0.8) {
-            field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.MODERATE);
-            field.setShieldsFromStellarWind(true);
-            field.setShieldsFromCosmicRays(false);
-            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 2.0));
-        } else if (protectionRatio < 2.5) {
-            field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.STRONG);
-            field.setShieldsFromStellarWind(true);
-            field.setShieldsFromCosmicRays(true);
-            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 0.5));
-        } else {
-            field.setProtectionLevel(PlanetaryMagneticField.ProtectionLevel.EXCEPTIONAL);
-            field.setShieldsFromStellarWind(true);
-            field.setShieldsFromCosmicRays(true);
-            field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, 0.2));
-        }
+        // Atmospheric loss rate — creator-only (persisted, uses randomness)
+        double baseLossRate = switch (result.level()) {
+            case NONE -> 8.0;
+            case MINIMAL -> 5.0;
+            case MODERATE -> 2.0;
+            case STRONG -> 0.5;
+            case EXCEPTIONAL -> 0.2;
+        };
+        field.setAtmosphericLossRateFactor(calculateLossRate(baseStrength, threatFactor, baseLossRate));
     }
 
     private double calculateLossRate(double fieldStrength, double threatFactor, double baseLossRate) {
@@ -727,10 +713,7 @@ public class MagneticFieldCreator {
     }
 
     private void calculateScientificProperties(PlanetaryMagneticField field, Planet planet, double baseStrength) {
-        double planetRadiusM = planet.getRadius() * 1000.0;
-        double planetVolume = (4.0/3.0) * Math.PI * Math.pow(planetRadiusM, 3);
-
-        field.setMagneticMoment(EARTH_MAGNETIC_MOMENT * baseStrength * (planetVolume / 1.08e21));
+        field.setMagneticMoment(PhysicsFormulas.magneticMoment(baseStrength, planet.getRadius()));
         field.setSurfacePowerFluxWattsPerM2(baseStrength * RandomUtils.rollRange(0.01, 0.1));
 
         if (planet.getCoreType() != null && !planet.getPlanetType().contains("Gas")) {
@@ -1119,6 +1102,20 @@ public class MagneticFieldCreator {
         // Dipole: B(r) = B_surface * (R_planet / r)^3
         double ratio = planetRadiusKm / moonDistKm;
         return surfaceFieldNT * ratio * ratio * ratio;
+    }
+
+    /**
+     * Returns true for all Neptune-class planet types: Sub-Neptune, Mini-Neptune,
+     * Warm Neptune, Hot Neptune. These share ionic fluid interiors and should
+     * receive IONIC_FLUID dynamo treatment rather than rocky CORE_DYNAMO.
+     */
+    private boolean isNeptuneClass(String planetType) {
+        return planetType != null && (
+                planetType.contains("Sub-Neptune") ||
+                planetType.contains("Mini-Neptune") ||
+                planetType.contains("Warm Neptune") ||
+                planetType.contains("Hot Neptune") ||
+                planetType.contains("Ice Giant"));
     }
 
     private enum MoonFieldType {

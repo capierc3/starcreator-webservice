@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,7 @@ public class StormCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet) {
+    public void calculate(PlanetaryClimate weather, Planet planet) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -33,7 +34,7 @@ public class StormCalculator {
         double cloudCoverage = weather.getCloudCoveragePercent() != null ? weather.getCloudCoveragePercent() : 30.0;
         boolean hasPrecip = Boolean.TRUE.equals(weather.getHasPrecipitation());
 
-        List<ExtremeWeatherEvent> events = new ArrayList<>();
+        List<ExtremeClimateEvent> events = new ArrayList<>();
 
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
             calculateGasGiantStorms(weather, events, atmClass, rotationHours, planet);
@@ -53,14 +54,14 @@ public class StormCalculator {
         calculateSpecialExtremeWeather(events, atmClass, surfaceTemp, pressureAtm,
                 liquidWaterPercent, rotationHours, tidallyLocked);
 
-        weather.setExtremeWeatherEvents(events);
+        weather.setExtremeClimateEvents(events);
     }
 
     // ================================================================
     // ROCKY WORLD STORMS
     // ================================================================
 
-    private void calculateRockyStorms(PlanetaryWeather weather, List<ExtremeWeatherEvent> events,
+    private void calculateRockyStorms(PlanetaryClimate weather, List<ExtremeClimateEvent> events,
                                        String atmClass, double surfaceTemp, double pressureAtm,
                                        double rotationHours, double liquidWaterPercent,
                                        boolean tidallyLocked, double meanWindMs,
@@ -90,7 +91,7 @@ public class StormCalculator {
                 weather.setStormFrequency("RARE");
             }
 
-            ExtremeWeatherEvent cyclone = new ExtremeWeatherEvent();
+            ExtremeClimateEvent cyclone = new ExtremeClimateEvent();
             cyclone.setEventName("Tropical Cyclones");
             cyclone.setEventType("CYCLONE");
             cyclone.setSeverity(cycloneIntensity > 2.0 ? "EXTREME" : cycloneIntensity > 1.0 ? "HIGH" : "MODERATE");
@@ -101,7 +102,7 @@ public class StormCalculator {
 
             // Hypercanes: extreme cyclones on very warm ocean worlds
             if (surfaceTemp > 320 && liquidWaterPercent > 50 && rotationHours < 30) {
-                ExtremeWeatherEvent hypercane = new ExtremeWeatherEvent();
+                ExtremeClimateEvent hypercane = new ExtremeClimateEvent();
                 hypercane.setEventName("Hypercane Events");
                 hypercane.setEventType("HYPERCANE");
                 hypercane.setSeverity("CATASTROPHIC");
@@ -127,7 +128,7 @@ public class StormCalculator {
         if (pressureAtm > 0.3 && cloudCoverage > 20 && hasPrecip) {
             String convSeverity = "MODERATE".equals(convectionLevel) || "HIGH".equals(convectionLevel)
                     ? "HIGH" : "MODERATE";
-            ExtremeWeatherEvent convective = new ExtremeWeatherEvent();
+            ExtremeClimateEvent convective = new ExtremeClimateEvent();
             convective.setEventName("Convective Storms");
             convective.setEventType("SUPERSTORM");
             convective.setSeverity(convSeverity);
@@ -147,13 +148,20 @@ public class StormCalculator {
     // GAS GIANT STORMS
     // ================================================================
 
-    private void calculateGasGiantStorms(PlanetaryWeather weather, List<ExtremeWeatherEvent> events,
+    private void calculateGasGiantStorms(PlanetaryClimate weather, List<ExtremeClimateEvent> events,
                                           String atmClass, double rotationHours, Planet planet) {
         // Gas giants always have intense storm activity
         weather.setStormFrequency("CONSTANT");
 
         double jetSpeed = weather.getJetStreamSpeedMs() != null ? weather.getJetStreamSpeedMs() : 150.0;
         double stormWind = jetSpeed * RandomUtils.rollRange(0.8, 1.5);
+
+        // Cap storm winds to speed of sound — same physics limit as mean/gust winds
+        double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 100.0;
+        double meanMolWeight = CelestialBodyUtils.estimateMolecularWeightFromClassification(atmClass);
+        double soundSpeed = Math.sqrt(1.4 * 8.314 * surfaceTemp / (meanMolWeight / 1000.0));
+        stormWind = Math.min(stormWind, soundSpeed * 1.1); // Storm winds: allow near-sonic
+
         weather.setTypicalStormWindSpeedMs(round2(Math.min(800.0, stormWind)));
 
         // Great storms / persistent vortices
@@ -163,9 +171,11 @@ public class StormCalculator {
 
         if (hasGreatStorm || stormCount > 0) {
             for (int i = 0; i < Math.max(1, stormCount); i++) {
-                ExtremeWeatherEvent greatStorm = new ExtremeWeatherEvent();
+                ExtremeClimateEvent greatStorm = new ExtremeClimateEvent();
                 double diameterFactor = RandomUtils.rollRange(0.05, 0.3); // Fraction of planet diameter
                 double vortexWindMs = jetSpeed * RandomUtils.rollRange(1.0, 2.5);
+                // Cap vortex winds to speed of sound — same physics limit as other wind fields
+                vortexWindMs = Math.min(vortexWindMs, soundSpeed * 1.1);
                 double ageYears = Math.pow(10, RandomUtils.rollRange(1.0, 3.0)); // 10 to 1000 years
 
                 String stormName;
@@ -188,7 +198,7 @@ public class StormCalculator {
         }
 
         // Band-boundary storms — shear-driven between alternating jet streams
-        ExtremeWeatherEvent bandStorms = new ExtremeWeatherEvent();
+        ExtremeClimateEvent bandStorms = new ExtremeClimateEvent();
         bandStorms.setEventName("Band-Boundary Shear Storms");
         bandStorms.setEventType("SUPERSTORM");
         bandStorms.setSeverity("HIGH");
@@ -198,7 +208,7 @@ public class StormCalculator {
         events.add(bandStorms);
 
         // Massive convective plumes (eruption-like upwellings)
-        ExtremeWeatherEvent plumes = new ExtremeWeatherEvent();
+        ExtremeClimateEvent plumes = new ExtremeClimateEvent();
         plumes.setEventName("Convective Eruption Plumes");
         plumes.setEventType("SUPERSTORM");
         plumes.setSeverity("EXTREME");
@@ -212,7 +222,7 @@ public class StormCalculator {
     // DUST STORMS
     // ================================================================
 
-    private void calculateDustStorms(PlanetaryWeather weather, List<ExtremeWeatherEvent> events,
+    private void calculateDustStorms(PlanetaryClimate weather, List<ExtremeClimateEvent> events,
                                       String atmClass, double pressureAtm, double surfaceTemp,
                                       String erosionLevel) {
         // Dust storms require: thin atmosphere + rocky surface + temperature gradients
@@ -228,7 +238,7 @@ public class StormCalculator {
             boolean canBeGlobal = isMarsSimilar && pressureAtm > 0.003;
             weather.setDustStormsCanBeGlobal(canBeGlobal);
 
-            ExtremeWeatherEvent dustStorm = new ExtremeWeatherEvent();
+            ExtremeClimateEvent dustStorm = new ExtremeClimateEvent();
             if (canBeGlobal) {
                 dustStorm.setEventName("Planet-Encircling Dust Storms");
                 dustStorm.setEventType("GLOBAL_DUST");
@@ -256,7 +266,7 @@ public class StormCalculator {
     // LIGHTNING
     // ================================================================
 
-    private void calculateLightning(PlanetaryWeather weather, List<ExtremeWeatherEvent> events,
+    private void calculateLightning(PlanetaryClimate weather, List<ExtremeClimateEvent> events,
                                      String atmClass, double pressureAtm, double cloudCoverage,
                                      boolean hasPrecip, double surfaceTemp) {
 
@@ -269,7 +279,7 @@ public class StormCalculator {
                 // Gas giant lightning: massive scale, detected on Jupiter and Saturn
                 hasLightning = true;
                 lightningType = "CONVECTIVE_GIANT";
-                ExtremeWeatherEvent gasLightning = new ExtremeWeatherEvent();
+                ExtremeClimateEvent gasLightning = new ExtremeClimateEvent();
                 gasLightning.setEventName("Giant-Scale Lightning");
                 gasLightning.setEventType("LIGHTNING_STORM");
                 gasLightning.setSeverity("HIGH");
@@ -283,7 +293,7 @@ public class StormCalculator {
                 // Volcanic lightning in eruption plumes
                 hasLightning = true;
                 lightningType = "VOLCANIC";
-                ExtremeWeatherEvent volcLightning = new ExtremeWeatherEvent();
+                ExtremeClimateEvent volcLightning = new ExtremeClimateEvent();
                 volcLightning.setEventName("Volcanic Lightning");
                 volcLightning.setEventType("LIGHTNING_STORM");
                 volcLightning.setSeverity("HIGH");
@@ -318,14 +328,14 @@ public class StormCalculator {
     // SPECIAL EXTREME WEATHER
     // ================================================================
 
-    private void calculateSpecialExtremeWeather(List<ExtremeWeatherEvent> events, String atmClass,
+    private void calculateSpecialExtremeWeather(List<ExtremeClimateEvent> events, String atmClass,
                                                  double surfaceTemp, double pressureAtm,
                                                  double liquidWaterPercent, double rotationHours,
                                                  boolean tidallyLocked) {
 
         // Methane monsoons (Titan-like)
         if ("TITAN_LIKE".equals(atmClass)) {
-            ExtremeWeatherEvent monsoon = new ExtremeWeatherEvent();
+            ExtremeClimateEvent monsoon = new ExtremeClimateEvent();
             monsoon.setEventName("Methane Monsoons");
             monsoon.setEventType("MONSOON");
             monsoon.setSeverity("MODERATE");
@@ -337,7 +347,7 @@ public class StormCalculator {
 
         // Sulfuric acid virga storms (Venus-like)
         if ("VENUS_LIKE".equals(atmClass)) {
-            ExtremeWeatherEvent virga = new ExtremeWeatherEvent();
+            ExtremeClimateEvent virga = new ExtremeClimateEvent();
             virga.setEventName("Sulfuric Acid Virga");
             virga.setEventType("SUPERSTORM");
             virga.setSeverity("HIGH");
@@ -349,7 +359,7 @@ public class StormCalculator {
 
         // Corrosive rain storms
         if ("CORROSIVE".equals(atmClass) && pressureAtm > 0.1) {
-            ExtremeWeatherEvent acidRain = new ExtremeWeatherEvent();
+            ExtremeClimateEvent acidRain = new ExtremeClimateEvent();
             acidRain.setEventName("Corrosive Precipitation Events");
             acidRain.setEventType("SUPERSTORM");
             acidRain.setSeverity("EXTREME");
@@ -361,7 +371,7 @@ public class StormCalculator {
 
         // Iron/silicate rain on exotic ultrahot worlds
         if ("EXOTIC".equals(atmClass) && surfaceTemp > 1800) {
-            ExtremeWeatherEvent metalRain = new ExtremeWeatherEvent();
+            ExtremeClimateEvent metalRain = new ExtremeClimateEvent();
             metalRain.setEventName("Molten Metal Rain");
             metalRain.setEventType("SUPERSTORM");
             metalRain.setSeverity("CATASTROPHIC");
@@ -373,7 +383,7 @@ public class StormCalculator {
 
         // Tidally locked terminator storms
         if (tidallyLocked && pressureAtm > 0.5) {
-            ExtremeWeatherEvent terminatorStorm = new ExtremeWeatherEvent();
+            ExtremeClimateEvent terminatorStorm = new ExtremeClimateEvent();
             terminatorStorm.setEventName("Terminator Convergence Storms");
             terminatorStorm.setEventType("SUPERSTORM");
             terminatorStorm.setSeverity("HIGH");
@@ -385,7 +395,7 @@ public class StormCalculator {
 
         // Ammonia blizzards
         if ("AMMONIA".equals(atmClass) && surfaceTemp < 250) {
-            ExtremeWeatherEvent ammoniaBlizzard = new ExtremeWeatherEvent();
+            ExtremeClimateEvent ammoniaBlizzard = new ExtremeClimateEvent();
             ammoniaBlizzard.setEventName("Ammonia Blizzards");
             ammoniaBlizzard.setEventType("SUPERSTORM");
             ammoniaBlizzard.setSeverity("HIGH");

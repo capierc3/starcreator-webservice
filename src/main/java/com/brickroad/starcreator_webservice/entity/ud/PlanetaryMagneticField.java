@@ -1,9 +1,13 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -11,39 +15,29 @@ import java.time.LocalDateTime;
 @Getter
 @Entity
 @Table(name = "planetary_magnetic_field", schema = "ud")
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Magnetic field properties for a planet or moon")
 public class PlanetaryMagneticField {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonIgnore
     private Long id;
-
-    @Column(name = "planet_id", unique = true)
-    private Long planetId;
-
-    @Transient
-    @JsonIgnore
-    private Planet planet;
-
-    @Column(name = "moon_id")
-    private Long moonId;
-
-    @Transient
-    @JsonIgnore
-    private Moon moon;
 
     // ================================================================
     // FIELD STRENGTH
     // ================================================================
-    @Column(name = "strength_compared_to_earth", nullable = false)
+    @Column(name = "strength_compared_to_earth")
     private Double strengthComparedToEarth;
 
-    @Column(name = "surface_field_microteslas_min", nullable = false)
+    // Derived from strengthComparedToEarth (avg = strength * 50µT, min = avg * 0.6, max = avg * 1.4)
+    @Transient
     private Double surfaceFieldMicroteslasMin;
 
-    @Column(name = "surface_field_microteslas_max", nullable = false)
+    @Transient
     private Double surfaceFieldMicroteslasMax;
 
-    @Column(name = "surface_field_microteslas_avg", nullable = false)
+    @Transient
     private Double surfaceFieldMicroteslasAvg;
 
     // ================================================================
@@ -110,7 +104,7 @@ public class PlanetaryMagneticField {
     }
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "variation_pattern", nullable = false, length = 100)
+    @Column(name = "variation_pattern", length = 100)
     private VariationPattern variationPattern;
 
     @Column(name = "pole_field_strength_multiplier")
@@ -188,13 +182,14 @@ public class PlanetaryMagneticField {
     @Column(name = "magnetosphere_exists")
     private Boolean magnetosphereExists = false;
 
-    @Column(name = "magnetopause_distance_planet_radii")
+    // Derived from strengthComparedToEarth + stellar wind data
+    @Transient
     private Double magnetopauseDistancePlanetRadii;
 
-    @Column(name = "magnetotail_length_planet_radii")
+    @Transient
     private Double magnetotailLengthPlanetRadii;
 
-    @Column(name = "bow_shock_distance_planet_radii")
+    @Transient
     private Double bowShockDistancePlanetRadii;
 
     // Van Allen Belt analogs
@@ -244,10 +239,11 @@ public class PlanetaryMagneticField {
     // ================================================================
     // FIELD INTERACTIONS
     // ================================================================
-    @Column(name = "shields_from_stellar_wind")
+    // Derived from protectionLevel
+    @Transient
     private Boolean shieldsFromStellarWind = false;
 
-    @Column(name = "shields_from_cosmic_rays")
+    @Transient
     private Boolean shieldsFromCosmicRays = false;
 
     public enum ProtectionLevel {
@@ -258,8 +254,8 @@ public class PlanetaryMagneticField {
         EXCEPTIONAL     // >80%
     }
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "protection_level", length = 50)
+    // Derived from strengthComparedToEarth vs stellar environment
+    @Transient
     private ProtectionLevel protectionLevel;
 
     @Column(name = "atmospheric_loss_rate_factor")
@@ -268,10 +264,11 @@ public class PlanetaryMagneticField {
     // ================================================================
     // SCIENTIFIC PROPERTIES
     // ================================================================
-    @Column(name = "magnetic_moment")
+    // Derived from strengthComparedToEarth and planet radius
+    @Transient
     private Double magneticMoment; // A·m² (Earth: 7.91 × 10^22)
 
-    @Column(name = "surface_power_flux_watts_per_m2")
+    @Transient
     private Double surfacePowerFluxWattsPerM2;
 
     // Paleomagnetism
@@ -284,27 +281,13 @@ public class PlanetaryMagneticField {
     // ================================================================
     // METADATA
     // ================================================================
-    @Column(name = "created_at")
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    @JsonIgnore
     private LocalDateTime createdAt;
 
+    @UpdateTimestamp
     @Column(name = "modified_at")
+    @JsonIgnore
     private LocalDateTime modifiedAt;
-
-    // ================================================================
-    // CONSTRUCTORS
-    // ================================================================
-    public PlanetaryMagneticField() {
-        this.createdAt = LocalDateTime.now();
-        this.modifiedAt = LocalDateTime.now();
-    }
-
-    // ================================================================
-    // GETTERS AND SETTERS
-    // ================================================================
-
-    public void preparePersistence() {
-        if (this.planet != null && this.planet.getId() != null) {
-            this.planetId = this.planet.getId();
-        }
-    }
 }

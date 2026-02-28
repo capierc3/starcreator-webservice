@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.utils.systems;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.brickroad.starcreator_webservice.enums.*;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Service;
@@ -79,9 +80,7 @@ public class SystemClassifier {
         inv.isMultiStar = inv.starCount > 1;
 
         // Planets
-        for (CelestialBody body : system.getBodies()) {
-            if (!(body instanceof Planet planet)) continue;
-
+        for (Planet planet : system.getPlanets()) {
             inv.totalPlanets++;
             String pType = planet.getPlanetType() != null ? planet.getPlanetType() : "";
             inv.planetTypes.add(pType);
@@ -166,7 +165,7 @@ public class SystemClassifier {
             }
 
             // Rings
-            if (planet.getRings() != null && !planet.getRings().isEmpty()) {
+            if (planet.getBands() != null && !planet.getBands().isEmpty()) {
                 inv.ringedPlanetCount++;
             }
 
@@ -176,8 +175,8 @@ public class SystemClassifier {
         }
 
         // Belts
-        if (system.getBelts() != null) {
-            for (Belt belt : system.getBelts()) {
+        if (system.getBands() != null) {
+            for (OrbitalBand belt : system.getBands()) {
                 inv.beltCount++;
                 String beltType = belt.getBeltType() != null ? belt.getBeltType().getName() : "";
                 String beltTypeLower = beltType.toLowerCase();

@@ -2,6 +2,8 @@ package com.brickroad.starcreator_webservice.entity.ud;
 
 import com.brickroad.starcreator_webservice.enums.AtmosphereGas;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,10 +15,12 @@ import java.util.Arrays;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class AtmosphereComponent {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonIgnore
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -25,6 +29,7 @@ public class AtmosphereComponent {
     private Atmosphere atmosphere;
 
     @Transient
+    @JsonIgnore
     private AtmosphereGas gas;
 
     @Column(name = "gas_formula", length = 10)
@@ -37,6 +42,7 @@ public class AtmosphereComponent {
     private Boolean isTrace = false;
 
     @Column(name = "created_at")
+    @JsonIgnore
     private java.time.LocalDateTime createdAt;
 
     // ===================================================================
@@ -86,6 +92,7 @@ public class AtmosphereComponent {
     /**
      * Get the formula (works whether from enum or database).
      */
+    @JsonIgnore
     public String getFormula() {
         if (gasFormula != null) {
             return gasFormula;
@@ -96,6 +103,7 @@ public class AtmosphereComponent {
     /**
      * Get the effect of this gas (e.g., "Breathable", "Toxic", "Greenhouse")
      */
+    @JsonIgnore
     public String getEffect() {
         AtmosphereGas gasEnum = gas();
         return gasEnum != null ? gasEnum.getEffect() : "Unknown";
@@ -104,6 +112,7 @@ public class AtmosphereComponent {
     /**
      * Get the name of this gas (e.g., "Nitrogen", "Oxygen")
      */
+    @JsonIgnore
     public String getName() {
         AtmosphereGas gasEnum = gas();
         return gasEnum != null ? gasEnum.getName() : gasFormula;
@@ -112,6 +121,7 @@ public class AtmosphereComponent {
     /**
      * Get the molecular weight of this gas
      */
+    @JsonIgnore
     public Double getMolecularWeight() {
         AtmosphereGas gasEnum = gas();
         return gasEnum != null ? gasEnum.getMolecularWeight() : null;
@@ -120,6 +130,7 @@ public class AtmosphereComponent {
     /**
      * Check if this gas is breathable
      */
+    @JsonIgnore
     public Boolean isBreathable() {
         AtmosphereGas gasEnum = gas();
         return gasEnum != null ? gasEnum.isBreathable() : false;
@@ -128,6 +139,7 @@ public class AtmosphereComponent {
     /**
      * Get formatted string for display (e.g., "N2 78.0%" or "CO2 (trace)")
      */
+    @JsonIgnore
     public String getFormattedString() {
         String formula = getFormula();
         if (isTrace != null && isTrace) {

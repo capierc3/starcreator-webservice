@@ -15,3 +15,4 @@
 target
 .scratch
 .claude
+.claude/settings.local.json

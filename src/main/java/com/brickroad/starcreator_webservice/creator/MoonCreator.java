@@ -2,9 +2,11 @@ package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ref.PlanetTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.enums.AtmosphereClassification;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryComposition;
@@ -30,6 +32,9 @@ public class MoonCreator {
     private RingCreator ringCreator;
 
     @Autowired
+    private OrbitalCreator orbitalCreator;
+
+    @Autowired
     private MagneticFieldCreator magneticFieldCreator;
 
     @Autowired
@@ -39,11 +44,11 @@ public class MoonCreator {
     private HabitabilityCreator habitabilityCreator;
 
     @Autowired
-    private WeatherCreator weatherCreator;
+    private ClimateCreator climateCreator;
 
-    private static final double EARTH_MASS_KG = 5.972e24;
-    private static final double EARTH_RADIUS_KM = 6371.0;
-    private static final double GRAVITATIONAL_CONSTANT_SI = 6.674e-11; // m³/(kg·s²)
+    private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
+    private static final double GRAVITATIONAL_CONSTANT_SI = ConversionFormulas.GRAVITATIONAL_CONSTANT;
     private static final double MIN_TRACKED_MOON_MASS = 1e-6;
 
     // ═══════════════════════════════════════════════════════════════
@@ -89,13 +94,37 @@ public class MoonCreator {
 
         // Generate weather for all moons AFTER all moons are created,
         // so sibling moons are available for tidal and sky appearance calculations.
-        generateMoonWeather(moons, planet, primaryStar);
+        generateMoonClimate(moons, planet, primaryStar);
 
         int moonlets = calculateAdditionalMoonlets(planet) + distributionResult.redirectedToMoonlets;
         planet.setAdditionalMoonlets(moonlets);
-        planet.setNumberOfMoons(moons.size() + moonlets);
 
         return moons;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Trojan moon creation (called from TrojanCreator)
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Creates a single Trojan moon for a planet, to be placed at a Lagrange point
+     * by TrojanCreator. Calculates Hill sphere and Roche limits internally.
+     *
+     * @param planet     the parent planet
+     * @param star       the parent star
+     * @param massEarth  the moon's mass in Earth masses
+     * @param moonNumber ordinal moon number (for seed uniqueness)
+     * @return a fully-generated Trojan moon, or null if creation fails
+     */
+    public Moon createTrojanMoon(Planet planet, Star star, double massEarth, int moonNumber) {
+        if (planet == null || star == null) return null;
+
+        double hillSphereKm = calculateHillSphere(planet, star);
+        double innerRoche = calculateRocheLimit(planet, 3.3);
+        double outerRoche = calculateRocheLimit(planet, 1.0);
+
+        return createMoon(planet, star, moonNumber, hillSphereKm,
+                innerRoche, outerRoche, "TROJAN", massEarth, null);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -127,7 +156,13 @@ public class MoonCreator {
         generateOrbitalProperties(moon, planet, hillSphereKm, innerRocheLimit, outerRocheLimit, previousMoon);
         calculateDerivedProperties(moon, planet, primaryStar);
         calculateTidalEffects(moon, planet);
-        determineGeologicalActivity(moon);
+        Object[] geoResult = determineGeologicalActivity(moon);
+        String geologicalActivity = (String) geoResult[0];
+        Boolean hasCryovolcanism = (Boolean) geoResult[1];
+
+        TerrainProperties terrain = geologyCreator.createMoonTerrain(moon, geologicalActivity, hasCryovolcanism);
+        moon.setTerrain(terrain);
+
         generateAtmosphere(moon);
 
         PlanetaryComposition composition = generateMoonComposition(moon);
@@ -137,8 +172,20 @@ public class MoonCreator {
             moon.setCompositionClassification(composition.getClassification().name());
         }
 
-        determineSubsurfaceOcean(moon);
-        geologyCreator.generateMoonGeology(moon);
+        // Water system — self-contained: handles subsurface ocean, surface water, tiny moonlet defaults
+        WaterProperties water = waterCreator.createMoonWaterProperties(moon);
+        moon.setWater(water);
+
+        // Now that composition classification, ice coverage, and cryovolcanism are all
+        // known, replace the preliminary density-based albedo with a physics-informed value.
+        refineAlbedo(moon);
+
+        // Capture a deterministic seed for climate/habitability regeneration on load
+        // Names aren't assigned yet (SystemCreator names after creation),
+        // so use orbital positions for uniqueness
+        int planetOrd = planet.getOrbitalPosition() != null ? planet.getOrbitalPosition() : 0;
+        long climateSeed = System.nanoTime() ^ (planetOrd * 7919L + moonNumber * 104729L);
+        moon.setClimateSeed(climateSeed);
 
         double moonMass = moon.getEarthMass() != null ? moon.getEarthMass() : 0;
         if (moonMass >= 0.0005) {
@@ -147,30 +194,12 @@ public class MoonCreator {
                     moon, planet);
             moon.setMagneticField(moonMagField);
 
-            // Water system (ice coverage, subsurface water, water inventory)
-            waterCreator.populateMoonWaterProperties(moon);
-
             // Habitability assessment (must be LAST — reads all other moon data)
-            PlanetaryHabitability moonHab = habitabilityCreator.assessMoon(
-                    moon, planet, primaryStar);
-            moon.setHabitability(moonHab);
-        } else {
-            // Tiny moonlets: set sensible defaults, but respect subsurface ocean if present
-            if (Boolean.TRUE.equals(moon.getHasSubsurfaceOcean())) {
-                moon.setWaterInventory("MODERATE");
-                moon.setLiquidWaterCoveragePercent(0.0);
-                moon.setIceCoveragePercent(RandomUtils.rollRange(40.0, 90.0));
-                moon.setWaterCoveragePercent(moon.getIceCoveragePercent());
-                moon.setHasSubsurfaceWater(true);
-                if (moon.getSubsurfaceWaterDepthKm() == null && moon.getIceShellThicknessKm() != null) {
-                    moon.setSubsurfaceWaterDepthKm(moon.getIceShellThicknessKm());
-                }
-            } else {
-                moon.setWaterInventory("NONE");
-                moon.setLiquidWaterCoveragePercent(0.0);
-                moon.setIceCoveragePercent(0.0);
-                moon.setWaterCoveragePercent(0.0);
-                moon.setHasSubsurfaceWater(false);
+            RandomUtils.seed(climateSeed);
+            try {
+                moon.setHabitability(habitabilityCreator.assessMoon(moon, planet, primaryStar));
+            } finally {
+                RandomUtils.unseed();
             }
         }
 
@@ -184,16 +213,21 @@ public class MoonCreator {
     //  Weather (post-creation pass)
     // ═══════════════════════════════════════════════════════════════
 
-    private void generateMoonWeather(List<Moon> moons, Planet planet, Star primaryStar) {
+    private void generateMoonClimate(List<Moon> moons, Planet planet, Star primaryStar) {
         if (moons == null || moons.isEmpty()) return;
 
         StarSystem system = primaryStar != null ? primaryStar.getSystem() : null;
 
         for (Moon moon : moons) {
-            if (Boolean.TRUE.equals(moon.getHasAtmosphere())) {
-                PlanetaryWeather moonWeather = weatherCreator.generateMoonWeather(
-                        moon, planet, primaryStar, system, moons);
-                moon.setWeather(moonWeather);
+            if (Boolean.TRUE.equals(moon.getHasAtmosphere()) && moon.getClimateSeed() != null) {
+                RandomUtils.seed(moon.getClimateSeed() ^ 0xDEADBEEFL);
+                try {
+                    PlanetaryClimate moonClimate = climateCreator.generateMoonClimate(
+                            moon, planet, primaryStar, system, moons);
+                    moon.setClimate(moonClimate);
+                } finally {
+                    RandomUtils.unseed();
+                }
             }
         }
     }
@@ -301,10 +335,7 @@ public class MoonCreator {
         }
 
         // Marginal tracked moons (1e-6 to 1e-5 M⊕, ~40-100km)
-        // Gas/ice giants can have Trojan moons at Lagrange points
-        if (isGasIceGiant && RandomUtils.rollRange(0.0, 1.0) < 0.20) {
-            return "TROJAN";
-        }
+        // Trojan moons are now only created by TrojanCreator when a swarm is large enough
         return "IRREGULAR_CAPTURED";
     }
 
@@ -388,10 +419,84 @@ public class MoonCreator {
         moon.setRadius(radiusKm);
         moon.setCircumference(2 * Math.PI * radiusKm);
 
-        double albedo = "ICY".equals(moon.getCompositionType()) ?
-                RandomUtils.rollRange(0.5, 0.9) :
-                RandomUtils.rollRange(0.1, 0.3);
-        moon.setAlbedo(albedo);
+        // Preliminary albedo for temperature estimation — uses density as an ice
+        // fraction proxy. Pure ice ≈ 0.92 g/cm³, silicate rock ≈ 3.3 g/cm³.
+        // Refined later in refineAlbedo() once ice coverage and composition are known.
+        double albedo;
+        if ("ICY".equals(moon.getCompositionType())) {
+            // Density 0.9-1.8 → higher density = more rock mixed in = darker
+            double iceFraction = Math.max(0.0, Math.min(1.0, (1.8 - density) / (1.8 - 0.9)));
+            double rockAlbedo = 0.12;
+            double agedIceAlbedo = 0.55;
+            albedo = rockAlbedo + iceFraction * (agedIceAlbedo - rockAlbedo);
+            albedo *= RandomUtils.rollRange(0.9, 1.1);
+        } else {
+            albedo = RandomUtils.rollRange(0.08, 0.25);
+        }
+        moon.setAlbedo(Math.max(0.02, Math.min(0.95, albedo)));
+    }
+
+    /**
+     * Refines the preliminary albedo using composition classification, surface ice
+     * coverage, and cryovolcanism status — all of which are set after the initial
+     * physical properties pass.
+     *
+     * The model treats the surface as a linear mix of dark silicate regolith and ice,
+     * where the ice brightness depends on whether active cryovolcanism continuously
+     * resurfaces it with fresh material.
+     *
+     * Reference values from the solar system:
+     *   Enceladus  (cryo-active, ~100% ice)  → 0.81
+     *   Europa     (no cryo, ~90% ice)        → 0.67
+     *   Ganymede   (no cryo, ~50% ice)        → 0.43
+     *   Callisto   (no cryo, ~40% ice, dark)  → 0.22
+     *   Io         (volcanic, sulfur-coated)  → 0.63
+     *   Earth Moon (rocky, no ice)            → 0.12
+     */
+    private void refineAlbedo(Moon moon) {
+        Double iceCoverage = moon.getIceCoveragePercent();
+        if (iceCoverage == null) {
+            // No water data (tiny moonlets, etc.) — keep the preliminary albedo
+            return;
+        }
+
+        double iceFraction = iceCoverage / 100.0;
+        boolean hasCryo = Boolean.TRUE.equals(moon.getHasCryovolcanism());
+
+        // Dark silicate/regolith baseline: radiation-darkened rocky surface
+        double rockAlbedo = 0.10;
+
+        // Ice albedo depends on resurfacing:
+        //   Fresh ice (cryovolcanism) → 0.85-0.95: continuous eruptions coat the surface
+        //   Aged ice (no resurfacing) → 0.45-0.60: radiation darkening, micrometeorite
+        //     gardening, and dust contamination over geological time
+        double iceAlbedo;
+        if (hasCryo) {
+            iceAlbedo = RandomUtils.rollRange(0.85, 0.95);
+        } else {
+            iceAlbedo = RandomUtils.rollRange(0.45, 0.60);
+        }
+
+        // Linear mix weighted by surface ice fraction
+        double albedo = rockAlbedo * (1.0 - iceFraction) + iceAlbedo * iceFraction;
+
+        // Composition classification adjustment: iron-rich and carbon-rich surfaces
+        // are darker than typical silicates even without ice
+        String classification = moon.getCompositionClassification();
+        if (classification != null) {
+            if (classification.contains("IRON")) {
+                rockAlbedo = 0.06;
+                albedo = rockAlbedo * (1.0 - iceFraction) + iceAlbedo * iceFraction;
+            } else if (classification.contains("CARBON")) {
+                rockAlbedo = 0.04;
+                albedo = rockAlbedo * (1.0 - iceFraction) + iceAlbedo * iceFraction;
+            }
+        }
+
+        // Small random variance (±5%) for natural variation
+        albedo *= RandomUtils.rollRange(0.95, 1.05);
+
+        moon.setAlbedo(Math.max(0.02, Math.min(0.95, albedo)));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -468,12 +573,10 @@ public class MoonCreator {
             }
         }
 
-        moon.setSemiMajorAxisKm(semiMajorAxisKm);
-
         // Avoid ring gaps
-        for (Ring ring : planet.getRings()) {
-            double ringInner = ring.getInnerRadiusKm();
-            double ringOuter = ring.getOuterRadiusKm();
+        for (OrbitalBand band : planet.getBands()) {
+            double ringInner = band.getInnerOrbit().getSemiMajorAxis();
+            double ringOuter = band.getOuterOrbit().getSemiMajorAxis();
             double ringMargin = (ringOuter - ringInner) * 0.1;
 
             if (semiMajorAxisKm >= (ringInner - ringMargin) &&
@@ -485,8 +588,6 @@ public class MoonCreator {
                 }
             }
         }
-
-        moon.setSemiMajorAxisKm(semiMajorAxisKm);
 
         double eccentricity;
         if ("IRREGULAR_CAPTURED".equals(moon.getMoonType())) {
@@ -524,22 +625,15 @@ public class MoonCreator {
             double scatter = RandomUtils.rollRange(0.7, 1.3);
             eccentricity = Math.max(0.0001, baseEcc * scatter);
         }
-        moon.setEccentricity(eccentricity);
-
         double inclination = "IRREGULAR_CAPTURED".equals(moon.getMoonType()) ?
                 RandomUtils.rollRange(10, 60) :
                 RandomUtils.rollRange(0, 5);
-        moon.setOrbitalInclinationDegrees(inclination);
-        moon.setLongitudeOfAscendingNodeDegrees(RandomUtils.rollRange(0.0, 360.0));
-        moon.setArgumentOfPeriapsisDegrees(RandomUtils.rollRange(0.0, 360.0));
-        moon.setMeanAnomalyDegrees(RandomUtils.rollRange(0.0, 360.0));
 
-        double periodSeconds = 2 * Math.PI * Math.sqrt(
-                Math.pow(semiMajorAxisKm * 1000, 3) /
-                        (ConversionFormulas.GRAVITATIONAL_CONSTANT * planet.getMass())
-        );
-        double periodDays = periodSeconds / (24 * 3600);
-        moon.setOrbitalPeriodDays(periodDays);
+        OrbitalElements orbit = orbitalCreator.createMoonOrbit(semiMajorAxisKm, planet.getMass(), eccentricity, inclination);
+        orbit.setDistanceFromParent(semiMajorAxisKm);
+        moon.setOrbit(orbit);
+
+        double periodDays = orbit.getOrbitalPeriodDays();
 
         moon.setTidallyLocked(!("IRREGULAR_CAPTURED".equals(moon.getMoonType()) && RandomUtils.rollRange(0.0, 1.0) < 0.7));
 
@@ -555,25 +649,14 @@ public class MoonCreator {
         moon.setAxialTilt(RandomUtils.rollRange(0.0, 25));
 
         // Per-moon Hill sphere
-        double moonMassKg = moon.getMass();
-        double planetMassKg = planet.getMass();
-        double moonHillSphere = semiMajorAxisKm * Math.cbrt(moonMassKg / (3 * planetMassKg));
-        moon.setHillSphereRadiusKm(moonHillSphere);
+        moon.setHillSphereRadiusKm(
+                PhysicsFormulas.hillSphereRadiusKm(semiMajorAxisKm, moon.getMass(), planet.getMass()));
 
-        // Per-moon Roche limit
-        double moonDensity = moon.getDensity();
-        double moonRadiusKm = moon.getRadius();
-        double debrisDensity = 2.5;
-        double moonRocheLimit = 2.46 * moonRadiusKm * Math.cbrt(moonDensity / debrisDensity);
-        moon.setRocheLimitKm(moonRocheLimit);
+        // Per-moon Roche limit (debris density ~2.5 g/cm³ for rocky material)
+        moon.setRocheLimitKm(
+                PhysicsFormulas.rocheLimitKm(moon.getRadius(), moon.getDensity(), 2.5));
 
-        if (semiMajorAxisKm < rocheLimit * 1.2) {
-            moon.setOrbitStability("UNSTABLE");
-        } else if (semiMajorAxisKm > hillSphereKm * 0.4) {
-            moon.setOrbitStability("MARGINALLY_STABLE");
-        } else {
-            moon.setOrbitStability("STABLE");
-        }
+        orbitalCreator.classifyMoonStability(moon.getOrbit(), semiMajorAxisKm, rocheLimit, hillSphereKm);
     }
 
     private void generateShepherdMoonOrbit(Moon moon, Planet planet,
@@ -583,17 +666,17 @@ public class MoonCreator {
         double maxOrbit = planetRadiusKm * 5.0;
 
         double semiMajorAxisKm;
-        if (planet.getRings() != null && !planet.getRings().isEmpty()) {
-            Ring targetRing = planet.getRings().getFirst();
-            for (Ring ring : planet.getRings()) {
-                if (ring.getHasShepherdMoons() != null && ring.getHasShepherdMoons()) {
-                    targetRing = ring;
+        if (planet.getBands() != null && !planet.getBands().isEmpty()) {
+            OrbitalBand targetBand = planet.getBands().getFirst();
+            for (OrbitalBand band : planet.getBands()) {
+                if (band.getHasShepherdMoons() != null && band.getHasShepherdMoons()) {
+                    targetBand = band;
                     break;
                 }
             }
 
-            double innerEdge = targetRing.getInnerRadiusKm();
-            double outerEdge = targetRing.getOuterRadiusKm();
+            double innerEdge = targetBand.getInnerOrbit().getSemiMajorAxis();
+            double outerEdge = targetBand.getOuterOrbit().getSemiMajorAxis();
             double ringWidth = outerEdge - innerEdge;
 
             if (RandomUtils.rollRange(0.0, 1.0) < 0.5) {
@@ -607,41 +690,29 @@ public class MoonCreator {
             semiMajorAxisKm = RandomUtils.rollRange(minOrbit, maxOrbit);
         }
 
-        moon.setSemiMajorAxisKm(semiMajorAxisKm);
-
         double eccentricity = RandomUtils.rollRange(0.0001, 0.01);
-        moon.setEccentricity(eccentricity);
-
         double inclination = RandomUtils.rollRange(0.0, 2.0);
-        moon.setOrbitalInclinationDegrees(inclination);
 
-        double periodSeconds = 2 * Math.PI * Math.sqrt(
-                Math.pow(semiMajorAxisKm * 1000, 3) /
-                        (ConversionFormulas.GRAVITATIONAL_CONSTANT * planet.getMass())
-        );
-        double periodDays = periodSeconds / (24 * 3600);
-        moon.setOrbitalPeriodDays(periodDays);
+        OrbitalElements orbit = orbitalCreator.createMoonOrbit(semiMajorAxisKm, planet.getMass(), eccentricity, inclination);
+        orbit.setDistanceFromParent(semiMajorAxisKm);
+        moon.setOrbit(orbit);
+
+        double periodDays = orbit.getOrbitalPeriodDays();
 
         moon.setTidallyLocked(true);
         moon.setRotationPeriodHours(periodDays * 24);
 
         moon.setAxialTilt(RandomUtils.rollRange(0.0, 10.0));
 
-        double moonHillSphere = moon.getSemiMajorAxisKm() * Math.cbrt(moon.getMass() / (3 * planet.getMass()));
-        moon.setHillSphereRadiusKm(moonHillSphere);
-
-        double debrisDensity = 2.5;
-        double moonRocheLimit = 2.46 * moon.getRadius() * Math.cbrt(moon.getDensity() / debrisDensity);
-        moon.setRocheLimitKm(moonRocheLimit);
+        moon.setHillSphereRadiusKm(
+                PhysicsFormulas.hillSphereRadiusKm(moon.getSemiMajorAxisKm(), moon.getMass(), planet.getMass()));
+        moon.setRocheLimitKm(
+                PhysicsFormulas.rocheLimitKm(moon.getRadius(), moon.getDensity(), 2.5));
 
         double planetRocheLimit = "ICY".equals(moon.getCompositionType()) ?
                 outerRocheLimit : innerRocheLimit;
 
-        if (moon.getSemiMajorAxisKm() < planetRocheLimit * 1.2) {
-            moon.setOrbitStability("UNSTABLE");
-        } else {
-            moon.setOrbitStability("STABLE");
-        }
+        orbitalCreator.classifyMoonStability(moon.getOrbit(), semiMajorAxisKm, planetRocheLimit, Double.MAX_VALUE);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -652,13 +723,8 @@ public class MoonCreator {
         double radiusKm = moon.getRadius();
         double massKg = moon.getMass();
 
-        double surfaceGravityMS2 = (ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) /
-                Math.pow(radiusKm * 1000, 2);
-        moon.setSurfaceGravity(surfaceGravityMS2 / 9.81);
-
-        double escapeVelocity = Math.sqrt((2 * ConversionFormulas.GRAVITATIONAL_CONSTANT * massKg) /
-                (radiusKm * 1000));
-        moon.setEscapeVelocity(escapeVelocity / 1000.0);
+        moon.setSurfaceGravity(PhysicsFormulas.surfaceGravityG(massKg, radiusKm));
+        moon.setEscapeVelocity(PhysicsFormulas.escapeVelocityKmS(massKg, radiusKm));
 
         moon.setSurfaceTemp(calculateSurfaceTemp(moon, planet, primaryStar));
     }
@@ -813,7 +879,11 @@ public class MoonCreator {
         return baseK2Q;
     }
 
-    private void determineGeologicalActivity(Moon moon) {
+    /**
+     * Determines geological activity level and cryovolcanism, returning them as a two-element array.
+     * [0] = geologicalActivity (String), [1] = hasCryovolcanism (Boolean)
+     */
+    private Object[] determineGeologicalActivity(Moon moon) {
         Double tidalHeatingWattPerM2 = moon.getTidalHeatingWattPerM2();
 
         boolean hasSignificantTidalHeating = tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.5;
@@ -826,20 +896,25 @@ public class MoonCreator {
             activityScore += (Math.log10(tidalHeatingWattPerM2) + 3) * 3;
         }
 
+        String geologicalActivity;
+        Boolean hasCryovolcanism = false;
+
         if (activityScore > 10) {
-            moon.setGeologicalActivity("HIGH");
-            moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()));
+            geologicalActivity = "HIGH";
+            hasCryovolcanism = "ICY".equals(moon.getCompositionType());
         } else if (activityScore > 7.5) {
-            moon.setGeologicalActivity("MODERATE");
-            moon.setHasCryovolcanism("ICY".equals(moon.getCompositionType()) && RandomUtils.rollRange(0.0, 1.0) < 0.6);
+            geologicalActivity = "MODERATE";
+            hasCryovolcanism = "ICY".equals(moon.getCompositionType()) && RandomUtils.rollRange(0.0, 1.0) < 0.6;
         } else if (activityScore > 3) {
-            moon.setGeologicalActivity("LOW");
+            geologicalActivity = "LOW";
             if ("ICY".equals(moon.getCompositionType()) && tidalHeatingWattPerM2 != null && tidalHeatingWattPerM2 > 0.8) {
-                moon.setHasCryovolcanism(RandomUtils.rollRange(0.0, 1.0) < 0.3);
+                hasCryovolcanism = RandomUtils.rollRange(0.0, 1.0) < 0.3;
             }
         } else {
-            moon.setGeologicalActivity("NONE");
+            geologicalActivity = "NONE";
         }
+
+        return new Object[]{ geologicalActivity, hasCryovolcanism };
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -850,30 +925,20 @@ public class MoonCreator {
         Planet planet = moon.getPlanet();
 
         if (moon.getEscapeVelocity() < 0.3) {
-            moon.setHasAtmosphere(false);
-            moon.setSurfacePressure(0.0);
-            moon.setAtmosphereComposition("None");
-            moon.setAtmosphere(null);
+            moon.setAtmosphere(atmosphereCreator.createNoAtmosphereEntity());
             return;
         }
 
         boolean strippedByMagneticField = checkMagneticFieldStripping(moon, planet);
-
         if (strippedByMagneticField) {
-            Atmosphere strippedAtmosphere = createStrippedAtmosphere();
-            moon.setAtmosphere(strippedAtmosphere);
-            moon.setHasAtmosphere(false);
-            moon.setSurfacePressure(0.0);
-            moon.setAtmosphereComposition("None (stripped by magnetic field)");
+            moon.setAtmosphere(atmosphereCreator.createStrippedAtmosphereEntity(
+                    "Atmosphere stripped by parent planet's magnetosphere"));
             return;
         }
 
         boolean shouldHaveAtmosphere = determineAtmospherePresence(moon);
-
         if (!shouldHaveAtmosphere) {
-            moon.setHasAtmosphere(false);
-            moon.setSurfacePressure(0.0);
-            moon.setAtmosphereComposition("None");
+            moon.setAtmosphere(atmosphereCreator.createNoAtmosphereEntity());
             return;
         }
 
@@ -889,10 +954,7 @@ public class MoonCreator {
 
         PlanetaryAtmosphere generatedAtmosphere = result.atmosphere();
         if (generatedAtmosphere.getClassification() == AtmosphereClassification.NONE) {
-            moon.setHasAtmosphere(false);
-            moon.setSurfacePressure(0.0);
-            moon.setAtmosphereComposition("None");
-            moon.setAtmosphere(null);
+            moon.setAtmosphere(atmosphereCreator.createNoAtmosphereEntity());
             return;
         }
 
@@ -902,13 +964,8 @@ public class MoonCreator {
                 result.template()
         );
 
-        // Convert PlanetaryAtmosphere to Atmosphere entity
-        Atmosphere atmosphereEntity = convertToAtmosphereEntity(generatedAtmosphere, surfacePressure);
-
+        Atmosphere atmosphereEntity = atmosphereCreator.toAtmosphereEntity(generatedAtmosphere, surfacePressure);
         moon.setAtmosphere(atmosphereEntity);
-        moon.setHasAtmosphere(true);
-        moon.setSurfacePressure(surfacePressure);
-        moon.setAtmosphereComposition(generatedAtmosphere.toCompactString());
     }
 
     private boolean checkMagneticFieldStripping(Moon moon, Planet planet) {
@@ -1049,34 +1106,6 @@ public class MoonCreator {
         return "Rocky Moon";
     }
 
-    private Atmosphere createStrippedAtmosphere() {
-        return Atmosphere.builder()
-                .classification("NONE")
-                .surfacePressureBar(0.0)
-                .compositionSummary("None")
-                .isStripped(true)
-                .strippedReason("Atmosphere stripped by parent planet's magnetosphere")
-                .components(new java.util.ArrayList<>())
-                .build();
-    }
-
-    private Atmosphere convertToAtmosphereEntity(PlanetaryAtmosphere planetaryAtm, double pressureBar) {
-        Atmosphere atmosphere = Atmosphere.builder()
-                .classification(planetaryAtm.getClassification().name())
-                .surfacePressureBar(pressureBar)
-                .compositionSummary(planetaryAtm.toCompactString())
-                .isStripped(false)
-                .components(new java.util.ArrayList<>())
-                .build();
-
-        for (AtmosphereComponent component : planetaryAtm.components()) {
-            component.setAtmosphere(atmosphere);
-            atmosphere.getComponents().add(component);
-        }
-
-        return atmosphere;
-    }
-
     // ═══════════════════════════════════════════════════════════════
     //  Composition
     // ═══════════════════════════════════════════════════════════════
@@ -1135,102 +1164,16 @@ public class MoonCreator {
     //  Subsurface ocean
     // ═══════════════════════════════════════════════════════════════
 
-    private void determineSubsurfaceOcean(Moon moon) {
-        String compositionType = moon.getCompositionType();
-        if (!"ICY".equals(compositionType) && !"MIXED".equals(compositionType)) {
-            moon.setHasSubsurfaceOcean(false);
-            return;
-        }
-
-        double tidalHeatingWattPerM2 = moon.getTidalHeatingWattPerM2() != null ?
-                moon.getTidalHeatingWattPerM2() : 0.0;
-        double surfaceTemp = moon.getSurfaceTemp() != null ?
-                moon.getSurfaceTemp() : 50.0;
-        double earthMass = moon.getEarthMass() != null ?
-                moon.getEarthMass() : 0.0;
-
-        double oceanChance = 0.0;
-
-        if (tidalHeatingWattPerM2 > 2.0) {
-            oceanChance += 0.6;
-        } else if (tidalHeatingWattPerM2 > 0.5) {
-            oceanChance += 0.45;
-        } else if (tidalHeatingWattPerM2 > 0.1) {
-            oceanChance += 0.2;
-        } else if (tidalHeatingWattPerM2 > 0.01) {
-            oceanChance += 0.05;
-        }
-
-        if (earthMass > 0.01) {
-            oceanChance += 0.15;
-        } else if (earthMass > 0.001) {
-            oceanChance += 0.08;
-        }
-
-        if (surfaceTemp < 200 && surfaceTemp > 50) {
-            oceanChance += 0.1;
-        }
-
-        if (Boolean.TRUE.equals(moon.getHasCryovolcanism())) {
-            oceanChance += 0.3;
-        }
-
-        oceanChance = Math.min(0.85, oceanChance);
-
-        boolean hasOcean = RandomUtils.rollRange(0.0, 1.0) < oceanChance;
-        moon.setHasSubsurfaceOcean(hasOcean);
-
-        if (hasOcean) {
-            populateSubsurfaceOceanDetails(moon, tidalHeatingWattPerM2, surfaceTemp);
-        }
-    }
-
-    private void populateSubsurfaceOceanDetails(Moon moon, double tidalHeatingWattPerM2, double surfaceTemp) {
-        double baseOceanDepth = 20.0;
-        baseOceanDepth += moon.getEarthMass() * 500;
-        baseOceanDepth += Math.min(tidalHeatingWattPerM2 * 10, 50);
-
-        double oceanDepth = RandomUtils.rollRange(baseOceanDepth * 0.5, baseOceanDepth * 1.5);
-        moon.setOceanDepthKm(oceanDepth);
-
-        double baseShellThickness = 50.0;
-        baseShellThickness -= Math.min(tidalHeatingWattPerM2 * 15, 40);
-
-        if (surfaceTemp < 50) {
-            baseShellThickness += 30.0; // Very cold → thick ice
-        } else if (surfaceTemp < 80) {
-            baseShellThickness += 15.0; // Cold → moderately thick
-        } else if (surfaceTemp > 120) {
-            baseShellThickness -= 15.0; // Warmer → thinner ice
-        }
-
-        if (Boolean.TRUE.equals(moon.getHasCryovolcanism())) {
-            baseShellThickness *= 0.6;
-        }
-
-        baseShellThickness = Math.max(3.0, baseShellThickness);
-
-        double iceShellThickness = RandomUtils.rollRange(
-                baseShellThickness * 0.7,
-                baseShellThickness * 1.3
-        );
-        moon.setIceShellThicknessKm(iceShellThickness);
-    }
-
     // ═══════════════════════════════════════════════════════════════
     //  Ring integration
     // ═══════════════════════════════════════════════════════════════
 
     private void createAndAttachRings(Planet planet, RingCreator.RingSystemData ringPlan, double ringMassEarth) {
-        List<Ring> rings = ringCreator.createRings(planet, ringPlan, ringMassEarth);
+        List<OrbitalBand> rings = ringCreator.createRings(planet, ringPlan, ringMassEarth);
 
         if (!rings.isEmpty()) {
-            planet.setRings(rings);
-            planet.setHasRings(true);
-
+            planet.setBands(rings);
             ringCreator.linkShepherdMoons(planet);
-        } else {
-            planet.setHasRings(false);
         }
     }
 
@@ -1314,11 +1257,11 @@ public class MoonCreator {
 
     private double calculateHillSphere(Planet planet, Star primaryStar) {
         double semiMajorAxisKm = planet.getSemiMajorAxisAU() * ConversionFormulas.AU_TO_KM;
-        return semiMajorAxisKm * Math.cbrt(planet.getMass() / (3 * primaryStar.getMass()));
+        return PhysicsFormulas.hillSphereRadiusKm(semiMajorAxisKm, planet.getMass(), primaryStar.getMass());
     }
 
     private double calculateRocheLimit(Planet planet, double moonDensity) {
-        return 2.46 * planet.getRadius() * Math.cbrt(planet.getDensity() / moonDensity);
+        return PhysicsFormulas.rocheLimitKm(planet.getRadius(), planet.getDensity(), moonDensity);
     }
 
     private boolean isGasIceGiant(Planet planet) {

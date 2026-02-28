@@ -152,7 +152,7 @@ public final class CelestialBodyUtils {
     public static final double STEFAN_BOLTZMANN = 5.670374419e-8;
 
     /** Standard gravity in m/s² */
-    public static final double EARTH_GRAVITY_MS2 = 9.80665;
+    public static final double EARTH_GRAVITY_MS2 = PhysicsFormulas.EARTH_GRAVITY_MS2;
 
     /** Earth surface temperature in K */
     public static final double EARTH_SURFACE_TEMP_K = 288.0;
@@ -164,5 +164,5 @@ public final class CelestialBodyUtils {
     public static final double EARTH_ROTATION_HOURS = 24.0;
 
     /** Earth radius in km */
-    public static final double EARTH_RADIUS_KM = 6371.0;
+    public static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
 }

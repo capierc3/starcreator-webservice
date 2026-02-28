@@ -5,10 +5,10 @@ import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
-import com.brickroad.starcreator_webservice.utils.planets.PlanetaryAtmosphere;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.repository.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryComposition;
@@ -50,10 +50,13 @@ public class PlanetCreator {
     private HabitabilityCreator habitabilityCreator;
 
     @Autowired
-    private WeatherCreator weatherCreator;
+    private ClimateCreator climateCreator;
 
     @Autowired
     private StarTypeRefRepository starTypeRefRepository;
+
+    @Autowired
+    private OrbitalCreator orbitalCreator;
 
     private List<StarTypeRef> cachedStarTypes;
 
@@ -61,9 +64,9 @@ public class PlanetCreator {
     private static final double VARIANCE = 0.15;
     private static final double MIN_VIABLE_PLANET_TEMP_K = 10.0;
 
-    private static final double EARTH_MASS_KG = 5.972e24;
-    private static final double EARTH_RADIUS_KM = 6371.0;
-    private static final double GRAVITATIONAL_CONSTANT = 6.674e-11;
+    // Physical constants — delegates to PhysicsFormulas (single source of truth)
+    private static final double EARTH_MASS_KG = PhysicsFormulas.EARTH_MASS_KG;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
 
     @PostConstruct
     public void init() {
@@ -96,9 +99,67 @@ public class PlanetCreator {
         if (parentStar != null) {
             populateOrbitalParameters(planet, parentStar, distanceAU, orbitalPosition, previousPlanet);
         } else {
-            planet.setSemiMajorAxisAU(distanceAU);
-            planet.setOrbitalPeriodDays(calculateOrbitalPeriod(distanceAU, 1.0));
+            planet.setOrbit(orbitalCreator.createPlanetOrbit(distanceAU, 1.0, 0.0, 0.0));
         }
+
+        populatePlanet(planet, type, earthMass, earthRadius, parentStar);
+
+        return planet;
+    }
+
+    /**
+     * Look up a PlanetTypeRef by name from the cached types.
+     * @param name exact name match (case-insensitive), e.g. "Dwarf Planet", "Ocean World"
+     * @return the matching PlanetTypeRef, or null if not found
+     */
+    public PlanetTypeRef findPlanetTypeByName(String name) {
+        if (name == null) return null;
+        return cachedPlanetTypes.stream()
+                .filter(t -> t.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Create a fully populated planet of the specified type at a given location.
+     * This is the reusable building block for placing specific planet types at
+     * specific distances — used by belt-born dwarf planet creation, and designed
+     * for future "add planet X at Y AU" features.
+     *
+     * @param typeName    planet type name (e.g. "Dwarf Planet", "Ocean World")
+     * @param parentStar  the host star
+     * @param distanceAU  semi-major axis in AU
+     * @param massEarth   explicit mass in Earth masses, or null to roll from type range
+     * @return fully populated Planet entity, or null if type not found
+     */
+    public Planet createPlanetAtLocation(String typeName, Star parentStar,
+                                         double distanceAU, Double massEarth) {
+        PlanetTypeRef type = findPlanetTypeByName(typeName);
+        if (type == null) return null;
+
+        Planet planet = new Planet();
+
+        double earthMass = (massEarth != null) ? massEarth
+                : RandomUtils.rollRange(type.getMinMassEarth(), type.getMaxMassEarth());
+        double earthRadius = calculateRadius(earthMass, type);
+        earthRadius = addVariance(earthRadius);
+
+        planet.setEarthMass(earthMass);
+        planet.setParentStar(parentStar);
+
+        if (parentStar != null) {
+            // Simplified orbital parameters — caller can override ecc/inc after creation
+            double eccentricity = RandomUtils.rollRange(0.0, 0.1);
+            double inclination = RandomUtils.rollRange(0.0, 10.0);
+            double stellarMass = parentStar.getSolarMass() > 0 ? parentStar.getSolarMass() : 1.0;
+            planet.setOrbit(orbitalCreator.createPlanetOrbit(distanceAU, stellarMass,
+                    eccentricity, inclination));
+        } else {
+            planet.setOrbit(orbitalCreator.createPlanetOrbit(distanceAU, 1.0, 0.0, 0.0));
+        }
+
+        // Set AFTER orbit creation — setOrbit replaces the OrbitalElements object
+        planet.setOrbitalPosition(-1); // belt-born: not in normal planet sequence
 
         populatePlanet(planet, type, earthMass, earthRadius, parentStar);
 
@@ -218,11 +279,13 @@ public class PlanetCreator {
         planet.setSurfaceGravity(calculateSurfaceGravity(planet.getMass(), planet.getRadius()));
         planet.setEscapeVelocity(calculateEscapeVelocity(planet.getMass(), planet.getRadius()));
 
-        if (planet.getEccentricity() == null) {
-            planet.setEccentricity(RandomUtils.rollRange(0.0, 0.1));
-        }
-        if (planet.getOrbitalInclinationDegrees() == null) {
-            planet.setOrbitalInclinationDegrees(RandomUtils.rollRange(0.0, 15.0));
+        if (planet.getOrbit() != null) {
+            if (planet.getEccentricity() == null) {
+                planet.getOrbit().setEccentricity(RandomUtils.rollRange(0.0, 0.1));
+            }
+            if (planet.getOrbitalInclinationDegrees() == null) {
+                planet.getOrbit().setInclinationDegrees(RandomUtils.rollRange(0.0, 15.0));
+            }
         }
 
         populateRotationProperties(planet, type, parentStar);
@@ -252,25 +315,41 @@ public class PlanetCreator {
 
         planet.setCoreType(type.getTypicalCoreType());
         populateCompositionProperties(planet);
-        geologyCreator.populateGeologicalProperties(planet);
+        TerrainProperties terrain = geologyCreator.createPlanetTerrain(planet);
+        planet.setTerrain(terrain);
 
         PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet, parentStar);
         planet.setMagneticField(magneticField);
-        planet.setMagneticFieldStrength(magneticField.getStrengthComparedToEarth());
 
-        waterCreator.populateWaterProperties(planet, parentStar);
+        WaterProperties water = waterCreator.createPlanetWaterProperties(planet, parentStar);
+        planet.setWater(water);
+
+        // Now that water coverage is known, reduce visible crater count for submerged craters.
+        // Atmosphere and erosion adjustments were already applied in createPlanetTerrain().
+        refineCrateringForWaterCoverage(planet);
 
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);
-        planet.setNumberOfMoons(moons.size());
 
-        PlanetaryHabitability habitability = habitabilityCreator.assess(planet, parentStar);
-        planet.setHabitability(habitability);
+        // Capture a deterministic seed for climate/habitability regeneration on load
+        long climateSeed = System.nanoTime() ^ (planet.getOrbitalPosition() * 7919L);
+        planet.setClimateSeed(climateSeed);
 
-        // Weather generation (after habitability, magnetic field, and moons are populated)
+        RandomUtils.seed(climateSeed);
+        try {
+            planet.setHabitability(habitabilityCreator.assess(planet, parentStar));
+        } finally {
+            RandomUtils.unseed();
+        }
+
+        // Climate generation (after habitability, magnetic field, and moons are populated)
         StarSystem system = parentStar != null ? parentStar.getSystem() : null;
-        PlanetaryWeather weather = weatherCreator.generateWeather(planet, parentStar, system);
-        planet.setWeather(weather);
+        RandomUtils.seed(climateSeed ^ 0xDEADBEEFL);
+        try {
+            planet.setClimate(climateCreator.generateClimate(planet, parentStar, system));
+        } finally {
+            RandomUtils.unseed();
+        }
 
         planet.setCreatedAt(LocalDateTime.now());
         planet.setModifiedAt(LocalDateTime.now());
@@ -280,10 +359,6 @@ public class PlanetCreator {
                                            int position, Planet previousPlanet) {
         planet.setParentStar(star);
         planet.setOrbitalPosition(position);
-        planet.setSemiMajorAxisAU(distanceAU);
-
-        double orbitalPeriod = calculateOrbitalPeriod(distanceAU, star.getSolarMass());
-        planet.setOrbitalPeriodDays(orbitalPeriod);
 
         // --- Eccentricity: constrained by neighbor clearance ---
         double maxEcc = 0.15; // universal ceiling
@@ -333,12 +408,13 @@ public class PlanetCreator {
             baseHigh = Math.min(baseHigh, 0.04);
         }
 
-        planet.setEccentricity(RandomUtils.rollRange(baseLow, baseHigh));
+        double eccentricity = RandomUtils.rollRange(baseLow, baseHigh);
+        double inclination = RandomUtils.rollRange(0.0, 10.0);
 
-        planet.setOrbitalInclinationDegrees(RandomUtils.rollRange(0.0, 10.0));
-        planet.setLongitudeOfAscendingNodeDegrees(RandomUtils.rollRange(0.0, 360.0));
-        planet.setArgumentOfPeriapsisDegrees(RandomUtils.rollRange(0.0, 360.0));
-        planet.setMeanAnomalyDegrees(RandomUtils.rollRange(0.0, 360.0));
+        OrbitalElements orbit = orbitalCreator.createPlanetOrbit(distanceAU, star.getSolarMass(), eccentricity, inclination);
+        orbit.setDistanceFromParent(distanceAU);
+        orbit.setOrbitalOrder(position);
+        planet.setOrbit(orbit);
     }
 
     private void populateRotationProperties(Planet planet, PlanetTypeRef type, Star parentStar) {
@@ -357,11 +433,13 @@ public class PlanetCreator {
 
             double baseRotation = getBaseRotation(planet, type);
 
+            // Tidal braking: close-in planets around old stars spin down over time.
+            // Factor ≥ 1.0 always — tidal effects only slow rotation, never speed it up.
             double tidalBrakingFactor = 1.0;
             if (parentStar != null && planet.getSemiMajorAxisAU() != null && planet.getAgeMY() != null) {
                 double distanceFactor = Math.pow(planet.getSemiMajorAxisAU(), 2);
                 double ageFactor = 1.0 + (planet.getAgeMY() / 5000.0);
-                tidalBrakingFactor = Math.min(5.0, ageFactor / distanceFactor);
+                tidalBrakingFactor = Math.max(1.0, Math.min(5.0, ageFactor / distanceFactor));
             }
 
             rotationHours = baseRotation * tidalBrakingFactor;
@@ -390,45 +468,35 @@ public class PlanetCreator {
         }
     }
 
+    /**
+     * Physics-based minimum rotation period: 1.5× the rotational breakup limit.
+     *
+     * At breakup, centrifugal force at the equator exceeds self-gravity and the
+     * planet disintegrates. The 1.5× safety margin means no planet spins faster
+     * than 67% of its breakup speed — physically stable with room for oblateness.
+     *
+     * Reference floors (1.5× breakup):
+     *   Gas giant  (ρ ~1.3 g/cm³) → ~4.3 hrs   (Jupiter actual: 9.9 hrs)
+     *   Sub-Neptune (ρ ~1.0)       → ~4.9 hrs   (was hardcoded 10.0)
+     *   Super-Earth (ρ ~5.0)       → ~2.2 hrs   (was hardcoded 3.0-4.0)
+     *   Earth-like  (ρ ~5.5)       → ~2.1 hrs   (was hardcoded 4.0)
+     */
     private double getMinimumRotationPeriod(Planet planet, PlanetTypeRef type) {
-        String planetType = type.getName().toLowerCase();
-        double earthMass = planet.getEarthMass();
-
-        if (planetType.contains("gas giant") || planetType.contains("hot jupiter") ||
-                planetType.contains("super-jupiter")) {
-            return 9.0;
-        }
-        if (planetType.contains("ice giant") || planetType.contains("mini-neptune") ||
-                planetType.contains("sub-neptune")) {
-            return 10.0;
-        }
-        if (planetType.contains("terrestrial") || planetType.contains("super-earth") ||
-                planetType.contains("ocean world") || planetType.contains("desert")) {
-            if (earthMass > 2.0) {
-                return 3.0;
-            }
-            return 4.0;
-        }
-        if (planetType.contains("dwarf") || earthMass < 0.3) {
-            if (earthMass < 0.01) return 24.0;
-            else if (earthMass < 0.05) return 12.0;
-            else if (earthMass < 0.15) return 6.0;
-            else return 3.0;
-        }
-        if (planetType.contains("ice world")) {
-            return 3.0;
-        }
-        if (planetType.contains("lava") || planetType.contains("hot rocky")) {
-            return 6.0;
-        }
-        return 2.0;
+        double density = planet.getDensity(); // g/cm³
+        if (density <= 0) density = 1.0;      // safety fallback
+        double breakupHours = PhysicsFormulas.rotationalBreakupPeriodHours(density);
+        return breakupHours * 1.5;
     }
 
     private static double getBaseRotation(Planet planet, PlanetTypeRef type) {
         double baseRotation;
         String typeName = type.getName().toLowerCase();
 
-        if (typeName.contains("gas giant") || typeName.contains("ice giant")) {
+        // Gas giants, ice giants, and all Neptune/Jupiter-class planets are fast rotators.
+        // "neptune" catches Sub-Neptune, Mini-Neptune, Warm Neptune, Hot Neptune.
+        // "jupiter" catches Hot Jupiter, Super-Jupiter.
+        if (typeName.contains("gas giant") || typeName.contains("ice giant")
+                || typeName.contains("neptune") || typeName.contains("jupiter")) {
             baseRotation = 8.0 + (planet.getEarthMass() / 100.0) * 5.0; // 8-13 hours typical
         } else if (typeName.contains("super-earth")) {
             baseRotation = 15.0 + (planet.getEarthMass() * 3.0); // 15-35 hours
@@ -438,51 +506,55 @@ public class PlanetCreator {
         return baseRotation;
     }
 
+    /**
+     * Reduces visible crater count for water coverage — craters under oceans or
+     * ice sheets aren't visible from orbit. Called after water properties are set,
+     * since water data isn't available when terrain is initially generated.
+     */
+    private void refineCrateringForWaterCoverage(Planet planet) {
+        TerrainProperties terrain = planet.getTerrain();
+        if (terrain == null) return;
+
+        Integer craters = terrain.getEstimatedVisibleCraters();
+        if (craters == null || craters <= 0) return;
+
+        Double waterCoverage = planet.getWaterCoveragePercent();
+        if (waterCoverage == null || waterCoverage <= 0) return;
+
+        // Only exposed dry land preserves visible craters
+        double landFraction = Math.max(0.1, 1.0 - (waterCoverage / 100.0));
+        int adjusted = Math.max(0, (int) Math.round(craters * landFraction));
+
+        terrain.setEstimatedVisibleCraters(adjusted);
+
+        // Reclassify if the level dropped
+        String level;
+        if (adjusted < 50)           level = "Pristine";
+        else if (adjusted < 500)     level = "Light";
+        else if (adjusted < 5_000)   level = "Moderate";
+        else if (adjusted < 50_000)  level = "Heavy";
+        else if (adjusted < 500_000) level = "Extreme";
+        else                         level = "Saturated";
+        terrain.setCrateringLevel(level);
+    }
+
     private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type) {
-        if (!type.getCanHaveAtmosphere() || planet.getEarthMass() < 0.1) {
-            planet.setAtmosphereComposition("None");
-            planet.setAtmosphereClassification("NONE");
-            planet.setSurfacePressure(0.0);
+        Atmosphere atmosphere = atmosphereCreator.createPlanetAtmosphere(planet, type, planet.getParentStar());
+        planet.setAtmosphere(atmosphere);
+
+        // Albedo adjustment based on atmosphere classification
+        String classification = planet.getAtmosphereClassification();
+        if ("NONE".equals(classification)) {
             planet.setAlbedo(type.getTypicalAlbedo());
-            return;
+        } else {
+            double baseAlbedo = switch (classification) {
+                case "EARTH_LIKE" -> 0.3;
+                case "VENUS_LIKE" -> 0.75;
+                case "JOVIAN", "ICE_GIANT" -> 0.5;
+                default -> type.getTypicalAlbedo();
+            };
+            planet.setAlbedo(addVariance(baseAlbedo));
         }
-
-        Star parentStar = planet.getParentStar();
-        double distanceAU = planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : 1.0;
-
-        // Use star-aware atmosphere generation
-        AtmosphereCreator.AtmosphereResult result = atmosphereCreator.generateAtmosphereWithTemplate(
-                planet.getPlanetType(),
-                planet.getSurfaceTemp(),
-                planet.getEarthMass(),
-                distanceAU,
-                parentStar
-        );
-
-        PlanetaryAtmosphere atmosphere = result.atmosphere();
-        planet.setAtmosphereComposition(atmosphere.toCompactString());
-        planet.setAtmosphereClassification(atmosphere.getClassification().name());
-
-        // Use star-aware surface pressure calculation
-        double pressure = atmosphereCreator.calculateSurfacePressure(
-                planet.getEarthMass(),
-                planet.getSurfaceTemp(),
-                result.template(),
-                parentStar,
-                distanceAU
-        );
-        planet.setSurfacePressure(pressure);
-
-        double baseAlbedo = type.getTypicalAlbedo();
-        baseAlbedo = switch (atmosphere.getClassification()) {
-            case EARTH_LIKE -> 0.3;
-            case VENUS_LIKE -> 0.75;
-            case JOVIAN, ICE_GIANT -> 0.5;
-            case NONE -> 0.1;
-            default -> baseAlbedo;
-        };
-
-        planet.setAlbedo(addVariance(baseAlbedo));
     }
 
     private void populateAlbedo(Planet planet, PlanetTypeRef type) {
@@ -507,8 +579,29 @@ public class PlanetCreator {
             } else {
                 radius = type.getMaxRadiusEarth() * (1.0 - (mass - 500) / 10000.0);
             }
-        } else if (typeName.contains("ice")) {
+        } else if (typeName.contains("dwarf")) {
+            // Rocky-ice mass-radius for KBO-class bodies.
+            // No ice-inflation coefficient — real KBOs are 50-70% rock by mass
+            // (Pluto ~70% rock, Eris ~70% rock) despite icy surfaces.
+            // At 0.0022 M⊕ → R=0.191 (1218 km, ρ ≈ 1.7) — matches Pluto (1188 km).
+            // At 0.001  M⊕ → R=0.155 (990 km,  ρ ≈ 1.5) — small KBO.
             radius = Math.pow(mass, 0.27);
+        } else if (typeName.contains("ice giant")) {
+            // Ice giants have H/He envelopes over ice-rock cores (Uranus/Neptune analogs).
+            // Use min/max radius interpolation from the type ref (3.5-5.0 R⊕ for 10-25 M⊕).
+            // Must come BEFORE the "ice" check — "Ice Giant" contains "ice".
+            double minRadius = type.getMinRadiusEarth();
+            double maxRadius = type.getMaxRadiusEarth();
+            double massPosition = Math.max(0, Math.min(1,
+                    (mass - type.getMinMassEarth()) /
+                    (type.getMaxMassEarth() - type.getMinMassEarth())));
+            radius = minRadius + Math.pow(massPosition, 0.55) * (maxRadius - minRadius);
+        } else if (typeName.contains("ice")) {
+            // Ice World: ice-dominated terrestrial planets, puffier than rocky at same mass.
+            // Coefficient 1.2 = ~50/50 ice-rock mix (Fortney et al. 2007).
+            // Pure ice would be ~1.26; pure rock is 1.0 (Earth calibration).
+            // At 1 M⊕ → R = 1.2 (ρ ≈ 3.2 g/cm³), matching ice-rock interiors.
+            radius = 1.2 * Math.pow(mass, 0.27);
         } else if (typeName.contains("terrestrial") || typeName.contains("rocky") ||
                 typeName.contains("super-earth")) {
             radius = Math.pow(mass, 0.27);
@@ -525,31 +618,16 @@ public class PlanetCreator {
         return addVariance(radius);
     }
 
-    private double calculateDensity(double massKg, double RadiusKm) {
-        double radiusM = RadiusKm* 1000;
-        double volumeM3 = (4.0/3.0) * Math.PI * Math.pow(radiusM, 3);
-        double densityKgM3 = massKg / volumeM3;
-        return densityKgM3 / 1000.0;
+    private double calculateDensity(double massKg, double radiusKm) {
+        return PhysicsFormulas.density(massKg, radiusKm);
     }
 
     private double calculateSurfaceGravity(double massKg, double radiusKm) {
-        double radiusM = radiusKm * 1000;
-        double gravityMS2 = (GRAVITATIONAL_CONSTANT * massKg) / (radiusM * radiusM);
-        return gravityMS2 / 9.81;
+        return PhysicsFormulas.surfaceGravityG(massKg, radiusKm);
     }
 
     private double calculateEscapeVelocity(double massKg, double radiusKm) {
-        double radiusM = radiusKm * 1000;
-        double velocityMS = Math.sqrt((2 * GRAVITATIONAL_CONSTANT * massKg) / radiusM);
-        return velocityMS / 1000.0;
-    }
-
-    private double calculateOrbitalPeriod(double semiMajorAxisAU, double starMassSolar) {
-        // Kepler's Third Law: T^2 = (4π^2 / GM) * a^3
-        // Simplified for solar masses and AU: T (years) = sqrt(a^3 / M)
-
-        double periodYears = Math.sqrt(Math.pow(semiMajorAxisAU, 3) / starMassSolar);
-        return periodYears * 365.25; // Convert to days
+        return PhysicsFormulas.escapeVelocityKmS(massKg, radiusKm);
     }
 
     private double calculateFrostLine(Star star) {
@@ -854,7 +932,7 @@ public class PlanetCreator {
         if (planets.size() < 2 || parentStar == null) {
             // Single planet or orphan — always stable
             if (planets.size() == 1) {
-                planets.getFirst().setOrbitStability("STABLE");
+                orbitalCreator.setStability(planets.getFirst().getOrbit(), "STABLE", null, null);
             }
             return;
         }
@@ -903,9 +981,7 @@ public class PlanetCreator {
                 }
             }
 
-            planet.setOrbitStability(worstClassification);
-            planet.setOrbitStabilityTimescaleMy(worstTimescale);
-            planet.setOrbitCrossingNeighbor(
+            orbitalCreator.setStability(planet.getOrbit(), worstClassification, worstTimescale,
                     "STABLE".equals(worstClassification) ? null : worstNeighbor);
         }
     }

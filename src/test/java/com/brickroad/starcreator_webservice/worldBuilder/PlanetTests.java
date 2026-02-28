@@ -3,7 +3,6 @@ package com.brickroad.starcreator_webservice.worldBuilder;
 import com.brickroad.starcreator_webservice.creator.PlanetCreator;
 import com.brickroad.starcreator_webservice.creator.StarCreator;
 import com.brickroad.starcreator_webservice.creator.SystemCreator;
-import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -47,9 +46,9 @@ public class PlanetTests extends AbstractCreatorTest {
         for (int i = 0; i < maxAttempts; i++) {
 
             system = systemCreator.generateSystem();
-            for (CelestialBody planet : system.getPlanets()) {
-                if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())) {
-                    foundPlanet = (Planet) planet;
+            for (Planet planet : system.getPlanets()) {
+                if (targetType.equalsIgnoreCase(planet.getPlanetType())) {
+                    foundPlanet = planet;
                     System.out.println("Searched " + (i + 1) + " systems...");
                     break;
                 }
@@ -89,10 +88,10 @@ public class PlanetTests extends AbstractCreatorTest {
         for (int i = 0; i < maxAttempts && foundPlanets.size() < examplesNeeded; i++) {
             systemsGenerated++;
             StarSystem system = systemCreator.generateSystem();
-            for (CelestialBody planet : system.getPlanets()) {
-                if (targetType.equalsIgnoreCase(((Planet) planet).getPlanetType())
-                && "habitable".equalsIgnoreCase(((Planet) planet).getHabitableZonePosition())) {
-                    foundPlanets.add(((Planet) planet));
+            for (Planet planet : system.getPlanets()) {
+                if (targetType.equalsIgnoreCase(planet.getPlanetType())
+                && "habitable".equalsIgnoreCase(planet.getHabitableZonePosition())) {
+                    foundPlanets.add(planet);
                     System.out.println("Found #" + foundPlanets.size() + " after " +
                             systemsGenerated + " systems");
 
@@ -136,9 +135,9 @@ public class PlanetTests extends AbstractCreatorTest {
         List<Planet> capturedPlanets = new ArrayList<>();
         for (int i = 0; i < systemsAmount; i++) {
             StarSystem system = systemCreator.generateSystem();
-            for (CelestialBody planet : system.getPlanets()) {
-                Planet capturedPlanet = (Planet) planet;
-                if (!capturedPlanet.getRings().isEmpty()) capturedPlanets.add(capturedPlanet);
+            for (Planet planet : system.getPlanets()) {
+                Planet capturedPlanet = planet;
+                if (!capturedPlanet.getBands().isEmpty()) capturedPlanets.add(capturedPlanet);
             }
             if (i % 100 == 0) System.out.println("Systems created " + (i));
         }
@@ -148,7 +147,7 @@ public class PlanetTests extends AbstractCreatorTest {
         System.out.println("------------------------------------------------------------");
         Map<Integer, Integer> ringCounts = new HashMap<>();
         for (Planet planet : capturedPlanets) {
-            ringCounts.put(planet.getRings().size(), ringCounts.getOrDefault(planet.getRings().size(), 0) + 1);
+            ringCounts.put(planet.getBands().size(), ringCounts.getOrDefault(planet.getBands().size(), 0) + 1);
         }
         for (int ringCount : ringCounts.keySet()) {
             System.out.println("Rings " + ringCount + ": " + ringCounts.get(ringCount) + " (" + (ringCounts.get(ringCount) * 100.0) / capturedPlanets.size() + "%)");

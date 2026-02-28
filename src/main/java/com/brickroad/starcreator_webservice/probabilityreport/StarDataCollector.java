@@ -1,6 +1,5 @@
 package com.brickroad.starcreator_webservice.probabilityreport;
 
-import com.brickroad.starcreator_webservice.entity.ud.CelestialBody;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
@@ -50,8 +49,8 @@ public class StarDataCollector {
         int planetCount = 0;
         if (star.getSystem() != null) {
             Map<String, double[]> formations = planetFormationsByStarType.computeIfAbsent(star.getType(), k -> new HashMap<>());
-            for (CelestialBody body : star.getSystem().getPlanets()) {
-                if (body instanceof Planet planet && planet.getParentStar() == star) {
+            for (Planet planet : star.getSystem().getPlanets()) {
+                if (planet.getParentStar() == star) {
                     planetCount++;
                     String pType = planet.getPlanetType() != null ? planet.getPlanetType() : "UNKNOWN";
                     double au = planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : -1;

@@ -60,14 +60,12 @@ public class OrbitalAnalysisHtmlGenerator {
 
         // Group planets by parent star name
         Map<String, List<Planet>> planetsByStarName = new LinkedHashMap<>();
-        if (system.getBodies() != null) {
-            for (CelestialBody body : system.getBodies()) {
-                if (body instanceof Planet planet) {
-                    String parentName = planet.getParentStar() != null
-                            ? planet.getParentStar().getName()
-                            : (starsByName.isEmpty() ? "Unknown" : starsByName.keySet().iterator().next());
-                    planetsByStarName.computeIfAbsent(parentName, k -> new ArrayList<>()).add(planet);
-                }
+        if (system.getPlanets() != null) {
+            for (Planet planet : system.getPlanets()) {
+                String parentName = planet.getParentStar() != null
+                        ? planet.getParentStar().getName()
+                        : (starsByName.isEmpty() ? "Unknown" : starsByName.keySet().iterator().next());
+                planetsByStarName.computeIfAbsent(parentName, k -> new ArrayList<>()).add(planet);
             }
         }
 
@@ -84,14 +82,16 @@ public class OrbitalAnalysisHtmlGenerator {
             String name = orderedNames.isEmpty() ? "Primary" : orderedNames.get(0);
             Star star = orderedNames.isEmpty() ? null : starsByName.get(name);
             List<Planet> planets = planetsByStarName.getOrDefault(name, Collections.emptyList());
-            result.put("Primary", new StarData(name, "Primary", star, planets));
+            List<OrbitalBand> belts = star != null && star.getBands() != null ? star.getBands() : Collections.emptyList();
+            result.put("Primary", new StarData(name, "Primary", star, planets, belts));
         } else {
             // Multi-star: extract the suffix letter(s) from each star name
             for (String fullName : orderedNames) {
                 Star star = starsByName.get(fullName);
                 String label = extractStarLabel(fullName);
                 List<Planet> planets = planetsByStarName.getOrDefault(fullName, Collections.emptyList());
-                result.put(label, new StarData(fullName, label, star, planets));
+                List<OrbitalBand> belts = star != null && star.getBands() != null ? star.getBands() : Collections.emptyList();
+                result.put(label, new StarData(fullName, label, star, planets, belts));
             }
         }
 
@@ -141,6 +141,28 @@ public class OrbitalAnalysisHtmlGenerator {
                 sb.append(String.format(
                         "      {name:'%s',type:'%s',mass:%.6f,sma:%.6f,ecc:%.6f,inc:%.4f,period:%.4f,color:'%s'},\n",
                         escapeJs(pName), escapeJs(pType), mass, sma, ecc, inc, period, pColor));
+            }
+
+            sb.append("    ],\n");
+            sb.append("    belts: [\n");
+
+            for (OrbitalBand belt : sd.belts) {
+                double innerSma = belt.getInnerOrbit() != null && belt.getInnerOrbit().getSemiMajorAxis() != null
+                        ? belt.getInnerOrbit().getSemiMajorAxis() : 0.0;
+                double outerSma = belt.getOuterOrbit() != null && belt.getOuterOrbit().getSemiMajorAxis() != null
+                        ? belt.getOuterOrbit().getSemiMajorAxis() : 0.0;
+                double innerEcc = belt.getInnerOrbit() != null && belt.getInnerOrbit().getEccentricity() != null
+                        ? belt.getInnerOrbit().getEccentricity() : 0.0;
+                double outerEcc = belt.getOuterOrbit() != null && belt.getOuterOrbit().getEccentricity() != null
+                        ? belt.getOuterOrbit().getEccentricity() : 0.0;
+                String bName = belt.getName() != null ? belt.getName() : (belt.getBandType() != null ? belt.getBandType() : "Belt");
+                String bType = belt.getBandType() != null ? belt.getBandType() : "Unknown";
+                String bComp = belt.getCompositionType() != null ? belt.getCompositionType() : "MIXED";
+                String bColor = getBeltColor(bComp);
+
+                sb.append(String.format(
+                        "      {name:'%s',type:'%s',comp:'%s',innerSma:%.6f,outerSma:%.6f,innerEcc:%.6f,outerEcc:%.6f,color:'%s'},\n",
+                        escapeJs(bName), escapeJs(bType), escapeJs(bComp), innerSma, outerSma, innerEcc, outerEcc, bColor));
             }
 
             sb.append("    ]\n");
@@ -218,6 +240,50 @@ public class OrbitalAnalysisHtmlGenerator {
             }
         }
         sb.append("</div>\n");
+
+        // Belt section
+        boolean hasBelts = starMap.values().stream().anyMatch(sd -> !sd.belts.isEmpty());
+        if (hasBelts) {
+            sb.append("<div class=\"section\"><div class=\"section-title\">Belts</div>\n");
+            for (Map.Entry<String, StarData> entry : starMap.entrySet()) {
+                StarData sd = entry.getValue();
+                String starLabel = sd.label.equals("Primary") ? "" : "Star " + sd.label + ": ";
+                for (OrbitalBand belt : sd.belts) {
+                    double innerSma = belt.getInnerOrbit() != null && belt.getInnerOrbit().getSemiMajorAxis() != null
+                            ? belt.getInnerOrbit().getSemiMajorAxis() : 0.0;
+                    double outerSma = belt.getOuterOrbit() != null && belt.getOuterOrbit().getSemiMajorAxis() != null
+                            ? belt.getOuterOrbit().getSemiMajorAxis() : 0.0;
+                    String beltName = belt.getName() != null ? belt.getName() : (belt.getBandType() != null ? belt.getBandType() : "Belt");
+                    String comp = belt.getCompositionType() != null ? belt.getCompositionType() : "";
+                    String bColor = getBeltColor(belt.getCompositionType());
+
+                    // Check for planet overlaps (exclude dwarf planets — they naturally reside in belts)
+                    boolean overlaps = false;
+                    for (Planet p : sd.planets) {
+                        String pType = p.getPlanetType();
+                        if (pType != null && pType.toLowerCase().contains("dwarf")) continue;
+                        double sma = safe(p.getSemiMajorAxisAU(), 0.0);
+                        double ecc = safe(p.getEccentricity(), 0.0);
+                        if (sma > 0) {
+                            double peri = sma * (1 - ecc);
+                            double apo = sma * (1 + ecc);
+                            if (peri < outerSma && apo > innerSma) {
+                                overlaps = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    sb.append(String.format(
+                            "<div class=\"stability-row\"><span class=\"pair\"><span style=\"display:inline-block;width:8px;height:8px;border-radius:50%%;background:%s;margin-right:4px\"></span>%s%s</span>"
+                                    + "<span class=\"metric\">%.2f–%.2f AU · %s</span>%s</div>\n",
+                            bColor, escapeHtml(starLabel), escapeHtml(beltName),
+                            innerSma, outerSma, escapeHtml(comp),
+                            overlaps ? "<span class=\"badge badge-warn\">OVERLAP</span>" : ""));
+                }
+            }
+            sb.append("</div>\n");
+        }
 
         return sb.toString();
     }
@@ -313,6 +379,16 @@ public class OrbitalAnalysisHtmlGenerator {
         return colors[index % colors.length];
     }
 
+    private static String getBeltColor(String compositionType) {
+        if (compositionType == null) return "#665544";
+        String c = compositionType.toUpperCase();
+        if (c.contains("ICY") || c.contains("ICE")) return "#557799";
+        if (c.contains("ROCKY") || c.contains("SILICATE")) return "#887766";
+        if (c.contains("METALLIC") || c.contains("IRON")) return "#998877";
+        if (c.contains("CARBON")) return "#554433";
+        return "#665544";
+    }
+
     private static String getPlanetColor(String planetType) {
         if (planetType == null) return "#997755";
         String t = planetType.toLowerCase();
@@ -371,12 +447,14 @@ public class OrbitalAnalysisHtmlGenerator {
         final String label;
         final Star star;
         final List<Planet> planets;
+        final List<OrbitalBand> belts;
 
-        StarData(String fullName, String label, Star star, List<Planet> planets) {
+        StarData(String fullName, String label, Star star, List<Planet> planets, List<OrbitalBand> belts) {
             this.fullName = fullName;
             this.label = label;
             this.star = star;
             this.planets = planets;
+            this.belts = belts;
         }
     }
 
@@ -581,21 +659,65 @@ function drawSystem(cv, sysKey, t) {
   bgG.addColorStop(0,'#0d0f14'); bgG.addColorStop(1,'#0a0c10');
   ctx.fillStyle = bgG; ctx.fillRect(0,0,w,h);
 
-  if (sys.planets.length === 0) {
+  if (sys.planets.length === 0 && sys.belts.length === 0) {
     ctx.fillStyle = '#ffffff30';
     ctx.font = 12*dpr + "px 'Outfit'";
     ctx.textAlign = 'center';
-    ctx.fillText('No planets', w/2, h/2);
+    ctx.fillText('No planets or belts', w/2, h/2);
     ctx.textAlign = 'start';
     return;
   }
 
-  const maxOrbit = sys.planets[sys.planets.length-1].apo;
+  // Include belt outer edges in max orbit calculation
+  let maxOrbit = sys.planets.length > 0 ? sys.planets[sys.planets.length-1].apo : 0;
+  for (const b of sys.belts) {
+    const bOuter = b.outerSma * (1 + b.outerEcc);
+    if (bOuter > maxOrbit) maxOrbit = bOuter;
+  }
+  if (maxOrbit <= 0) maxOrbit = 1;
   const scale = Math.min(w,h) * 0.38 / maxOrbit * dpr;
   const cx = w/2, cy = h/2;
 
   function toScreen(x,y,z) {
     return viewMode === 'top' ? [cx+x*scale, cy+y*scale] : [cx+x*scale, cy+z*scale*3];
+  }
+
+  // Belt annuli (draw behind orbits and planets)
+  if (viewMode === 'top') {
+    for (const b of sys.belts) {
+      const innerR = b.innerSma * scale;
+      const outerR = b.outerSma * scale;
+      if (outerR > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerR, 0, Math.PI*2);
+        ctx.arc(cx, cy, innerR, 0, Math.PI*2, true);
+        ctx.fillStyle = b.color + '18';
+        ctx.fill();
+        ctx.strokeStyle = b.color + '35';
+        ctx.lineWidth = 1 * dpr;
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerR, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  } else {
+    // Side view: draw belts as thin horizontal bands
+    for (const b of sys.belts) {
+      const innerR = b.innerSma * scale;
+      const outerR = b.outerSma * scale;
+      if (outerR > 0) {
+        ctx.save();
+        ctx.fillStyle = b.color + '18';
+        ctx.fillRect(cx - outerR, cy - 2*dpr, outerR - innerR, 4*dpr);
+        ctx.fillRect(cx + innerR, cy - 2*dpr, outerR - innerR, 4*dpr);
+        ctx.restore();
+      }
+    }
   }
 
   // Orbit ellipses
@@ -671,6 +793,16 @@ function drawSystem(cv, sysKey, t) {
       const alpha = Math.min(1, bigHill*3/dist);
       ctx.strokeStyle = dist < bigHill ? 'rgba(239,68,68,'+alpha+')' : 'rgba(245,158,11,'+alpha*.6+')';
       ctx.lineWidth = 1.5*dpr; ctx.setLineDash([4*dpr,4*dpr]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  // Belt labels (top view only)
+  if (viewMode === 'top') {
+    ctx.font = 9*dpr+"px 'JetBrains Mono'";
+    for (const b of sys.belts) {
+      const midR = ((b.innerSma + b.outerSma) / 2) * scale;
+      ctx.fillStyle = b.color + '80';
+      ctx.fillText(b.type, cx + midR * 0.7 + 4*dpr, cy - midR * 0.7 - 4*dpr);
     }
   }
 }

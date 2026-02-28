@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,7 @@ public class TemperatureClimateCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet, Star parentStar, StarSystem system) {
+    public void calculate(PlanetaryClimate weather, Planet planet, Star parentStar, StarSystem system) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -222,7 +223,7 @@ public class TemperatureClimateCalculator {
     // LATITUDINAL TEMPERATURES
     // ================================================================
 
-    private void calculateLatitudinalTemperatures(PlanetaryWeather weather, double surfaceTemp,
+    private void calculateLatitudinalTemperatures(PlanetaryClimate weather, double surfaceTemp,
                                                   double axialTilt, double dayNightRange, String atmClass) {
 
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
@@ -251,7 +252,7 @@ public class TemperatureClimateCalculator {
     // CLIMATE ZONES
     // ================================================================
 
-    private List<ClimateZone> generateClimateZones(PlanetaryWeather weather, Planet planet,
+    private List<ClimateZone> generateClimateZones(PlanetaryClimate weather, Planet planet,
                                                    boolean tidallyLocked, String atmClass) {
         List<ClimateZone> zones = new ArrayList<>();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
@@ -274,7 +275,11 @@ public class TemperatureClimateCalculator {
         // Temperate: tilt° to ~(90-tilt)° (or ~66.5° for Earth)
         // Polar: remaining
 
-        double tropicalBound = Math.max(5.0, axialTilt); // Minimum 5° tropical band
+        // Effective obliquity for insolation geometry: tilt > 90° means retrograde rotation
+        // (e.g. Venus 177°, Uranus 98°). The climate zone pattern mirrors around 90°.
+        double effectiveTilt = axialTilt > 90.0 ? 180.0 - axialTilt : axialTilt;
+        effectiveTilt = Math.max(0.0, Math.min(85.0, effectiveTilt)); // Keep within [0, 85] for valid bounds
+        double tropicalBound = Math.max(5.0, effectiveTilt); // Minimum 5° tropical band
         double polarBound = 90.0 - tropicalBound; // Arctic/Antarctic circle equivalent
 
         // Coverage percentages (from spherical geometry: area ∝ sin(latitude))
@@ -282,10 +287,15 @@ public class TemperatureClimateCalculator {
         double polarCoverage = 100.0 * (1.0 - Math.sin(Math.toRadians(polarBound)));
         double temperateCoverage = 100.0 - tropicalCoverage - polarCoverage;
 
-        // Ensure sane values
+        // Ensure sane values — clamp individually, then force sum to 100
         tropicalCoverage = Math.max(5.0, Math.min(80.0, tropicalCoverage));
         polarCoverage = Math.max(2.0, Math.min(40.0, polarCoverage));
-        temperateCoverage = 100.0 - tropicalCoverage - polarCoverage;
+        temperateCoverage = Math.max(2.0, 100.0 - tropicalCoverage - polarCoverage);
+        // Normalize so they sum to exactly 100
+        double total = tropicalCoverage + temperateCoverage + polarCoverage;
+        tropicalCoverage = tropicalCoverage / total * 100.0;
+        temperateCoverage = temperateCoverage / total * 100.0;
+        polarCoverage = 100.0 - tropicalCoverage - temperateCoverage;
 
         // Temperature interpolation
         double tempTempK = (equatorialTemp + polarTemp) / 2.0;

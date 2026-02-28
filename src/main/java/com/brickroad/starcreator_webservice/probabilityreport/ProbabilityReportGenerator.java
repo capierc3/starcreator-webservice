@@ -16,14 +16,16 @@ public class ProbabilityReportGenerator {
     private final StarDataCollector starData = new StarDataCollector();
     private final MoonDataCollector moonData = new MoonDataCollector();
     private final RingDataCollector ringData = new RingDataCollector();
-    private final BeltDataCollector beltData = new BeltDataCollector();
+    private final AsteroidDataCollector asteroidData = new AsteroidDataCollector();
+    private final TrojanDataCollector trojanData = new TrojanDataCollector(asteroidData);
+    private final BeltDataCollector beltData = new BeltDataCollector(asteroidData);
     private final PlanetDataCollector planetData;
     private final OrbitStabilityCollector stabilityData = new OrbitStabilityCollector();
 
     public ProbabilityReportGenerator(SystemCreator systemCreator, int systemCount) {
         this.systemCreator = systemCreator;
         this.systemCount = systemCount;
-        this.planetData = new PlanetDataCollector(moonData, ringData);
+        this.planetData = new PlanetDataCollector(moonData, ringData, trojanData);
     }
 
     public void generate() {
@@ -51,16 +53,17 @@ public class ProbabilityReportGenerator {
             }
 
             counts.incrementPlanetCount(system.getPlanets().size());
-            for (CelestialBody planet : system.getPlanets()) {
-                planetData.analyzeData((Planet) planet, counts);
+            for (Planet planet : system.getPlanets()) {
+                planetData.analyzeData(planet, counts);
             }
 
-            counts.incrementBeltCount(system.getBelts().size());
-            for (Belt belt : system.getBelts()) {
-                beltData.analyzeData(belt, counts);
+            counts.incrementBeltCount(system.getBands().size());
+            for (OrbitalBand band : system.getBands()) {
+                beltData.analyzeData(band, counts, system);
             }
 
             stabilityData.analyzeSystem(system);
+            stabilityData.analyzeBelts(system);
             timer.lap();
         }
         timer.stop();
@@ -75,15 +78,25 @@ public class ProbabilityReportGenerator {
         }
 
         // Generate HTML report
-        HtmlReportBuilder htmlBuilder = new HtmlReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData, stabilityData);
+        HtmlReportBuilder htmlBuilder = new HtmlReportBuilder(counts, timer, starData, planetData, moonData, ringData, trojanData, asteroidData, beltData, stabilityData);
         htmlBuilder.saveReport(targetFolder);
 
         // Generate JSON report
+        JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, trojanData, asteroidData, beltData, stabilityData);
         try {
-            JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, beltData, stabilityData);
             jsonBuilder.saveReport(targetFolder);
         } catch (Exception e) {
             System.err.println("Failed to save JSON report: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        // Generate SPA report
+        try {
+            java.util.Map<String, Object> reportData = jsonBuilder.buildReport();
+            SpaReportBuilder spaBuilder = new SpaReportBuilder(reportData, counts, timer);
+            spaBuilder.saveReport(targetFolder);
+        } catch (Exception e) {
+            System.err.println("Failed to save SPA report: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.probabilityreport;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.utils.BinaryStabilityLimits;
 import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
 import lombok.Getter;
 
@@ -54,6 +55,15 @@ public class OrbitStabilityCollector {
     private double maxSmaSum = 0;
     private int maxSmaCount = 0;
     private final Map<String, Integer> systemOuterExtentBins = new HashMap<>();
+
+    // ===== Section 8: Belt Stability =====
+    private int totalBeltsAnalyzed = 0;
+    private int beltOverlapCount = 0;
+    private int beltPlanetOverlapCount = 0;
+    private int beltsExceedingStabilityLimit = 0;
+    private int beltsBelowCavityLimit = 0;
+    private final List<String> beltOverlapDetails = new ArrayList<>();
+    private final List<String> beltPlanetOverlapDetails = new ArrayList<>();
 
     // ═══════════════════════════════════════════════════════════════
     //  Main Analysis Method
@@ -247,9 +257,8 @@ public class OrbitStabilityCollector {
         Map<Star, List<Planet>> result = new LinkedHashMap<>();
         if (system.getPlanets() == null) return result;
 
-        for (CelestialBody body : system.getPlanets()) {
-            if (body instanceof Planet planet
-                    && planet.getParentStar() != null
+        for (Planet planet : system.getPlanets()) {
+            if (planet.getParentStar() != null
                     && planet.getSemiMajorAxisAU() != null) {
                 result.computeIfAbsent(planet.getParentStar(), k -> new ArrayList<>()).add(planet);
             }
@@ -374,5 +383,138 @@ public class OrbitStabilityCollector {
         if (orbitalPos <= 2) return "a: inner (1-2)";
         if (orbitalPos <= 5) return "b: middle (3-5)";
         return "c: outer (6+)";
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Belt Stability Analysis
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Analyzes belt stability: belt-belt overlaps, belt-planet overlaps,
+     * and binary stability limit violations.
+     */
+    public void analyzeBelts(StarSystem system) {
+        BinaryConfiguration binConfig = system.getBinaryConfiguration();
+
+        for (Star star : system.getStars()) {
+            List<OrbitalBand> belts = star.getBands();
+            if (belts == null || belts.isEmpty()) continue;
+
+            // Sort belts by inner edge SMA
+            List<OrbitalBand> sortedBelts = new ArrayList<>(belts);
+            sortedBelts.sort(Comparator.comparingDouble(b ->
+                    b.getInnerOrbit() != null && b.getInnerOrbit().getSemiMajorAxis() != null
+                            ? b.getInnerOrbit().getSemiMajorAxis() : 0.0));
+
+            totalBeltsAnalyzed += sortedBelts.size();
+
+            // Belt-belt overlap check (adjacent belts around same star)
+            for (int i = 0; i < sortedBelts.size() - 1; i++) {
+                OrbitalBand b1 = sortedBelts.get(i);
+                OrbitalBand b2 = sortedBelts.get(i + 1);
+
+                double b1Outer = getBeltOuterAU(b1);
+                double b2Inner = getBeltInnerAU(b2);
+
+                if (b1Outer > b2Inner) {
+                    beltOverlapCount++;
+                    if (beltOverlapDetails.size() < 20) {
+                        beltOverlapDetails.add(String.format("%s [%.2f-%.2f AU] overlaps %s [%.2f-%.2f AU]",
+                                safeBeltName(b1), getBeltInnerAU(b1), b1Outer,
+                                safeBeltName(b2), b2Inner, getBeltOuterAU(b2)));
+                    }
+                }
+            }
+
+            // Belt-planet overlap check
+            List<Planet> planets = star.getPlanets();
+            if (planets != null) {
+                for (OrbitalBand belt : sortedBelts) {
+                    double beltInner = getBeltInnerAU(belt);
+                    double beltOuter = getBeltOuterAU(belt);
+
+                    for (Planet planet : planets) {
+                        // Skip dwarf planets — they naturally reside within belts
+                        String pType = planet.getPlanetType();
+                        if (pType != null && pType.toLowerCase().contains("dwarf")) continue;
+
+                        double sma = safe(planet.getSemiMajorAxisAU(), 0.0);
+                        double ecc = safe(planet.getEccentricity(), 0.0);
+                        if (sma <= 0) continue;
+
+                        double peri = sma * (1 - ecc);
+                        double apo = sma * (1 + ecc);
+
+                        // Overlap if planet's orbital range intersects belt's radial range
+                        if (peri < beltOuter && apo > beltInner) {
+                            beltPlanetOverlapCount++;
+                            if (beltPlanetOverlapDetails.size() < 20) {
+                                beltPlanetOverlapDetails.add(String.format(
+                                        "%s [%.2f-%.2f AU] intersects planet %s orbit [%.2f-%.2f AU]",
+                                        safeBeltName(belt), beltInner, beltOuter,
+                                        planet.getName() != null ? planet.getName() : "?",
+                                        peri, apo));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Multi-star stability checks
+            if (binConfig != null && system.getBinarySeparationAu() != null) {
+                double sepAU = system.getBinarySeparationAu();
+
+                if (binConfig == BinaryConfiguration.S_TYPE_WIDE) {
+                    // Check if belt outer edges exceed S-type critical SMA
+                    Star companion = findCompanion(system, star);
+                    if (companion != null) {
+                        double hostMass = safe(star.getSolarMass(), 1.0);
+                        double compMass = safe(companion.getSolarMass(), 1.0);
+                        double sCrit = BinaryStabilityLimits.sTypeCriticalSMA(sepAU, hostMass, compMass);
+
+                        for (OrbitalBand belt : sortedBelts) {
+                            if (getBeltOuterAU(belt) > sCrit) {
+                                beltsExceedingStabilityLimit++;
+                            }
+                        }
+                    }
+                } else if (binConfig == BinaryConfiguration.P_TYPE) {
+                    // Check if belt inner edges are inside P-type critical SMA
+                    java.util.List<Star> starList = new java.util.ArrayList<>(system.getStars());
+                    double m1 = safe(starList.get(0).getSolarMass(), 1.0);
+                    double m2 = starList.size() > 1
+                            ? safe(starList.get(1).getSolarMass(), 1.0) : 0.0;
+                    double pCrit = BinaryStabilityLimits.pTypeCriticalSMA(sepAU, m1, m2);
+
+                    for (OrbitalBand belt : sortedBelts) {
+                        if (getBeltInnerAU(belt) < pCrit) {
+                            beltsBelowCavityLimit++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private double getBeltInnerAU(OrbitalBand belt) {
+        return belt.getInnerOrbit() != null && belt.getInnerOrbit().getSemiMajorAxis() != null
+                ? belt.getInnerOrbit().getSemiMajorAxis() : 0.0;
+    }
+
+    private double getBeltOuterAU(OrbitalBand belt) {
+        return belt.getOuterOrbit() != null && belt.getOuterOrbit().getSemiMajorAxis() != null
+                ? belt.getOuterOrbit().getSemiMajorAxis() : 0.0;
+    }
+
+    private String safeBeltName(OrbitalBand belt) {
+        String name = belt.getName();
+        return name != null ? name : (belt.getBandType() != null ? belt.getBandType() : "Belt");
+    }
+
+    private Star findCompanion(StarSystem system, Star star) {
+        for (Star s : system.getStars()) {
+            if (s != star) return s;
+        }
+        return null;
     }
 }

@@ -1,7 +1,10 @@
 package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
+import com.brickroad.starcreator_webservice.enums.BodyType;
+import com.brickroad.starcreator_webservice.repository.SurveyRepository;
 import com.brickroad.starcreator_webservice.utils.systems.SystemClassification;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.systems.SystemClassifier;
@@ -29,10 +32,24 @@ public class SystemCreator {
     @Autowired
     private SystemClassifier systemClassifier;
 
+    @Autowired
+    private SurveyRepository surveyRepository;
+
+    @Autowired
+    private TrojanCreator trojanCreator;
+
+    @Autowired
+    private SectorCreator sectorCreator;
+
     public StarSystem generateSystem() {
+        Survey survey = surveyRepository.findByCode("SCS")
+                .orElseThrow(() -> new IllegalStateException("Default survey 'SCS' not found"));
+        Sector sector = sectorCreator.generateSector(survey);
+        return generateSystem(sector);
+    }
+
+    public StarSystem generateSystem(Sector sector) {
         StarSystem system = new StarSystem();
-        Sector sector = new Sector();
-        sector.setName("SCS-V01");
         system.setSector(sector);
 
         system.setX(RandomUtils.rollRange(-100, 100));
@@ -64,11 +81,11 @@ public class SystemCreator {
 
         calculateHabitableZone(system, stars, config);
 
-        List<CelestialBody> planets = generatePlanetsForSystem(system, stars, config);
-        system.setPlanets(planets);
+        List<Planet> planets = generatePlanetsForSystem(system, stars, config);
+        system.setPlanets(planets); // distributes planets to their parent stars
 
-        List<Belt> belts = beltCreator.createBelts(system, primary);
-        system.setBelts(belts);
+        beltCreator.createBeltsForSystem(system);
+        trojanCreator.createTrojansForSystem(system);
 
         SystemClassification classification = systemClassifier.classify(system);
         system.setClassification(classification);
@@ -76,8 +93,10 @@ public class SystemCreator {
 
         system.setName(sector.getName() + "-" + Integer.toString(RandomUtils.rollRange(0,46_655), Character.MAX_RADIX).toUpperCase());
         assignStarNames(stars, system.getName());
-        assignPlanetNames(planets);
-        assignBeltNames(system.getBelts(), system.getName());
+        assignPlanetNames(system.getPlanets());
+        assignBandNames(system.getBands(), system.getName());
+
+        initDesignationBodyTypes(system, stars, system.getPlanets());
 
         return system;
     }
@@ -97,44 +116,87 @@ public class SystemCreator {
         }
     }
 
-    private void assignPlanetNames(List<CelestialBody> planets) {
-        for (CelestialBody body : planets) {
-            if (body instanceof Planet planet) {
-                Star parentStar = planet.getParentStar();
-                String planetName = planetPOSString(planet.getOrbitalPosition());
+    private void assignPlanetNames(List<Planet> planets) {
+        for (Planet planet : planets) {
+            // Skip belt-born dwarfs — they get named by nameBeltDwarfPlanets()
+            if (planet.getOrbitalPosition() != null && planet.getOrbitalPosition() < 0) continue;
 
-                if (parentStar != null && parentStar.getName() != null) {
-                    planet.setName(parentStar.getName() + " " + planetName);
-                    for (int i = 0; i < planet.getMoons().size(); i++) {
-                        planet.getMoons().get(i).setName(planet.getName() + " " + numberToRoman((i + 1)));
-                    }
-                    for (int i = 0; i < planet.getRings().size(); i++) {
-                        planet.getRings().get(i).setName(planet.getName() + " Ring " + (char) ('A' + i));
-                    }
-                } else {
-                    planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
+            Star parentStar = planet.getParentStar();
+
+            if (parentStar != null && parentStar.getName() != null) {
+                Integer pos = planet.getOrbitalPosition();
+                String planetName = pos != null ? planetPOSString(pos) : "x";
+                planet.setName(parentStar.getName() + " " + planetName);
+                for (int i = 0; i < planet.getMoons().size(); i++) {
+                    planet.getMoons().get(i).setName(planet.getName() + " " + numberToRoman((i + 1)));
                 }
+                int ringIndex = 0;
+                for (OrbitalBand band : planet.getBands()) {
+                    if (band.getBandCategory() == BandCategory.TROJAN) {
+                        // Trojan swarms: "{PlanetName} TJ-L4" / "{PlanetName} TJ-L5"
+                        String lp = band.getLagrangePoint() != null ? band.getLagrangePoint() : "L4";
+                        band.setName(planet.getName() + " TJ-" + lp);
+                        // Name notable asteroids in the swarm
+                        for (int a = 0; a < band.getNotableAsteroids().size(); a++) {
+                            band.getNotableAsteroids().get(a).setName(
+                                    band.getName() + " AST-" + String.format("%04d", a + 1));
+                        }
+                    } else {
+                        // Rings: "{PlanetName} Ring A/B/C"
+                        band.setName(planet.getName() + " Ring " + (char) ('A' + ringIndex));
+                        ringIndex++;
+                    }
+                }
+            } else {
+                planet.setName("Rogue-" + RandomUtils.rollRange(1000, 9999));
             }
         }
     }
 
-    private void assignBeltNames(List<Belt> belts, String systemName) {
-        for (Belt belt : belts) {
-            belt.setName(switch (belt.getBeltType().getCode()) {
-                case "INNER_ROCKY" -> systemName + " IB-01";
-                case "OUTER_ROCKY" -> systemName + " OB-01";
-                case "KUIPER" -> systemName + " KB-01";
-                case "SCATTERED_DISK" -> systemName + " SD-01";
-                default -> "UB-01";
-            });
-            generateAsteroidNames(belt);
+    private void assignBandNames(List<OrbitalBand> bands, String systemName) {
+        for (OrbitalBand band : bands) {
+            if (band.getBeltType() != null) {
+                // Use the parent star's name as prefix (e.g. "SYS-A2F A" for star A)
+                String prefix = (band.getStar() != null && band.getStar().getName() != null)
+                        ? band.getStar().getName()
+                        : systemName;
+                band.setName(switch (band.getBeltType().getCode()) {
+                    case "INNER_ROCKY" -> prefix + " IB-01";
+                    case "OUTER_ROCKY" -> prefix + " OB-01";
+                    case "KUIPER" -> prefix + " KB-01";
+                    case "SCATTERED_DISK" -> prefix + " SD-01";
+                    default -> prefix + " UB-01";
+                });
+            }
+            generateAsteroidNames(band);
+            nameBeltDwarfPlanets(band);
         }
     }
 
-    private void generateAsteroidNames(Belt belt) {
-        String baseName = belt.getName();
-        for (int i = 0; i < belt.getNotableAsteroids().size(); i++) {
-            belt.getNotableAsteroids().get(i).setName(baseName + " AST-" + String.format("%04d", i + 1));
+    /**
+     * Names dwarf planets associated with a belt using the belt's name as prefix.
+     * Applies to both belt-born dwarfs (orbitalPosition = -1) and existing dwarfs
+     * linked via linkDwarfPlanets(). Format: "{BeltName} DWF-{2DigitIndex}"
+     * e.g. "SCS-A2F A KB-01 DWF-01", "SCS-A2F A IB-01 DWF-02"
+     */
+    private void nameBeltDwarfPlanets(OrbitalBand band) {
+        String baseName = band.getName();
+        if (baseName == null) return;
+        List<Planet> dwarfs = band.getDwarfPlanets();
+        for (int i = 0; i < dwarfs.size(); i++) {
+            Planet dwarf = dwarfs.get(i);
+            dwarf.setName(baseName + " DWF-" + String.format("%02d", i + 1));
+            // Also rename any moons the dwarf has
+            for (int m = 0; m < dwarf.getMoons().size(); m++) {
+                dwarf.getMoons().get(m).setName(dwarf.getName() + " " + numberToRoman(m + 1));
+            }
+        }
+    }
+
+    private void generateAsteroidNames(OrbitalBand band) {
+        String baseName = band.getName();
+        for (int i = 0; i < band.getNotableAsteroids().size(); i++) {
+            band.getNotableAsteroids().get(i).setName(baseName + " AST-" + String.format("%04d", i + 1));
         }
     }
 
@@ -302,8 +364,8 @@ public class SystemCreator {
         }
     }
 
-    private List<CelestialBody> generatePlanetsForSystem(StarSystem system, Set<Star> stars, BinaryConfiguration config) {
-        List<CelestialBody> allPlanets = new ArrayList<>();
+    private List<Planet> generatePlanetsForSystem(StarSystem system, Set<Star> stars, BinaryConfiguration config) {
+        List<Planet> allPlanets = new ArrayList<>();
 
         switch (config) {
             case SINGLE:
@@ -371,6 +433,73 @@ public class SystemCreator {
     private List<Planet> generateCircumbinaryPlanets(StarSystem system, Star primary, double binarySeparation) {
         List<Planet> planets = planetCreator.generatePlanetarySystem(primary);
         return planets;
+    }
+
+    private void initDesignationBodyTypes(StarSystem system, Set<Star> stars, List<Planet> planets) {
+        // System designation
+        system.getDesignation().setBodyType(BodyType.SYSTEM);
+
+        // Star designations
+        for (Star star : stars) {
+            Designation d = star.getDesignation();
+            d.setBodyType(BodyType.STAR);
+            d.setStarRole(star.getStarRole() != null ? star.getStarRole().name() : null);
+        }
+
+        // Planet designations
+        for (Planet planet : planets) {
+            Designation d = planet.getDesignation();
+            d.setBodyType(BodyType.PLANET);
+            Star parentStar = planet.getParentStar();
+            d.setParentBodyName(parentStar != null ? parentStar.getName() : null);
+
+            // Moon designations
+            for (Moon moon : planet.getMoons()) {
+                Designation md = moon.getDesignation();
+                md.setBodyType(BodyType.MOON);
+                md.setParentBodyName(planet.getName());
+            }
+
+            // Planet band designations (rings and trojans)
+            for (OrbitalBand band : planet.getBands()) {
+                Designation bd = band.getDesignation();
+                if (band.getBandCategory() == BandCategory.TROJAN) {
+                    bd.setBodyType(BodyType.TROJAN);
+                } else {
+                    bd.setBodyType(BodyType.RING);
+                }
+                bd.setBandCategory(band.getBandCategory() != null ? band.getBandCategory().name() : null);
+                bd.setParentBodyName(planet.getName());
+
+                // Notable asteroid designations within Trojan swarms
+                for (Asteroid asteroid : band.getNotableAsteroids()) {
+                    Designation ad = asteroid.getDesignation();
+                    ad.setBodyType(BodyType.ASTEROID);
+                    if (asteroid.getAsteroidType() != null) {
+                        ad.setObjectType(asteroid.getAsteroidType().getName());
+                    }
+                }
+            }
+        }
+
+        // System-level belt designations (aggregated from all stars)
+        for (OrbitalBand band : system.getBands()) {
+            Designation bd = band.getDesignation();
+            bd.setBodyType(BodyType.BELT);
+            bd.setBandCategory(band.getBandCategory() != null ? band.getBandCategory().name() : null);
+            if (band.getStar() != null) {
+                bd.setParentBodyName(band.getStar().getName());
+            }
+
+            // Asteroid designations
+            for (Asteroid asteroid : band.getNotableAsteroids()) {
+                Designation ad = asteroid.getDesignation();
+                ad.setBodyType(BodyType.ASTEROID);
+                if (asteroid.getAsteroidType() != null) {
+                    ad.setObjectType(asteroid.getAsteroidType().getName());
+                }
+            }
+        }
     }
 
     public static String numberToRoman(int number) {

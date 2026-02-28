@@ -19,6 +19,8 @@ public class HtmlReportBuilder {
     private final PlanetDataCollector planetData;
     private final MoonDataCollector moonData;
     private final RingDataCollector ringData;
+    private final TrojanDataCollector trojanData;
+    private final AsteroidDataCollector asteroidData;
     private final BeltDataCollector beltData;
     private final OrbitStabilityCollector stabilityData;
 
@@ -27,6 +29,7 @@ public class HtmlReportBuilder {
     public HtmlReportBuilder(ProbabilityCounts counts, PerformanceTimer timer,
                              StarDataCollector starData, PlanetDataCollector planetData,
                              MoonDataCollector moonData, RingDataCollector ringData,
+                             TrojanDataCollector trojanData, AsteroidDataCollector asteroidData,
                              BeltDataCollector beltData, OrbitStabilityCollector stabilityData) {
         this.counts = counts;
         this.timer = timer;
@@ -34,6 +37,8 @@ public class HtmlReportBuilder {
         this.planetData = planetData;
         this.moonData = moonData;
         this.ringData = ringData;
+        this.trojanData = trojanData;
+        this.asteroidData = asteroidData;
         this.beltData = beltData;
         this.stabilityData = stabilityData;
     }
@@ -51,6 +56,8 @@ public class HtmlReportBuilder {
             printPlanetHtml(w);
             printMoonHtml(w);
             printRingHtml(w);
+            printTrojanHtml(w);
+            printAsteroidHtml(w);
             printBeltHtml(w);
             printOrbitalStabilityHtml(w);
 
@@ -100,11 +107,13 @@ public class HtmlReportBuilder {
         tocLink(w, "Geology (Rocky/Surface Planets)");
         tocLink(w, "Water System (Rocky/Surface Planets Only)");
         tocLink(w, "Planetary Habitability");
-        tocLink(w, "Planetary Weather");
-        tocLink(w, "Surface Planet Weather");
-        tocLink(w, "Gas / Ice Giant Weather");
+        tocLink(w, "Planetary Climate");
+        tocLink(w, "Surface Planet Climate");
+        tocLink(w, "Gas / Ice Giant Climate");
         tocLink(w, "Moon Types");
         tocLink(w, "Ring Types");
+        tocLink(w, "Trojan Swarms");
+        tocLink(w, "Notable Asteroids");
         tocLink(w, "Belt Types");
         tocLink(w, "Orbital Stability");
         w.println("</ol>");
@@ -255,7 +264,7 @@ public class HtmlReportBuilder {
         printAtmosphereHtml(w);
         printGeologyHtml(w);
         printWaterAndHabHtml(w);
-        printWeatherHtml(w);
+        printClimateHtml(w);
     }
 
     private void printPlanetPerTypeBreakdown(PrintWriter w) {
@@ -328,6 +337,8 @@ public class HtmlReportBuilder {
             printSortedTableByKey(w, ptb.getMassBins(), ptb.getCount(), "Mass Range");
         if (!ptb.getSemiMajorAxisBins().isEmpty())
             printSortedTableByKey(w, ptb.getSemiMajorAxisBins(), ptb.getCount(), "Semi-Major Axis (AU)");
+        if (!ptb.getDistanceValues().isEmpty())
+            printDistanceStats(w, ptb);
         if (!ptb.getTidalLockByDistance().isEmpty())
             printTidalLockByDistanceTable(w, ptb.getTidalLockByDistance());
         if (!ptb.getMoonCountBins().isEmpty())
@@ -342,6 +353,34 @@ public class HtmlReportBuilder {
             printSortedTable(w, ptb.getHabitabilityClasses(), ptb.getCount(), "Habitability Class");
 
         endCollapsible(w);
+    }
+
+    private void printDistanceStats(PrintWriter w, PlanetTypeBreakdown ptb) {
+        java.util.Map<String, Object> ds = ptb.computeDistanceStats();
+
+        w.println("<h3>Distance Statistics (AU)</h3>");
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, String.valueOf(ds.get("min")), "Closest");
+        statCard(w, String.valueOf(ds.get("max")), "Farthest");
+        statCard(w, String.valueOf(ds.get("median")), "Median");
+        if (ds.containsKey("iqrMean")) {
+            statCard(w, String.valueOf(ds.get("iqrMean")), "IQR Mean*");
+        } else {
+            statCard(w, String.valueOf(ds.get("mean")), "Mean");
+        }
+        w.println("</div>");
+
+        if (ds.containsKey("outliersExcluded")) {
+            int excluded = ((Number) ds.get("outliersExcluded")).intValue();
+            if (excluded > 0) {
+                w.println("<p class=\"note\">* IQR Mean excludes " + excluded
+                        + " outlier(s) outside Q1&#8211;Q3 &plusmn; 1.5&times;IQR (Q1="
+                        + ds.get("q1") + " AU, Q3=" + ds.get("q3") + " AU)</p>");
+            } else {
+                w.println("<p class=\"note\">* No outliers detected (Q1="
+                        + ds.get("q1") + " AU, Q3=" + ds.get("q3") + " AU)</p>");
+            }
+        }
     }
 
     private void printTidalLockByDistanceTable(PrintWriter w, Map<String, int[]> data) {
@@ -527,16 +566,16 @@ public class HtmlReportBuilder {
         endCollapsible(w);
     }
 
-    private void printWeatherHtml(PrintWriter w) {
-        PlanetDataCollector.WeatherBucket all = planetData.getWeatherAll();
-        PlanetDataCollector.WeatherBucket surface = planetData.getWeatherSurface();
-        PlanetDataCollector.WeatherBucket gas = planetData.getWeatherGas();
+    private void printClimateHtml(PrintWriter w) {
+        PlanetDataCollector.WeatherBucket all = planetData.getClimateAll();
+        PlanetDataCollector.WeatherBucket surface = planetData.getClimateSurface();
+        PlanetDataCollector.WeatherBucket gas = planetData.getClimateGas();
 
         w.println("<hr>");
-        beginCollapsible(w, "Planetary Weather", 2);
+        beginCollapsible(w, "Planetary Climate", 2);
 
         if (all.getCount() == 0) {
-            w.println("<p>No planets with weather data.</p>");
+            w.println("<p>No planets with climate data.</p>");
             endCollapsible(w);
             return;
         }
@@ -551,16 +590,16 @@ public class HtmlReportBuilder {
         w.println("</div>");
 
         if (surface.getCount() > 0) {
-            printWeatherBucketHtml(w, surface, "Surface Planet Weather");
+            printClimateBucketHtml(w, surface, "Surface Planet Climate");
         }
         if (gas.getCount() > 0) {
-            printWeatherBucketHtml(w, gas, "Gas / Ice Giant Weather");
+            printClimateBucketHtml(w, gas, "Gas / Ice Giant Climate");
         }
 
         endCollapsible(w);
     }
 
-    private void printWeatherBucketHtml(PrintWriter w, PlanetDataCollector.WeatherBucket b, String title) {
+    private void printClimateBucketHtml(PrintWriter w, PlanetDataCollector.WeatherBucket b, String title) {
         w.println("<hr>");
         beginCollapsible(w, title, 3);
 
@@ -601,7 +640,7 @@ public class HtmlReportBuilder {
             printSortedTable(w, b.getLightningType(), b.getWithLightning(), "Type");
         }
 
-        printSubSection(w, "Weather Severity");
+        printSubSection(w, "Climate Severity");
         printSortedTable(w, b.getSeverity(), b.getCount(), "Severity");
 
         printSubSection(w, "Outdoor Exposure Rating");
@@ -683,8 +722,8 @@ public class HtmlReportBuilder {
         printSortedTable(w, moonData.getMoonRadiationBeltDose(), moonData.getMoonHabCount(), "Radiation Belt Surface Dose");
         printSortedTable(w, moonData.getMoonTidalContribution(), moonData.getMoonHabCount(), "Tidal Heating Contribution");
 
-        // Moon Weather
-        printMoonWeatherHtml(w);
+        // Moon Climate
+        printMoonClimateHtml(w);
 
         endCollapsible(w); // close detailed analysis
         endCollapsible(w); // close Moon Types
@@ -711,32 +750,32 @@ public class HtmlReportBuilder {
         w.println("</tbody></table>");
     }
 
-    private void printMoonWeatherHtml(PrintWriter w) {
-        w.println("<h4>Moon Weather</h4>");
-        w.println("<p>Moons with weather data: " + fmt(moonData.getMoonsWithWeather()) + " of " + fmt(counts.getMoonCount())
-                + " total (" + pct(moonData.getMoonsWithWeather(), counts.getMoonCount()) + "%)</p>");
-        if (moonData.getMoonsWithWeather() == 0) return;
+    private void printMoonClimateHtml(PrintWriter w) {
+        w.println("<h4>Moon Climate</h4>");
+        w.println("<p>Moons with climate data: " + fmt(moonData.getMoonsWithClimate()) + " of " + fmt(counts.getMoonCount())
+                + " total (" + pct(moonData.getMoonsWithClimate(), counts.getMoonCount()) + "%)</p>");
+        if (moonData.getMoonsWithClimate() == 0) return;
 
         w.println("<p>With precipitation: " + fmt(moonData.getMoonsWithPrecipitation())
-                + " (" + pct(moonData.getMoonsWithPrecipitation(), moonData.getMoonsWithWeather()) + "%)</p>");
+                + " (" + pct(moonData.getMoonsWithPrecipitation(), moonData.getMoonsWithClimate()) + "%)</p>");
         w.println("<p>With lightning: " + fmt(moonData.getMoonsWithLightning())
-                + " (" + pct(moonData.getMoonsWithLightning(), moonData.getMoonsWithWeather()) + "%)</p>");
+                + " (" + pct(moonData.getMoonsWithLightning(), moonData.getMoonsWithClimate()) + "%)</p>");
         w.println("<p>With parent planet visible in sky: " + fmt(moonData.getMoonsWithParentPlanetVisible())
-                + " (" + pct(moonData.getMoonsWithParentPlanetVisible(), moonData.getMoonsWithWeather()) + "%)</p>");
+                + " (" + pct(moonData.getMoonsWithParentPlanetVisible(), moonData.getMoonsWithClimate()) + "%)</p>");
         w.println("<p>With planetary eclipses: " + fmt(moonData.getMoonsWithPlanetaryEclipses())
-                + " (" + pct(moonData.getMoonsWithPlanetaryEclipses(), moonData.getMoonsWithWeather()) + "%)</p>");
-        w.println("<p>Total extreme weather events: " + fmt(moonData.getMoonExtremeEventTotal())
-                + " (avg " + String.format("%.1f", moonData.getMoonExtremeEventTotal() * 1.0 / moonData.getMoonsWithWeather()) + "/moon)</p>");
+                + " (" + pct(moonData.getMoonsWithPlanetaryEclipses(), moonData.getMoonsWithClimate()) + "%)</p>");
+        w.println("<p>Total extreme climate events: " + fmt(moonData.getMoonExtremeEventTotal())
+                + " (avg " + String.format("%.1f", moonData.getMoonExtremeEventTotal() * 1.0 / moonData.getMoonsWithClimate()) + "/moon)</p>");
 
-        printSortedTable(w, moonData.getMoonWeatherSkyColor(), moonData.getMoonsWithWeather(), "Sky Color");
-        printSortedTable(w, moonData.getMoonWeatherCloudClass(), moonData.getMoonsWithWeather(), "Cloud Coverage");
-        printSortedTable(w, moonData.getMoonWeatherWindIntensity(), moonData.getMoonsWithWeather(), "Wind Intensity");
-        printSortedTable(w, moonData.getMoonWeatherSeverity(), moonData.getMoonsWithWeather(), "Weather Severity");
-        printSortedTable(w, moonData.getMoonWeatherExposure(), moonData.getMoonsWithWeather(), "Exposure Rating");
+        printSortedTable(w, moonData.getMoonClimateSkyColor(), moonData.getMoonsWithClimate(), "Sky Color");
+        printSortedTable(w, moonData.getMoonClimateCloudClass(), moonData.getMoonsWithClimate(), "Cloud Coverage");
+        printSortedTable(w, moonData.getMoonClimateWindIntensity(), moonData.getMoonsWithClimate(), "Wind Intensity");
+        printSortedTable(w, moonData.getMoonClimateSeverity(), moonData.getMoonsWithClimate(), "Climate Severity");
+        printSortedTable(w, moonData.getMoonClimateExposure(), moonData.getMoonsWithClimate(), "Exposure Rating");
 
-        if (!moonData.getMoonWeatherTidalRangeBins().isEmpty()) {
+        if (!moonData.getMoonClimateTidalRangeBins().isEmpty()) {
             w.println("<h4>Moon Tidal Range (from Parent Planet + Siblings)</h4>");
-            printSortedTableByKey(w, moonData.getMoonWeatherTidalRangeBins(), moonData.getMoonsWithWeather(), "Tidal Range");
+            printSortedTableByKey(w, moonData.getMoonClimateTidalRangeBins(), moonData.getMoonsWithClimate(), "Tidal Range");
         }
     }
 
@@ -888,6 +927,43 @@ public class HtmlReportBuilder {
         w.println("<h4>System Outer Extent</h4>");
         printSortedTableByKey(w, stabilityData.getSystemOuterExtentBins(), counts.getSystemCount(), "Outer Extent");
 
+        // Section 8: Belt Stability
+        if (stabilityData.getTotalBeltsAnalyzed() > 0) {
+            printSubSection(w, "Belt Stability Analysis");
+            w.println("<p class=\"note\">Checks belt-belt overlaps, belt-planet intersections, "
+                    + "and binary stability limit violations</p>");
+
+            w.println("<div class=\"stats-grid\">");
+            statCard(w, fmt(stabilityData.getTotalBeltsAnalyzed()), "Belts Analyzed");
+            statCard(w, fmt(stabilityData.getBeltOverlapCount()), "Belt-Belt Overlaps");
+            statCard(w, fmt(stabilityData.getBeltPlanetOverlapCount()), "Belt-Planet Overlaps");
+            statCard(w, fmt(stabilityData.getBeltsExceedingStabilityLimit()), "Exceed S-Type Limit");
+            statCard(w, fmt(stabilityData.getBeltsBelowCavityLimit()), "Below P-Type Cavity");
+            w.println("</div>");
+
+            if (!stabilityData.getBeltOverlapDetails().isEmpty()) {
+                w.println("<h4>Belt-Belt Overlap Details (first " + stabilityData.getBeltOverlapDetails().size() + ")</h4>");
+                w.println("<table>");
+                w.println("<thead><tr><th>#</th><th>Overlap Description</th></tr></thead>");
+                w.println("<tbody>");
+                for (int i = 0; i < stabilityData.getBeltOverlapDetails().size(); i++) {
+                    w.println("<tr><td>" + (i + 1) + "</td><td>" + esc(stabilityData.getBeltOverlapDetails().get(i)) + "</td></tr>");
+                }
+                w.println("</tbody></table>");
+            }
+
+            if (!stabilityData.getBeltPlanetOverlapDetails().isEmpty()) {
+                w.println("<h4>Belt-Planet Overlap Details (first " + stabilityData.getBeltPlanetOverlapDetails().size() + ")</h4>");
+                w.println("<table>");
+                w.println("<thead><tr><th>#</th><th>Overlap Description</th></tr></thead>");
+                w.println("<tbody>");
+                for (int i = 0; i < stabilityData.getBeltPlanetOverlapDetails().size(); i++) {
+                    w.println("<tr><td>" + (i + 1) + "</td><td>" + esc(stabilityData.getBeltPlanetOverlapDetails().get(i)) + "</td></tr>");
+                }
+                w.println("</tbody></table>");
+            }
+        }
+
         endCollapsible(w);
     }
 
@@ -956,19 +1032,424 @@ public class HtmlReportBuilder {
     private void printRingHtml(PrintWriter w) {
         w.println("<hr>");
         beginCollapsible(w, "Ring Types", 2);
+
+        // Summary stat cards
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, fmt(counts.getRingCount()), "Total Rings");
+        statCard(w, fmt(ringData.getShepherdMoonCount()), "With Shepherd Moons");
+        statCard(w, fmt(ringData.getRingsWithGaps()), "With Gaps");
+        w.println("</div>");
+
         printSortedTable(w, ringData.getRingTypes(), counts.getRingCount(), "Ring Type");
+
+        if (!ringData.getOpticalDepthBins().isEmpty()) {
+            printSubSection(w, "Optical Depth Distribution");
+            printSortedTableByKey(w, ringData.getOpticalDepthBins(), counts.getRingCount(), "Optical Depth");
+        }
+
+        if (!ringData.getColorDistribution().isEmpty()) {
+            printSubSection(w, "Ring Colors");
+            printSortedTable(w, ringData.getColorDistribution(), counts.getRingCount(), "Color");
+        }
+
+        if (!ringData.getVisibilityDistribution().isEmpty()) {
+            printSubSection(w, "Visibility");
+            printSortedTable(w, ringData.getVisibilityDistribution(), counts.getRingCount(), "Visibility");
+        }
+
+        if (!ringData.getStabilityDistribution().isEmpty()) {
+            printSubSection(w, "Ring Stability");
+            printSortedTable(w, ringData.getStabilityDistribution(), counts.getRingCount(), "Stability");
+        }
+
+        if (!ringData.getOriginTypes().isEmpty()) {
+            printSubSection(w, "Formation Origin");
+            printSortedTable(w, ringData.getOriginTypes(), counts.getRingCount(), "Origin");
+        }
+
+        if (!ringData.getThicknessBins().isEmpty()) {
+            printSubSection(w, "Ring Thickness");
+            printSortedTableByKey(w, ringData.getThicknessBins(), counts.getRingCount(), "Thickness");
+        }
+
+        if (!ringData.getParticleSizeBins().isEmpty()) {
+            printSubSection(w, "Maximum Particle Size");
+            printSortedTableByKey(w, ringData.getParticleSizeBins(), counts.getRingCount(), "Particle Size");
+        }
+
+        if (!ringData.getAgeBins().isEmpty()) {
+            printSubSection(w, "Ring Age Distribution");
+            printSortedTableByKey(w, ringData.getAgeBins(), counts.getRingCount(), "Age Range");
+        }
+
+        if (!ringData.getParentPlanetTypes().isEmpty()) {
+            printSubSection(w, "Rings by Parent Planet Type");
+            printSortedTable(w, ringData.getParentPlanetTypes(), counts.getRingCount(), "Planet Type");
+        }
+
+        // Per-type breakdown
+        if (!ringData.getPerTypeData().isEmpty()) {
+            printSubSection(w, "Per Ring Type Breakdown");
+            for (Map.Entry<String, RingDataCollector.RingTypeBreakdown> entry : ringData.getPerTypeData().entrySet()) {
+                RingDataCollector.RingTypeBreakdown rtb = entry.getValue();
+                beginCollapsible(w, entry.getKey() + " (" + rtb.getCount() + ")", 3);
+                w.println("<p>Shepherd moons: " + rtb.getShepherdCount()
+                        + " (" + pct(rtb.getShepherdCount(), rtb.getCount()) + "%)"
+                        + " | Gaps: " + rtb.getGapsCount()
+                        + " (" + pct(rtb.getGapsCount(), rtb.getCount()) + "%)</p>");
+                if (rtb.getOpticalDepthCount() > 0) {
+                    w.println("<p>Avg optical depth: " + String.format("%.3f", rtb.getOpticalDepthSum() / rtb.getOpticalDepthCount()) + "</p>");
+                }
+                if (!rtb.getColors().isEmpty()) printSortedTable(w, rtb.getColors(), rtb.getCount(), "Color");
+                if (!rtb.getVisibilities().isEmpty()) printSortedTable(w, rtb.getVisibilities(), rtb.getCount(), "Visibility");
+                if (!rtb.getStabilities().isEmpty()) printSortedTable(w, rtb.getStabilities(), rtb.getCount(), "Stability");
+                if (!rtb.getOrigins().isEmpty()) printSortedTable(w, rtb.getOrigins(), rtb.getCount(), "Origin");
+                endCollapsible(w);
+            }
+        }
+
+        endCollapsible(w);
+    }
+
+    private void printTrojanHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Trojan Swarms", 2);
+
+        // Summary stat cards
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, fmt(trojanData.getTotalTrojans()), "Total Swarms");
+        statCard(w, fmt(planetData.getPlanetsWithTrojans()), "Planets With Trojans");
+        statCard(w, fmt(trojanData.getTrojansWithAsteroids()), "With Notable Asteroids");
+        statCard(w, fmt(trojanData.getTrojansWithMoons()), "With Trojan Moons");
+        if (trojanData.getMassCount() > 0) {
+            statCard(w, String.format("%.2e M\u2295", trojanData.getTotalMassSum() / trojanData.getMassCount()), "Avg Mass");
+        }
+        if (trojanData.getObjectCountCount() > 0) {
+            statCard(w, fmt((int) (trojanData.getTotalObjectCountSum() / trojanData.getObjectCountCount())), "Avg Object Count");
+        }
+        w.println("</div>");
+
+        if (!trojanData.getLagrangePointCounts().isEmpty()) {
+            printSubSection(w, "Lagrange Point Distribution");
+            printSortedTable(w, trojanData.getLagrangePointCounts(), trojanData.getTotalTrojans(), "Lagrange Point");
+        }
+
+        if (!trojanData.getParentPlanetTypes().isEmpty()) {
+            printSubSection(w, "Trojans by Parent Planet Type");
+            printSortedTable(w, trojanData.getParentPlanetTypes(), trojanData.getTotalTrojans(), "Planet Type");
+        }
+
+        if (!trojanData.getTierCounts().isEmpty()) {
+            printSubSection(w, "Tier Classification");
+            printSortedTable(w, trojanData.getTierCounts(), trojanData.getTotalTrojans(), "Tier");
+        }
+
+        if (!trojanData.getMassBins().isEmpty()) {
+            printSubSection(w, "Mass Distribution (Earth Masses)");
+            printSortedTableByKey(w, trojanData.getMassBins(), trojanData.getTotalTrojans(), "Mass Bin");
+        }
+
+        if (!trojanData.getObjectCountBins().isEmpty()) {
+            printSubSection(w, "Estimated Object Count");
+            printSortedTableByKey(w, trojanData.getObjectCountBins(), trojanData.getTotalTrojans(), "Object Count");
+        }
+
+        if (!trojanData.getLibrationAmplitudeBins().isEmpty()) {
+            printSubSection(w, "Libration Amplitude");
+            printSortedTableByKey(w, trojanData.getLibrationAmplitudeBins(), trojanData.getTotalTrojans(), "Amplitude");
+        }
+
+        if (!trojanData.getWidthBins().isEmpty()) {
+            printSubSection(w, "Swarm Width (Radial Extent)");
+            printSortedTableByKey(w, trojanData.getWidthBins(), trojanData.getTotalTrojans(), "Width");
+        }
+
+        // Planet type summary table (cross-reference)
+        printTrojanPlanetTypeSummaryTable(w);
+
+        // Per planet-type breakdown
+        if (!trojanData.getPerPlanetType().isEmpty()) {
+            printSubSection(w, "Per Planet Type Breakdown");
+            for (Map.Entry<String, TrojanDataCollector.TrojanPlanetTypeBreakdown> entry : trojanData.getPerPlanetType().entrySet()) {
+                TrojanDataCollector.TrojanPlanetTypeBreakdown ptb = entry.getValue();
+                beginCollapsible(w, entry.getKey() + " (" + ptb.getCount() + " swarms)", 3);
+                w.println("<p>Notable asteroids: " + ptb.getWithAsteroids()
+                        + " (" + pct(ptb.getWithAsteroids(), ptb.getCount()) + "%)</p>");
+                if (ptb.getMassCount() > 0) {
+                    w.println("<p>Avg mass: " + String.format("%.2e M\u2295", ptb.getMassSum() / ptb.getMassCount()) + "</p>");
+                }
+                if (ptb.getObjectCountCount() > 0) {
+                    w.println("<p>Avg object count: " + fmt((int) (ptb.getObjectCountSum() / ptb.getObjectCountCount())) + "</p>");
+                }
+                if (!ptb.getLagrangePoints().isEmpty()) printSortedTable(w, ptb.getLagrangePoints(), ptb.getCount(), "Lagrange Point");
+                if (!ptb.getTiers().isEmpty()) printSortedTable(w, ptb.getTiers(), ptb.getCount(), "Tier");
+                endCollapsible(w);
+            }
+        }
+
+        endCollapsible(w);
+    }
+
+    private void printTrojanPlanetTypeSummaryTable(PrintWriter w) {
+        // Cross-reference: total planets per type vs trojan formation stats
+        boolean hasData = false;
+        for (Map.Entry<String, PlanetTypeBreakdown> e : planetData.getPerTypeData().entrySet()) {
+            if (e.getValue().getWithTrojans() > 0) { hasData = true; break; }
+        }
+        if (!hasData) return;
+
+        printSubSection(w, "Trojan Formation by Planet Type");
+        w.println("<table>");
+        w.println("<thead><tr>"
+                + "<th>Planet Type</th>"
+                + "<th>Planets</th>"
+                + "<th>% With Swarms</th>"
+                + "<th>Swarms</th>"
+                + "<th>% With Asteroids</th>"
+                + "<th>% With Moons</th>"
+                + "<th>Total Objects</th>"
+                + "</tr></thead>");
+        w.println("<tbody>");
+
+        planetData.getPerTypeData().entrySet().stream()
+                .filter(e -> e.getValue().getWithTrojans() > 0)
+                .sorted((a, b) -> Integer.compare(b.getValue().getWithTrojans(), a.getValue().getWithTrojans()))
+                .forEach(e -> {
+                    String typeName = e.getKey();
+                    PlanetTypeBreakdown ptb = e.getValue();
+                    int totalPlanets = ptb.getCount();
+                    int planetsWithSwarms = ptb.getWithTrojans();
+                    double pctWithSwarms = planetsWithSwarms * 100.0 / Math.max(1, totalPlanets);
+
+                    TrojanDataCollector.TrojanPlanetTypeBreakdown tptb = trojanData.getPerPlanetType().get(typeName);
+                    int swarmCount = tptb != null ? tptb.getCount() : 0;
+                    int swarmsWithAsteroids = tptb != null ? tptb.getWithAsteroids() : 0;
+                    int planetsWithMoons = tptb != null ? tptb.getWithMoons() : 0;
+                    long totalObjects = tptb != null ? tptb.getObjectCountSum() : 0;
+
+                    double pctWithAsteroids = swarmCount > 0 ? swarmsWithAsteroids * 100.0 / swarmCount : 0;
+                    double pctWithMoons = planetsWithSwarms > 0 ? planetsWithMoons * 100.0 / planetsWithSwarms : 0;
+
+                    w.println("<tr>"
+                            + "<td>" + esc(typeName) + "</td>"
+                            + "<td>" + fmt(totalPlanets) + "</td>"
+                            + "<td>" + String.format("%.1f%%", pctWithSwarms) + "</td>"
+                            + "<td>" + fmt(swarmCount) + "</td>"
+                            + "<td>" + String.format("%.1f%%", pctWithAsteroids) + "</td>"
+                            + "<td>" + String.format("%.1f%%", pctWithMoons) + "</td>"
+                            + "<td>" + fmt(totalObjects) + "</td>"
+                            + "</tr>");
+                });
+
+        w.println("</tbody></table>");
+    }
+
+    private void printAsteroidHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Notable Asteroids", 2);
+
+        // Summary stat cards
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, fmt(asteroidData.getTotalAsteroids()), "Total Notable");
+        statCard(w, fmt(asteroidData.getSourceCounts().getOrDefault("Belt", 0)), "From Belts");
+        statCard(w, fmt(asteroidData.getSourceCounts().getOrDefault("Trojan", 0)), "From Trojans");
+        statCard(w, fmt(asteroidData.getTotalDifferentiated()), "Differentiated");
+        statCard(w, fmt(asteroidData.getTotalWithRegolith()), "With Regolith");
+        if (asteroidData.getDiameterCount() > 0) {
+            statCard(w, String.format("%.1f km", asteroidData.getDiameterSum() / asteroidData.getDiameterCount()), "Avg Diameter");
+        }
+        if (asteroidData.getDensityCount() > 0) {
+            statCard(w, String.format("%.2f g/cm\u00B3", asteroidData.getDensitySum() / asteroidData.getDensityCount()), "Avg Density");
+        }
+        w.println("</div>");
+
+        // Spectral type distribution
+        if (!asteroidData.getAsteroidTypes().isEmpty()) {
+            printSubSection(w, "Spectral Type Distribution");
+            printSortedTable(w, asteroidData.getAsteroidTypes(), asteroidData.getTotalAsteroids(), "Type");
+        }
+
+        // Source breakdown
+        if (!asteroidData.getSourceCounts().isEmpty()) {
+            printSubSection(w, "Source Breakdown");
+            printSortedTable(w, asteroidData.getSourceCounts(), asteroidData.getTotalAsteroids(), "Source");
+        }
+
+        // Diameter distribution
+        if (!asteroidData.getDiameterBins().isEmpty()) {
+            printSubSection(w, "Diameter Distribution");
+            printSortedTableByKey(w, asteroidData.getDiameterBins(), asteroidData.getTotalAsteroids(), "Diameter");
+        }
+
+        // Mass distribution
+        if (!asteroidData.getMassBins().isEmpty()) {
+            printSubSection(w, "Mass Distribution");
+            printSortedTableByKey(w, asteroidData.getMassBins(), asteroidData.getTotalAsteroids(), "Mass");
+        }
+
+        // Density distribution
+        if (!asteroidData.getDensityBins().isEmpty()) {
+            printSubSection(w, "Density Distribution");
+            printSortedTableByKey(w, asteroidData.getDensityBins(), asteroidData.getTotalAsteroids(), "Density");
+        }
+
+        // Albedo distribution
+        if (!asteroidData.getAlbedoBins().isEmpty()) {
+            printSubSection(w, "Albedo Distribution");
+            printSortedTableByKey(w, asteroidData.getAlbedoBins(), asteroidData.getTotalAsteroids(), "Albedo");
+        }
+
+        // Cratering levels
+        if (!asteroidData.getCrateringLevels().isEmpty()) {
+            printSubSection(w, "Cratering Levels");
+            printSortedTable(w, asteroidData.getCrateringLevels(), asteroidData.getTotalAsteroids(), "Level");
+        }
+
+        // Orbital distance
+        if (!asteroidData.getDistanceBins().isEmpty()) {
+            printSubSection(w, "Orbital Distance Distribution");
+            printSortedTableByKey(w, asteroidData.getDistanceBins(), asteroidData.getTotalAsteroids(), "Distance");
+        }
+
+        // Per spectral-type breakdown
+        if (!asteroidData.getPerTypeData().isEmpty()) {
+            printSubSection(w, "Per Spectral Type Breakdown");
+            for (Map.Entry<String, AsteroidDataCollector.AsteroidTypeBreakdown> entry : asteroidData.getPerTypeData().entrySet()) {
+                AsteroidDataCollector.AsteroidTypeBreakdown atb = entry.getValue();
+                beginCollapsible(w, entry.getKey() + " (" + atb.getCount() + " asteroids)", 3);
+                if (!atb.getSources().isEmpty()) {
+                    w.println("<p>Sources: ");
+                    atb.getSources().forEach((src, cnt) ->
+                        w.print(src + ": " + cnt + " (" + pct(cnt, atb.getCount()) + "%) "));
+                    w.println("</p>");
+                }
+                if (atb.getDiameterCount() > 0) {
+                    w.println("<p>Avg diameter: " + String.format("%.1f km", atb.getDiameterSum() / atb.getDiameterCount()) + "</p>");
+                }
+                if (atb.getDensityCount() > 0) {
+                    w.println("<p>Avg density: " + String.format("%.2f g/cm\u00B3", atb.getDensitySum() / atb.getDensityCount()) + "</p>");
+                }
+                if (atb.getAlbedoCount() > 0) {
+                    w.println("<p>Avg albedo: " + String.format("%.3f", atb.getAlbedoSum() / atb.getAlbedoCount()) + "</p>");
+                }
+                w.println("<p>Differentiated: " + atb.getDifferentiated()
+                        + " (" + pct(atb.getDifferentiated(), atb.getCount()) + "%)</p>");
+                endCollapsible(w);
+            }
+        }
+
         endCollapsible(w);
     }
 
     private void printBeltHtml(PrintWriter w) {
         w.println("<hr>");
         beginCollapsible(w, "Belt Types", 2);
+
+        // Summary stat cards
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, fmt(counts.getBeltCount()), "Total Belts");
+        if (beltData.getMassCount() > 0) {
+            statCard(w, String.format("%.4f M\u2295", beltData.getTotalMassSum() / beltData.getMassCount()), "Avg Mass");
+        }
+        if (beltData.getWidthCount() > 0) {
+            statCard(w, String.format("%.2f AU", beltData.getTotalWidthSum() / beltData.getWidthCount()), "Avg Width");
+        }
+        statCard(w, fmt(beltData.getBeltsWithGaps()), "With Gaps");
+        statCard(w, fmt(beltData.getBeltsWithCollisionalFamilies()), "Collisional Families");
+        statCard(w, fmt(beltData.getBeltsWithDwarfPlanets()), "With Dwarf Planets");
+        statCard(w, fmt(counts.getDwarfPlanetCount()), "Total Dwarf Planets");
+        w.println("</div>");
+
         printSortedTable(w, beltData.getBeltTypes(), counts.getBeltCount(), "Belt Type");
 
         printSubSection(w, "Asteroid Types");
         printSortedTable(w, beltData.getAsteroidTypes(), counts.getAsteroidCount(), "Asteroid Type");
 
-        w.println("<p>Dwarf Planets in Belts: " + fmt(counts.getTempCount()) + "</p>");
+        if (!beltData.getCompositionTypes().isEmpty()) {
+            printSubSection(w, "Belt Composition");
+            printSortedTable(w, beltData.getCompositionTypes(), counts.getBeltCount(), "Composition");
+        }
+
+        if (!beltData.getWidthBins().isEmpty()) {
+            printSubSection(w, "Belt Width Distribution");
+            printSortedTableByKey(w, beltData.getWidthBins(), counts.getBeltCount(), "Width");
+        }
+
+        if (!beltData.getInnerEdgeBins().isEmpty()) {
+            printSubSection(w, "Inner Edge Distribution");
+            printSortedTableByKey(w, beltData.getInnerEdgeBins(), counts.getBeltCount(), "Inner Edge");
+        }
+
+        if (!beltData.getOuterEdgeBins().isEmpty()) {
+            printSubSection(w, "Outer Edge Distribution");
+            printSortedTableByKey(w, beltData.getOuterEdgeBins(), counts.getBeltCount(), "Outer Edge");
+        }
+
+        if (!beltData.getMassBins().isEmpty()) {
+            printSubSection(w, "Belt Mass Distribution");
+            printSortedTableByKey(w, beltData.getMassBins(), counts.getBeltCount(), "Mass Range");
+        }
+
+        if (!beltData.getEccentricityBins().isEmpty()) {
+            printSubSection(w, "Average Eccentricity Distribution");
+            printSortedTableByKey(w, beltData.getEccentricityBins(), counts.getBeltCount(), "Eccentricity");
+        }
+
+        if (!beltData.getInclinationBins().isEmpty()) {
+            printSubSection(w, "Average Inclination Distribution");
+            printSortedTableByKey(w, beltData.getInclinationBins(), counts.getBeltCount(), "Inclination");
+        }
+
+        if (!beltData.getObjectCountBins().isEmpty()) {
+            printSubSection(w, "Estimated Object Count Distribution");
+            printSortedTableByKey(w, beltData.getObjectCountBins(), counts.getBeltCount(), "Object Count");
+        }
+
+        if (!beltData.getParentStarTypes().isEmpty()) {
+            printSubSection(w, "Belts by Parent Star Type");
+            printSortedTable(w, beltData.getParentStarTypes(), counts.getBeltCount(), "Star Type");
+        }
+
+        if (!beltData.getBinaryConfigBelts().isEmpty()) {
+            printSubSection(w, "Belts by System Configuration");
+            printSortedTable(w, beltData.getBinaryConfigBelts(), counts.getBeltCount(), "Configuration");
+        }
+
+        // Per-type breakdown
+        if (!beltData.getPerTypeData().isEmpty()) {
+            printSubSection(w, "Per Belt Type Breakdown");
+            for (Map.Entry<String, BeltDataCollector.BeltTypeBreakdown> entry : beltData.getPerTypeData().entrySet()) {
+                BeltDataCollector.BeltTypeBreakdown btb = entry.getValue();
+                beginCollapsible(w, entry.getKey() + " (" + btb.getCount() + ")", 3);
+
+                w.println("<div class=\"stats-grid\">");
+                statCard(w, String.valueOf(btb.getCount()), "Count");
+                if (btb.getWidthCount() > 0) {
+                    statCard(w, String.format("%.2f AU", btb.getWidthSum() / btb.getWidthCount()), "Avg Width");
+                }
+                if (btb.getMassCount() > 0) {
+                    statCard(w, String.format("%.4f M\u2295", btb.getMassSum() / btb.getMassCount()), "Avg Mass");
+                }
+                if (btb.getEdgeCount() > 0) {
+                    statCard(w, String.format("%.2f AU", btb.getInnerEdgeSum() / btb.getEdgeCount()), "Avg Inner Edge");
+                    statCard(w, String.format("%.2f AU", btb.getOuterEdgeSum() / btb.getEdgeCount()), "Avg Outer Edge");
+                }
+                if (btb.getEccCount() > 0) {
+                    statCard(w, String.format("%.4f", btb.getEccSum() / btb.getEccCount()), "Avg Eccentricity");
+                }
+                statCard(w, String.valueOf(btb.getGapsCount()), "With Gaps");
+                statCard(w, String.valueOf(btb.getFamiliesCount()), "Families");
+                statCard(w, String.valueOf(btb.getTotalDwarfPlanets()), "Dwarf Planets");
+                statCard(w, String.valueOf(btb.getBeltsWithDwarfPlanets()), "Belts w/ Dwarfs");
+                w.println("</div>");
+
+                if (!btb.getCompositionTypes().isEmpty()) {
+                    printSortedTable(w, btb.getCompositionTypes(), btb.getCount(), "Composition");
+                }
+                endCollapsible(w);
+            }
+        }
+
         endCollapsible(w);
     }
 
@@ -979,6 +1460,10 @@ public class HtmlReportBuilder {
     private static final NumberFormat NUMBER_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
 
     private String fmt(int value) {
+        return NUMBER_FORMAT.format(value);
+    }
+
+    private String fmt(long value) {
         return NUMBER_FORMAT.format(value);
     }
 

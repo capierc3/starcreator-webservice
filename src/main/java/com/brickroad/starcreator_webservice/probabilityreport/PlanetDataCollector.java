@@ -1,6 +1,8 @@
 package com.brickroad.starcreator_webservice.probabilityreport;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
+import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import lombok.Getter;
 
@@ -45,6 +47,7 @@ public class PlanetDataCollector {
     private int breathablePlanets = 0;
 
     private int planetsWithRings = 0;
+    private int planetsWithTrojans = 0;
     private final Map<String, Integer> compositionClasses = new HashMap<>();
     private final Map<String, Integer> surfaceTempBins = new HashMap<>();
     private final Map<String, Integer> geologicalActivity = new HashMap<>();
@@ -59,18 +62,21 @@ public class PlanetDataCollector {
     private int physicalPropsCount = 0;
     private int planetsWithGeology = 0;
 
-    // Weather
-    private final WeatherBucket weatherAll = new WeatherBucket();
-    private final WeatherBucket weatherSurface = new WeatherBucket();
-    private final WeatherBucket weatherGas = new WeatherBucket();
+    // Climate
+    private final WeatherBucket climateAll = new WeatherBucket();
+    private final WeatherBucket climateSurface = new WeatherBucket();
+    private final WeatherBucket climateGas = new WeatherBucket();
 
     // References to other collectors for delegation
     private final MoonDataCollector moonDataCollector;
     private final RingDataCollector ringDataCollector;
+    private final TrojanDataCollector trojanDataCollector;
 
-    public PlanetDataCollector(MoonDataCollector moonDataCollector, RingDataCollector ringDataCollector) {
+    public PlanetDataCollector(MoonDataCollector moonDataCollector, RingDataCollector ringDataCollector,
+                               TrojanDataCollector trojanDataCollector) {
         this.moonDataCollector = moonDataCollector;
         this.ringDataCollector = ringDataCollector;
+        this.trojanDataCollector = trojanDataCollector;
     }
 
     public void analyzeData(Planet planet, ProbabilityCounts counts) {
@@ -88,6 +94,7 @@ public class PlanetDataCollector {
         typeData.addHzPosition(planet.getHabitableZonePosition() != null ? planet.getHabitableZonePosition() : "unknown");
         if (Boolean.TRUE.equals(planet.getTidallyLocked())) typeData.addTidallyLocked();
         if (Boolean.TRUE.equals(planet.getHasRings())) typeData.addRings();
+        if (Boolean.TRUE.equals(planet.getHasTrojans())) typeData.addTrojans();
         if (planet.getEarthMass() != null) {
             typeData.addMassBin(binMass(planet.getEarthMass()));
             typeData.addPhysicalProps(
@@ -105,6 +112,7 @@ public class PlanetDataCollector {
             String distBin = binDistance(planet.getSemiMajorAxisAU());
             typeData.addSemiMajorAxisBin(distBin);
             typeData.addTidalLockAtDistance(distBin, Boolean.TRUE.equals(planet.getTidallyLocked()));
+            typeData.addDistanceValue(planet.getSemiMajorAxisAU());
         }
 
         // Composition classification
@@ -113,6 +121,9 @@ public class PlanetDataCollector {
 
         // Rings
         if (Boolean.TRUE.equals(planet.getHasRings())) planetsWithRings++;
+
+        // Trojans
+        if (Boolean.TRUE.equals(planet.getHasTrojans())) planetsWithTrojans++;
 
         // Geology (surface/rocky planets only)
         if (isSurfaceType(planet.getPlanetType()) && planet.getGeologicalActivity() != null) {
@@ -224,14 +235,36 @@ public class PlanetDataCollector {
             moonDataCollector.analyzeData(moon);
         }
 
-        counts.incrementRingCount(planet.getRings().size());
-        for (Ring ring : planet.getRings()) {
-            ringDataCollector.analyzeData(ring);
+        long ringCount = planet.getBands().stream()
+                .filter(b -> b.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.RING)
+                .count();
+        counts.incrementRingCount((int) ringCount);
+
+        long trojanCount = planet.getBands().stream()
+                .filter(b -> b.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.TROJAN)
+                .count();
+        counts.incrementTrojanCount((int) trojanCount);
+
+        // Track planets with Trojan moons (for Trojan report)
+        if (trojanCount > 0) {
+            boolean hasTrojanMoons = planet.getMoons().stream()
+                    .anyMatch(m -> "TROJAN".equals(m.getMoonType()));
+            if (hasTrojanMoons) {
+                trojanDataCollector.incrementTrojansWithMoons(planet.getPlanetType());
+            }
+        }
+
+        for (OrbitalBand band : planet.getBands()) {
+            if (band.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.RING) {
+                ringDataCollector.analyzeData(band);
+            } else if (band.getBandCategory() == com.brickroad.starcreator_webservice.enums.BandCategory.TROJAN) {
+                trojanDataCollector.analyzeData(band);
+            }
         }
 
         analyzeWaterData(planet);
         analyzeHabitabilityData(planet);
-        analyzeWeatherData(planet);
+        analyzeClimateData(planet);
     }
 
     private void analyzeWaterData(Planet planet) {
@@ -319,13 +352,13 @@ public class PlanetDataCollector {
                 || planetType.contains("Puffy");
     }
 
-    private void analyzeWeatherData(Planet planet) {
-        PlanetaryWeather w = planet.getWeather();
+    private void analyzeClimateData(Planet planet) {
+        PlanetaryClimate w = planet.getClimate();
         if (w == null) return;
 
-        WeatherBucket split = isGasType(planet.getPlanetType()) ? weatherGas : weatherSurface;
+        WeatherBucket split = isGasType(planet.getPlanetType()) ? climateGas : climateSurface;
 
-        for (WeatherBucket bucket : new WeatherBucket[]{weatherAll, split}) {
+        for (WeatherBucket bucket : new WeatherBucket[]{climateAll, split}) {
             bucket.count++;
 
             String skyColor = w.getSkyColor() != null ? w.getSkyColor() : "NULL";
@@ -375,7 +408,7 @@ public class PlanetDataCollector {
 
             if (w.getCloudLayers() != null) bucket.cloudLayerTotal += w.getCloudLayers().size();
             if (w.getPrecipitationTypes() != null) bucket.precipTypeTotal += w.getPrecipitationTypes().size();
-            if (w.getExtremeWeatherEvents() != null) bucket.extremeEventTotal += w.getExtremeWeatherEvents().size();
+            if (w.getExtremeClimateEvents() != null) bucket.extremeEventTotal += w.getExtremeClimateEvents().size();
             if (w.getEclipseData() != null) bucket.eclipseTotal += w.getEclipseData().size();
         }
     }

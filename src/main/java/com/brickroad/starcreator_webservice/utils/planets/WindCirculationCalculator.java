@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Component;
@@ -12,7 +13,7 @@ public class WindCirculationCalculator {
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet) {
+    public void calculate(PlanetaryClimate weather, Planet planet) {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
@@ -29,27 +30,29 @@ public class WindCirculationCalculator {
 
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
             calculateGasGiantCirculation(weather, rotationHours, earthRadius, tempGradient, atmClass);
-            return;
-        }
-
-        if (tidallyLocked) {
+        } else if (tidallyLocked) {
             calculateTidallyLockedCirculation(weather, pressureAtm, tempGradient);
-            return;
+        } else {
+            // Standard rocky world circulation
+            calculateRockyCirculation(weather, rotationHours, earthRadius, pressureAtm,
+                    surfaceGravity, scaleHeightKm, tempGradient, surfaceTemp, atmClass);
+
+            // Super-rotation check
+            checkSuperRotation(weather, rotationHours, pressureAtm, surfaceTemp);
         }
 
-        // Standard rocky world circulation
-        calculateRockyCirculation(weather, rotationHours, earthRadius, pressureAtm,
-                surfaceGravity, scaleHeightKm, tempGradient, surfaceTemp, atmClass);
-
-        // Super-rotation check
-        checkSuperRotation(weather, rotationHours, pressureAtm, surfaceTemp);
+        // Apply speed-of-sound cap to all wind speeds.
+        // Sustained supersonic winds are physically implausible — shock heating
+        // dissipates energy faster than any driving mechanism can sustain.
+        // Neptune's ~580 m/s peak is roughly Mach 1.1 in its atmosphere.
+        applySpeedOfSoundCap(weather, surfaceTemp, atmClass, planet.getAtmosphereComposition());
     }
 
     // ================================================================
     // STANDARD ROCKY WORLD CIRCULATION
     // ================================================================
 
-    private void calculateRockyCirculation(PlanetaryWeather weather, double rotationHours,
+    private void calculateRockyCirculation(PlanetaryClimate weather, double rotationHours,
                                            double earthRadius, double pressureAtm,
                                            double surfaceGravity, double scaleHeightKm,
                                            double tempGradient, double surfaceTemp, String atmClass) {
@@ -116,7 +119,7 @@ public class WindCirculationCalculator {
     // GAS GIANT CIRCULATION
     // ================================================================
 
-    private void calculateGasGiantCirculation(PlanetaryWeather weather, double rotationHours,
+    private void calculateGasGiantCirculation(PlanetaryClimate weather, double rotationHours,
                                               double earthRadius, double tempGradient, String atmClass) {
         // Gas giants: very fast rotation → many alternating bands
         // Jupiter (9.9h): ~15 bands visible. Saturn (10.7h): ~10 bands. Neptune (16h): ~6.
@@ -158,7 +161,7 @@ public class WindCirculationCalculator {
     // TIDALLY LOCKED CIRCULATION
     // ================================================================
 
-    private void calculateTidallyLockedCirculation(PlanetaryWeather weather,
+    private void calculateTidallyLockedCirculation(PlanetaryClimate weather,
                                                    double pressureAtm, double tempGradient) {
         // Tidally locked: single massive substellar-to-antistellar circulation
         // Hot air rises at substellar point, flows to nightside, descends, returns at surface
@@ -199,7 +202,7 @@ public class WindCirculationCalculator {
     // SURFACE WIND SPEEDS (rocky worlds)
     // ================================================================
 
-    private void calculateSurfaceWinds(PlanetaryWeather weather, double pressureAtm,
+    private void calculateSurfaceWinds(PlanetaryClimate weather, double pressureAtm,
                                        double rotationHours, double tempGradient,
                                        double surfaceGravity, double surfaceTemp, String atmClass) {
         // Surface wind speed model:
@@ -258,7 +261,7 @@ public class WindCirculationCalculator {
     // SUPER-ROTATION CHECK (rocky worlds)
     // ================================================================
 
-    private void checkSuperRotation(PlanetaryWeather weather, double rotationHours,
+    private void checkSuperRotation(PlanetaryClimate weather, double rotationHours,
                                     double pressureAtm, double surfaceTemp) {
         // Super-rotation requires:
         // 1. Slow rotation (>100 hours — Venus: 5832h, but onset around 100-200h)
@@ -282,6 +285,57 @@ public class WindCirculationCalculator {
             weather.setJetStreamSpeedMs(round2(Math.max(weather.getJetStreamSpeedMs(), superWind)));
         } else {
             weather.setHasSuperRotation(false);
+        }
+    }
+
+    // ================================================================
+    // SPEED-OF-SOUND CAP
+    // ================================================================
+
+    /**
+     * Caps all wind speeds to physically plausible fractions of the local speed of sound.
+     * <p>
+     * Speed of sound: c = sqrt(γ × R × T / M), where γ ≈ 1.4 for diatomic,
+     * R = 8.314 J/(mol·K), T = temperature (K), M = mean molecular weight (g/mol → kg/mol).
+     * <p>
+     * Mean winds capped at 0.9c (subsonic). Gusts capped at 1.2c (brief transonic,
+     * matching Neptune's observed peak of ~Mach 1.1). Jet streams capped at 0.95c.
+     */
+    private void applySpeedOfSoundCap(PlanetaryClimate weather, double surfaceTemp,
+                                       String atmClass, String compositionSummary) {
+        // Determine mean molecular weight (g/mol)
+        double meanMolWeight = 0;
+        if (compositionSummary != null) {
+            meanMolWeight = CelestialBodyUtils.calculateMeanMolecularWeightFromString(compositionSummary);
+        }
+        if (meanMolWeight <= 0 && atmClass != null) {
+            meanMolWeight = CelestialBodyUtils.estimateMolecularWeightFromClassification(atmClass);
+        }
+        if (meanMolWeight <= 0) {
+            meanMolWeight = 29.0; // Earth-like fallback
+        }
+
+        // Speed of sound: c = sqrt(gamma * R * T / M)
+        // gamma ≈ 1.4 (diatomic H2, N2, O2; reasonable for most atmospheres)
+        // R = 8.314 J/(mol·K), M in kg/mol
+        double gamma = 1.4;
+        double R = 8.314;
+        double speedOfSound = Math.sqrt(gamma * R * surfaceTemp / (meanMolWeight / 1000.0));
+
+        // Cap thresholds
+        double meanCap = speedOfSound * 0.9;    // Sustained winds stay subsonic
+        double gustCap = speedOfSound * 1.2;    // Brief gusts can be transonic
+        double jetCap  = speedOfSound * 0.95;   // Jet streams near but below sonic
+
+        if (weather.getMeanSurfaceWindSpeedMs() != null && weather.getMeanSurfaceWindSpeedMs() > meanCap) {
+            weather.setMeanSurfaceWindSpeedMs(round2(meanCap));
+            weather.setWindIntensity(classifyWindIntensity(meanCap));
+        }
+        if (weather.getMaxGustSpeedMs() != null && weather.getMaxGustSpeedMs() > gustCap) {
+            weather.setMaxGustSpeedMs(round2(gustCap));
+        }
+        if (weather.getJetStreamSpeedMs() != null && weather.getJetStreamSpeedMs() > jetCap) {
+            weather.setJetStreamSpeedMs(round2(jetCap));
         }
     }
 

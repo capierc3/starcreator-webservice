@@ -6,8 +6,9 @@ import com.brickroad.starcreator_webservice.entity.ref.TerrainCategoryRef;
 import com.brickroad.starcreator_webservice.entity.ref.TerrainTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.Moon;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
-import com.brickroad.starcreator_webservice.utils.planets.PlanetaryGeology;
-import com.brickroad.starcreator_webservice.entity.ud.PlanetaryTerrainDistribution;
+import com.brickroad.starcreator_webservice.entity.ud.TerrainDistribution;
+import com.brickroad.starcreator_webservice.entity.ud.TerrainProperties;
+// PlanetaryGeology is a static inner class at the bottom of this file
 import com.brickroad.starcreator_webservice.repository.GeologicalTemplateRepository;
 import com.brickroad.starcreator_webservice.repository.TerrainCategoryRefRepository;
 import com.brickroad.starcreator_webservice.repository.TerrainTypeRefRepository;
@@ -42,74 +43,174 @@ public class GeologyCreator {
                 .collect(Collectors.toMap(TerrainCategoryRef::getCategory, c -> c));
     }
 
-    public void populateGeologicalProperties(Planet planet) {
+    public TerrainProperties createPlanetTerrain(Planet planet) {
         PlanetaryGeology geology = generateGeology(planet);
+        TerrainProperties terrain = new TerrainProperties();
 
-        planet.setGeologicalActivity(geology.getActivityLevel());
-        planet.setActivityScore(geology.getActivityScore());
-        planet.setHasPlateTectonics(geology.getHasPlateTectonics());
-        planet.setNumberOfTectonicPlates(geology.getNumberOfTectonicPlates());
-        planet.setTectonicActivityLevel(geology.getTectonicActivityLevel());
-        planet.setHasVolcanicActivity(geology.getHasVolcanicActivity());
-        planet.setVolcanismType(geology.getVolcanismType());
-        planet.setEstimatedActiveVolcanoes(geology.getEstimatedActiveVolcanoes());
-        planet.setVolcanicIntensity(geology.getVolcanicIntensity());
-        planet.setMountainCoveragePercent(geology.getMountainCoveragePercent());
-        planet.setAverageElevationKm(geology.getAverageElevationKm());
-        planet.setMaxElevationKm(geology.getMaxElevationKm());
-        planet.setMinElevationKm(geology.getMinElevationKm());
-        planet.setTerrainRoughness(geology.getTerrainRoughness());
-        planet.setCrateringLevel(geology.getCrateringLevel());
-        planet.setEstimatedVisibleCraters(geology.getEstimatedVisibleCraters());
-        planet.setErosionLevel(geology.getErosionLevel());
-        planet.setPrimaryErosionAgent(geology.getPrimaryErosionAgent());
+        terrain.setGeologicalActivity(geology.getActivityLevel());
+        terrain.setActivityScore(geology.getActivityScore());
+        terrain.setHasPlateTectonics(geology.getHasPlateTectonics());
+        terrain.setNumberOfTectonicPlates(geology.getNumberOfTectonicPlates());
+        terrain.setTectonicActivityLevel(geology.getTectonicActivityLevel());
+        terrain.setHasVolcanicActivity(geology.getHasVolcanicActivity());
+        terrain.setVolcanismType(geology.getVolcanismType());
+        terrain.setEstimatedActiveVolcanoes(geology.getEstimatedActiveVolcanoes());
+        terrain.setVolcanicIntensity(geology.getVolcanicIntensity());
+        terrain.setMountainCoveragePercent(geology.getMountainCoveragePercent());
+        terrain.setAverageElevationKm(geology.getAverageElevationKm());
+        terrain.setMaxElevationKm(geology.getMaxElevationKm());
+        terrain.setMinElevationKm(geology.getMinElevationKm());
+        terrain.setTerrainRoughness(geology.getTerrainRoughness());
+        terrain.setCrateringLevel(geology.getCrateringLevel());
+        terrain.setEstimatedVisibleCraters(geology.getEstimatedVisibleCraters());
+        terrain.setErosionLevel(geology.getErosionLevel());
+        terrain.setPrimaryErosionAgent(geology.getPrimaryErosionAgent());
+
+        // Adjust crater count for environmental factors the template doesn't consider:
+        // atmosphere (ablates impactors), erosion (degrades craters), water (submerges craters)
+        if (!isGasGiant(planet.getPlanetType())) {
+            adjustCrateringForEnvironment(terrain, planet);
+        }
+
+        // Storm fields stay on Planet directly
         planet.setHasGreatStorm(geology.getHasGreatStorm());
         planet.setNumberOfMajorStorms(geology.getNumberOfMajorStorms());
         planet.setAtmosphericConvectionLevel(geology.getAtmosphericConvectionLevel());
 
         if (!isGasGiant(planet.getPlanetType())) {
 
-            List<PlanetaryTerrainDistribution> terrainDist = generateTerrainDistribution(planet);
-            planet.setTerrainDistribution(terrainDist);
+            List<TerrainDistribution> terrainDist = generateTerrainDistribution(planet, terrain);
+            terrain.setTerrainDistribution(terrainDist);
 
             if (!terrainDist.isEmpty() && geology.getMaxElevationKm() == null) {
                 double mountainCoverage = calculateMountainCoverage(terrainDist);
-                planet.setMountainCoveragePercent(mountainCoverage);
+                terrain.setMountainCoveragePercent(mountainCoverage);
 
                 if (mountainCoverage > 15) {
-                    planet.setMaxElevationKm(RandomUtils.rollRange(4.0, 8.0));
-                    planet.setMinElevationKm(RandomUtils.rollRange(-3.0, -1.0));
-                    planet.setAverageElevationKm(RandomUtils.rollRange(0.0, 2.0));
-                    planet.setTerrainRoughness(RandomUtils.rollRange(3.0, 6.0));
+                    terrain.setMaxElevationKm(RandomUtils.rollRange(4.0, 8.0));
+                    terrain.setMinElevationKm(RandomUtils.rollRange(-3.0, -1.0));
+                    terrain.setAverageElevationKm(RandomUtils.rollRange(0.0, 2.0));
+                    terrain.setTerrainRoughness(RandomUtils.rollRange(3.0, 6.0));
                 } else if (mountainCoverage > 5) {
-                    planet.setMaxElevationKm(RandomUtils.rollRange(2.0, 5.0));
-                    planet.setMinElevationKm(RandomUtils.rollRange(-2.0, -0.5));
-                    planet.setAverageElevationKm(RandomUtils.rollRange(-0.5, 1.0));
-                    planet.setTerrainRoughness(RandomUtils.rollRange(2.0, 4.0));
+                    terrain.setMaxElevationKm(RandomUtils.rollRange(2.0, 5.0));
+                    terrain.setMinElevationKm(RandomUtils.rollRange(-2.0, -0.5));
+                    terrain.setAverageElevationKm(RandomUtils.rollRange(-0.5, 1.0));
+                    terrain.setTerrainRoughness(RandomUtils.rollRange(2.0, 4.0));
                 } else {
-                    planet.setMaxElevationKm(RandomUtils.rollRange(0.5, 2.0));
-                    planet.setMinElevationKm(RandomUtils.rollRange(-1.0, -0.2));
-                    planet.setAverageElevationKm(RandomUtils.rollRange(-0.2, 0.5));
-                    planet.setTerrainRoughness(RandomUtils.rollRange(1.0, 2.5));
+                    terrain.setMaxElevationKm(RandomUtils.rollRange(0.5, 2.0));
+                    terrain.setMinElevationKm(RandomUtils.rollRange(-1.0, -0.2));
+                    terrain.setAverageElevationKm(RandomUtils.rollRange(-0.2, 0.5));
+                    terrain.setTerrainRoughness(RandomUtils.rollRange(1.0, 2.5));
                 }
             }
         }
+
+        terrain.setLabel("Planet terrain");
+        return terrain;
     }
 
-    public void generateMoonGeology(Moon moon) {
-        String activity = moon.getGeologicalActivity();
-        String activityLevel = mapMoonActivityToTemplateLevel(activity);
+    /**
+     * Adjusts the template/hardcoded crater count for environmental factors that
+     * erase, degrade, or hide impact craters over geological time.
+     *
+     * Templates set cratering based on geological activity alone (mass/age ratio),
+     * which determines how fast the surface is resurfaced by tectonics/volcanism.
+     * But three additional factors are equally important:
+     *
+     * 1. Atmospheric shielding — thick atmospheres ablate small impactors before
+     *    they reach the surface. Mars (0.006 bar) has heavy cratering; Earth (1 bar)
+     *    has ~190 confirmed craters; Venus (90 bar) has only ~1000 despite no tectonics.
+     *
+     * 2. Surface erosion — wind and water degrade crater rims and fill basins.
+     *    On Earth, most craters are invisible within tens of millions of years.
+     *
+     * 3. Water coverage — craters under oceans or ice sheets aren't visible.
+     *    Only exposed continental craters count as "visible."
+     *
+     * Reference: Earth has activity score ~0.22 (same "Heavy" template range),
+     * yet has only ~190 confirmed craters. This method brings the numbers in line.
+     */
+    private void adjustCrateringForEnvironment(TerrainProperties terrain, Planet planet) {
+        Integer baseCraters = terrain.getEstimatedVisibleCraters();
+        if (baseCraters == null || baseCraters <= 0) return;
+
+        double adjustedCraters = baseCraters;
+
+        // ── 1. Atmospheric shielding ──
+        // Formula: factor = 1 / (1 + pressure × 3)
+        // Produces a smooth curve that matches observed solar system cratering:
+        //   0.006 bar (Mars)   → 0.98  (almost no protection)
+        //   0.1 bar            → 0.77  (thin atmosphere, moderate shielding)
+        //   1.0 bar (Earth)    → 0.25  (strong shielding, small impactors burn up)
+        //   5.0 bar            → 0.06  (very few craters form)
+        //   90 bar (Venus)     → 0.004 (essentially only the largest impactors survive)
+        Double pressure = planet.getSurfacePressure();
+        if (pressure != null && pressure > 0.01) {
+            double atmFactor = 1.0 / (1.0 + pressure * 3.0);
+            adjustedCraters *= atmFactor;
+        }
+
+        // ── 2. Erosion ──
+        // Active erosion agents degrade crater rims and fill basins over time.
+        // Wind is less effective than water; volcanic resurfacing is the strongest.
+        String erosionLevel = terrain.getErosionLevel();
+        if (erosionLevel != null) {
+            double erosionFactor = switch (erosionLevel) {
+                case "Extreme" -> 0.10;
+                case "Heavy"   -> 0.25;
+                case "Moderate" -> 0.45;
+                case "Light"   -> 0.65;
+                case "Minimal" -> 0.85;
+                default        -> 1.0;  // "None" or unrecognized
+            };
+            adjustedCraters *= erosionFactor;
+        }
+
+        // Note: water coverage adjustment is handled separately in PlanetCreator
+        // after water properties are set (terrain is generated before water).
+
+        int finalCraters = Math.max(0, (int) Math.round(adjustedCraters));
+
+        // Reclassify cratering level based on adjusted count
+        String adjustedLevel;
+        if (finalCraters < 50) {
+            adjustedLevel = "Pristine";
+        } else if (finalCraters < 500) {
+            adjustedLevel = "Light";
+        } else if (finalCraters < 5_000) {
+            adjustedLevel = "Moderate";
+        } else if (finalCraters < 50_000) {
+            adjustedLevel = "Heavy";
+        } else if (finalCraters < 500_000) {
+            adjustedLevel = "Extreme";
+        } else {
+            adjustedLevel = "Saturated";
+        }
+
+        terrain.setEstimatedVisibleCraters(finalCraters);
+        terrain.setCrateringLevel(adjustedLevel);
+    }
+
+    public TerrainProperties createMoonTerrain(Moon moon, String geologicalActivity, Boolean hasCryovolcanism) {
+        TerrainProperties terrain = new TerrainProperties();
+        String activityLevel = mapMoonActivityToTemplateLevel(geologicalActivity);
+
+        terrain.setGeologicalActivity(geologicalActivity);
+        terrain.setHasCryovolcanism(hasCryovolcanism);
 
         List<GeologicalTemplateRef> templates = geologicalTemplateRepository
                 .findByPlanetTypeAndActivityLevel(moon.getMoonType(), activityLevel);
         GeologicalTemplateRef template = selectGeologicalTemplate(templates);
         if (template != null) {
-            applyMoonTemplate(moon, template);
+            applyMoonTemplate(terrain, moon, template);
         } else {
-            applyBasicMoonGeology(moon);
+            applyBasicMoonGeology(terrain, moon);
         }
 
-        generateMoonSurfaceFeatures(moon);
+        generateMoonSurfaceFeatures(terrain, moon);
+
+        terrain.setLabel("Moon terrain");
+        return terrain;
     }
 
     public PlanetaryGeology generateGeology(Planet planet) {
@@ -188,7 +289,10 @@ public class GeologyCreator {
 
             switch (type) {
                 case "TECTONICS":
-                    hasTectonics = !value.equals("None") && !value.equals("N/A");
+                    // Only "Active" and "Hyperactive" represent true plate tectonics.
+                    // "Stagnant Lid", "Molten", "Ice Shell" are tectonic regimes
+                    // without plate tectonics (no subduction/spreading ridges).
+                    hasTectonics = value.equals("Active") || value.equals("Hyperactive");
                     tectonicLevel = value;
                     break;
                 case "PLATE_TECTONICS":
@@ -344,8 +448,8 @@ public class GeologyCreator {
         return builder.build();
     }
 
-    private List<PlanetaryTerrainDistribution> generateTerrainDistribution(Planet planet) {
-        List<PlanetaryTerrainDistribution> terrains = new ArrayList<>();
+    private List<TerrainDistribution> generateTerrainDistribution(Planet planet, TerrainProperties terrain) {
+        List<TerrainDistribution> terrains = new ArrayList<>();
         String planetType = planet.getPlanetType();
 
         double waterCoverage = planet.getWaterCoveragePercent() != null ?
@@ -365,12 +469,12 @@ public class GeologyCreator {
             if (waterIsFrozen) {
                 List<TerrainTypeRef> iceTerrains = filterByCategory(viableTerrains, "ICE");
                 if (!iceTerrains.isEmpty()) {
-                    distributePercentageAcrossCategories(terrains, planet, iceTerrains, waterCoverage);
+                    distributePercentageAcrossCategories(terrains, planet, terrain, iceTerrains, waterCoverage);
                 }
             } else {
                 List<TerrainTypeRef> aquaticTerrains = filterByCategory(viableTerrains, "AQUATIC");
                 if (!aquaticTerrains.isEmpty()) {
-                    distributePercentageAcrossCategories(terrains, planet, aquaticTerrains, waterCoverage);
+                    distributePercentageAcrossCategories(terrains, planet, terrain, aquaticTerrains, waterCoverage);
                 }
             }
         }
@@ -381,12 +485,12 @@ public class GeologyCreator {
                     .collect(Collectors.toList());
 
             if (!landTerrains.isEmpty()) {
-                distributePercentageAcrossCategories(terrains, planet, landTerrains, landPercent);
+                distributePercentageAcrossCategories(terrains, planet, terrain, landTerrains, landPercent);
             }
         }
 
         double totalCoverage = terrains.stream()
-                .mapToDouble(PlanetaryTerrainDistribution::getCoveragePercent)
+                .mapToDouble(TerrainDistribution::getCoveragePercent)
                 .sum();
 
         if (totalCoverage < 95.0 && !viableTerrains.isEmpty()) {
@@ -397,7 +501,7 @@ public class GeologyCreator {
                     .collect(Collectors.toList());
 
             if (!fillTerrains.isEmpty()) {
-                distributePercentageAcrossCategories(terrains, planet, fillTerrains, missingPercent);
+                distributePercentageAcrossCategories(terrains, planet, terrain, fillTerrains, missingPercent);
             }
         }
 
@@ -525,7 +629,7 @@ public class GeologyCreator {
         return weighted.isEmpty() ? terrains : weighted;
     }
 
-    private void distributePercentageAcrossCategories(List<PlanetaryTerrainDistribution> terrains, Planet planet, List<TerrainTypeRef> viableTerrains, double totalPercent) {
+    private void distributePercentageAcrossCategories(List<TerrainDistribution> terrains, Planet planet, TerrainProperties terrain, List<TerrainTypeRef> viableTerrains, double totalPercent) {
         if (viableTerrains.isEmpty() || totalPercent < 0.5) {
             return;
         }
@@ -546,7 +650,7 @@ public class GeologyCreator {
         int totalWeight = categoryWeights.values().stream().mapToInt(Integer::intValue).sum();
 
         if (totalWeight == 0) {
-            distributePercentageEvenly(terrains, planet, viableTerrains, totalPercent);
+            distributePercentageEvenly(terrains, planet, terrain, viableTerrains, totalPercent);
             return;
         }
 
@@ -568,19 +672,19 @@ public class GeologyCreator {
         int numMajor = Math.min(majorCategories.size(), RandomUtils.rollRange(2, 4));
         List<String> selectedMajor = selectWeightedRandomCategories(majorCategories, categoryWeights, numMajor);
 
-        distributeAmongCategories(terrains, planet, terrainsByCategory, categoryWeights,
+        distributeAmongCategories(terrains, planet, terrain, terrainsByCategory, categoryWeights,
                 cachedTerrainCategories, selectedMajor, majorPercent);
 
         // Optionally add 1-2 rare categories with small percentages
         if (!rareCategories.isEmpty() && rarePercent > 0.5) {
             int numRare = Math.min(rareCategories.size(), RandomUtils.rollRange(1, 2));
             List<String> selectedRare = selectWeightedRandomCategories(rareCategories, categoryWeights, numRare);
-            distributeAmongCategories(terrains, planet, terrainsByCategory, categoryWeights,
+            distributeAmongCategories(terrains, planet, terrain, terrainsByCategory, categoryWeights,
                     cachedTerrainCategories, selectedRare, rarePercent);
         }
     }
 
-    private void distributeAmongCategories(List<PlanetaryTerrainDistribution> terrains, Planet planet, Map<String, List<TerrainTypeRef>> terrainsByCategory,
+    private void distributeAmongCategories(List<TerrainDistribution> terrains, Planet planet, TerrainProperties terrain, Map<String, List<TerrainTypeRef>> terrainsByCategory,
                                            Map<String, Integer> categoryWeights, Map<String, TerrainCategoryRef> categoryRefs, List<String> categories, double totalPercent) {
         double remainingPercent = totalPercent;
 
@@ -610,7 +714,7 @@ public class GeologyCreator {
             }
 
             if (categoryPercent >= 0.5) {
-                distributePercentageWithinCategory(terrains, planet, categoryTerrains, categoryPercent);
+                distributePercentageWithinCategory(terrains, planet, terrain, categoryTerrains, categoryPercent);
                 remainingPercent -= categoryPercent;
             }
         }
@@ -650,7 +754,7 @@ public class GeologyCreator {
         return selected;
     }
 
-    private void distributePercentageWithinCategory(List<PlanetaryTerrainDistribution> terrains, Planet planet, List<TerrainTypeRef> categoryTerrains, double categoryPercent) {
+    private void distributePercentageWithinCategory(List<TerrainDistribution> terrains, Planet planet, TerrainProperties terrainProps, List<TerrainTypeRef> categoryTerrains, double categoryPercent) {
         if (categoryTerrains.isEmpty()) {
             return;
         }
@@ -673,35 +777,35 @@ public class GeologyCreator {
         double remainingPercent = categoryPercent;
 
         for (int i = 0; i < selectedTerrains.size(); i++) {
-            TerrainTypeRef terrain = selectedTerrains.get(i);
+            TerrainTypeRef terrainType = selectedTerrains.get(i);
             double percent;
 
             if (i == selectedTerrains.size() - 1) {
                 percent = remainingPercent;
             } else {
                 if (totalWeight > 0) {
-                    double basePercent = (categoryPercent * terrain.getEffectiveWeight(heavyCratering, volcanism)) / (double) totalWeight;
+                    double basePercent = (categoryPercent * terrainType.getEffectiveWeight(heavyCratering, volcanism)) / (double) totalWeight;
                     double variance = RandomUtils.rollRange(-0.2, 0.2);
                     percent = basePercent * (1.0 + variance);
                 } else {
                     percent = categoryPercent / selectedTerrains.size();
                 }
 
-                percent = Math.max(percent, terrain.getTypicalCoverageMin());
-                percent = Math.min(percent, terrain.getTypicalCoverageMax());
+                percent = Math.max(percent, terrainType.getTypicalCoverageMin());
+                percent = Math.min(percent, terrainType.getTypicalCoverageMax());
 
                 double reserveForOthers = (selectedTerrains.size() - i - 1) * 0.5;
                 percent = Math.min(percent, remainingPercent - reserveForOthers);
             }
 
             if (percent >= 0.5) {
-                addTerrainDirect(terrains, planet, terrain, percent);
+                addTerrainDirect(terrains, terrainProps, terrainType, percent);
                 remainingPercent -= percent;
             }
         }
     }
 
-    private void distributePercentageEvenly(List<PlanetaryTerrainDistribution> terrains, Planet planet, List<TerrainTypeRef> terrainTypes, double totalPercent) {
+    private void distributePercentageEvenly(List<TerrainDistribution> terrains, Planet planet, TerrainProperties terrainProps, List<TerrainTypeRef> terrainTypes, double totalPercent) {
         if (terrainTypes.isEmpty() || totalPercent < 0.5) {
             return;
         }
@@ -714,7 +818,7 @@ public class GeologyCreator {
         double remainingPercent = totalPercent;
 
         for (int i = 0; i < selectedTerrains.size(); i++) {
-            TerrainTypeRef terrain = selectedTerrains.get(i);
+            TerrainTypeRef terrainType = selectedTerrains.get(i);
             double percent;
 
             if (i == selectedTerrains.size() - 1) {
@@ -724,15 +828,15 @@ public class GeologyCreator {
                 double variance = RandomUtils.rollRange(-0.3, 0.3);
                 percent = basePercent * (1.0 + variance);
 
-                percent = Math.max(percent, terrain.getTypicalCoverageMin());
-                percent = Math.min(percent, terrain.getTypicalCoverageMax());
+                percent = Math.max(percent, terrainType.getTypicalCoverageMin());
+                percent = Math.min(percent, terrainType.getTypicalCoverageMax());
 
                 double reserveForOthers = (selectedTerrains.size() - i - 1) * 1.0;
                 percent = Math.min(percent, remainingPercent - reserveForOthers);
             }
 
             if (percent >= 0.5) {
-                addTerrainDirect(terrains, planet, terrain, percent);
+                addTerrainDirect(terrains, terrainProps, terrainType, percent);
                 remainingPercent -= percent;
             }
 
@@ -742,16 +846,16 @@ public class GeologyCreator {
         }
     }
 
-    private void addTerrainDirect(List<PlanetaryTerrainDistribution> terrains, Planet planet, TerrainTypeRef terrain, double percent) {
+    private void addTerrainDirect(List<TerrainDistribution> terrains, TerrainProperties terrainProps, TerrainTypeRef terrainType, double percent) {
         if (percent < 0.5) {
             return;
         }
 
-        PlanetaryTerrainDistribution distribution = new PlanetaryTerrainDistribution(
-                terrain,
+        TerrainDistribution distribution = new TerrainDistribution(
+                terrainType,
                 Math.round(percent * 100.0) / 100.0
         );
-        distribution.setPlanet(planet);
+        distribution.setTerrain(terrainProps);
         terrains.add(distribution);
     }
 
@@ -761,22 +865,22 @@ public class GeologyCreator {
                 .collect(Collectors.toList());
     }
 
-    private double calculateMountainCoverage(List<PlanetaryTerrainDistribution> terrains) {
+    private double calculateMountainCoverage(List<TerrainDistribution> terrains) {
         return terrains.stream()
                 .filter(t -> t.getTerrainType().getCategory().equals("MOUNTAIN"))
-                .mapToDouble(PlanetaryTerrainDistribution::getCoveragePercent)
+                .mapToDouble(TerrainDistribution::getCoveragePercent)
                 .sum();
     }
 
-    private List<PlanetaryTerrainDistribution> consolidateDuplicateTerrains(List<PlanetaryTerrainDistribution> terrains) {
-        Map<Integer, PlanetaryTerrainDistribution> consolidated = new LinkedHashMap<>();
+    private List<TerrainDistribution> consolidateDuplicateTerrains(List<TerrainDistribution> terrains) {
+        Map<Integer, TerrainDistribution> consolidated = new LinkedHashMap<>();
 
-        for (PlanetaryTerrainDistribution dist : terrains) {
+        for (TerrainDistribution dist : terrains) {
             Integer terrainId = dist.getTerrainType().getId();
 
             if (consolidated.containsKey(terrainId)) {
                 // Add coverage to existing entry
-                PlanetaryTerrainDistribution existing = consolidated.get(terrainId);
+                TerrainDistribution existing = consolidated.get(terrainId);
                 double newCoverage = existing.getCoveragePercent() + dist.getCoveragePercent();
                 existing.setCoveragePercent(Math.round(newCoverage * 100.0) / 100.0);
             } else {
@@ -798,81 +902,81 @@ public class GeologyCreator {
         };
     }
 
-    private void applyMoonTemplate(Moon moon, GeologicalTemplateRef template) {
+    private void applyMoonTemplate(TerrainProperties terrain, Moon moon, GeologicalTemplateRef template) {
         for (GeologicalFeatureRef feature : template.getFeatures()) {
-            applyMoonFeature(moon, feature);
+            applyMoonFeature(terrain, feature);
         }
     }
 
-    private void applyBasicMoonGeology(Moon moon) {
-        String activity = moon.getGeologicalActivity();
-        Boolean hasCryovolcanism = moon.getHasCryovolcanism();
+    private void applyBasicMoonGeology(TerrainProperties terrain, Moon moon) {
+        String activity = terrain.getGeologicalActivity();
+        Boolean hasCryovolcanism = terrain.getHasCryovolcanism();
 
         if ("HIGH".equals(activity) || "MODERATE".equals(activity)) {
             if (Boolean.TRUE.equals(hasCryovolcanism)) {
-                moon.setVolcanismType("Cryovolcanic");
+                terrain.setVolcanismType("Cryovolcanic");
             } else if ("ICY".equals(moon.getCompositionType())) {
-                moon.setVolcanismType("Cryovolcanic");
+                terrain.setVolcanismType("Cryovolcanic");
             } else {
-                moon.setVolcanismType("Silicate");
+                terrain.setVolcanismType("Silicate");
             }
 
             if ("HIGH".equals(activity)) {
-                moon.setVolcanicIntensity("Continuous");
-                moon.setEstimatedActiveVolcanoes(RandomUtils.rollRange(50, 200));
+                terrain.setVolcanicIntensity("Continuous");
+                terrain.setEstimatedActiveVolcanoes(RandomUtils.rollRange(50, 200));
             } else {
-                moon.setVolcanicIntensity("Moderate");
-                moon.setEstimatedActiveVolcanoes(RandomUtils.rollRange(5, 30));
+                terrain.setVolcanicIntensity("Moderate");
+                terrain.setEstimatedActiveVolcanoes(RandomUtils.rollRange(5, 30));
             }
         } else {
-            moon.setVolcanismType("None");
-            moon.setVolcanicIntensity("None");
-            moon.setEstimatedActiveVolcanoes(0);
+            terrain.setVolcanismType("None");
+            terrain.setVolcanicIntensity("None");
+            terrain.setEstimatedActiveVolcanoes(0);
         }
 
         if ("HIGH".equals(activity)) {
-            moon.setMountainCoveragePercent(RandomUtils.rollRange(10.0, 25.0));
-            moon.setMaxElevationKm(RandomUtils.rollRange(3.0, 10.0));
-            moon.setTerrainRoughness(RandomUtils.rollRange(5.0, 8.0));
-            moon.setErosionLevel("Heavy");
-            moon.setPrimaryErosionAgent(moon.getVolcanismType());
+            terrain.setMountainCoveragePercent(RandomUtils.rollRange(10.0, 25.0));
+            terrain.setMaxElevationKm(RandomUtils.rollRange(3.0, 10.0));
+            terrain.setTerrainRoughness(RandomUtils.rollRange(5.0, 8.0));
+            terrain.setErosionLevel("Heavy");
+            terrain.setPrimaryErosionAgent(terrain.getVolcanismType());
         } else if ("MODERATE".equals(activity) || "LOW".equals(activity)) {
-            moon.setMountainCoveragePercent(RandomUtils.rollRange(5.0, 15.0));
-            moon.setMaxElevationKm(RandomUtils.rollRange(1.0, 5.0));
-            moon.setTerrainRoughness(RandomUtils.rollRange(2.0, 4.5));
-            moon.setErosionLevel("Moderate");
-            moon.setPrimaryErosionAgent("Tidal");
+            terrain.setMountainCoveragePercent(RandomUtils.rollRange(5.0, 15.0));
+            terrain.setMaxElevationKm(RandomUtils.rollRange(1.0, 5.0));
+            terrain.setTerrainRoughness(RandomUtils.rollRange(2.0, 4.5));
+            terrain.setErosionLevel("Moderate");
+            terrain.setPrimaryErosionAgent("Tidal");
         } else {
-            moon.setMountainCoveragePercent(RandomUtils.rollRange(1.0, 5.0));
-            moon.setMaxElevationKm(RandomUtils.rollRange(0.2, 2.0));
-            moon.setTerrainRoughness(RandomUtils.rollRange(0.5, 2.0));
-            moon.setErosionLevel("None");
-            moon.setPrimaryErosionAgent("None");
+            terrain.setMountainCoveragePercent(RandomUtils.rollRange(1.0, 5.0));
+            terrain.setMaxElevationKm(RandomUtils.rollRange(0.2, 2.0));
+            terrain.setTerrainRoughness(RandomUtils.rollRange(0.5, 2.0));
+            terrain.setErosionLevel("None");
+            terrain.setPrimaryErosionAgent("None");
         }
 
-        if (moon.getMaxElevationKm() != null) {
-            moon.setAverageElevationKm(moon.getMaxElevationKm() * 0.15);
-            moon.setMinElevationKm(-moon.getMaxElevationKm() * 0.4);
+        if (terrain.getMaxElevationKm() != null) {
+            terrain.setAverageElevationKm(terrain.getMaxElevationKm() * 0.15);
+            terrain.setMinElevationKm(-terrain.getMaxElevationKm() * 0.4);
         }
     }
 
-    private void applyMoonFeature(Moon moon, GeologicalFeatureRef feature) {
+    private void applyMoonFeature(TerrainProperties terrain, GeologicalFeatureRef feature) {
         String value = feature.getFeatureValue();
         Double minVal = feature.getMinValue();
         Double maxVal = feature.getMaxValue();
 
         switch (feature.getFeatureType()) {
             case "VOLCANISM_TYPE":
-                moon.setVolcanismType(value);
+                terrain.setVolcanismType(value);
                 break;
 
             case "VOLCANIC_INTENSITY":
-                moon.setVolcanicIntensity(value);
+                terrain.setVolcanicIntensity(value);
                 break;
 
             case "ACTIVE_VOLCANOES":
                 if (minVal != null && maxVal != null) {
-                    moon.setEstimatedActiveVolcanoes(
+                    terrain.setEstimatedActiveVolcanoes(
                             RandomUtils.rollRange(minVal.intValue(), maxVal.intValue())
                     );
                 }
@@ -880,42 +984,42 @@ public class GeologyCreator {
 
             case "MOUNTAIN_COVERAGE":
                 if (minVal != null && maxVal != null) {
-                    moon.setMountainCoveragePercent(RandomUtils.rollRange(minVal, maxVal));
+                    terrain.setMountainCoveragePercent(RandomUtils.rollRange(minVal, maxVal));
                 }
                 break;
 
             case "MAX_ELEVATION":
                 if (minVal != null && maxVal != null) {
                     double maxElev = RandomUtils.rollRange(minVal, maxVal);
-                    moon.setMaxElevationKm(maxElev);
-                    moon.setAverageElevationKm(maxElev * 0.15);
-                    moon.setMinElevationKm(-maxElev * 0.4);
+                    terrain.setMaxElevationKm(maxElev);
+                    terrain.setAverageElevationKm(maxElev * 0.15);
+                    terrain.setMinElevationKm(-maxElev * 0.4);
                 }
                 break;
 
             case "TERRAIN_ROUGHNESS":
                 if (minVal != null && maxVal != null) {
-                    moon.setTerrainRoughness(RandomUtils.rollRange(minVal, maxVal));
+                    terrain.setTerrainRoughness(RandomUtils.rollRange(minVal, maxVal));
                 }
                 break;
 
             case "EROSION_LEVEL":
-                moon.setErosionLevel(value);
+                terrain.setErosionLevel(value);
                 break;
 
             case "EROSION_AGENT":
-                moon.setPrimaryErosionAgent(value);
+                terrain.setPrimaryErosionAgent(value);
                 break;
         }
     }
 
-    private void generateMoonSurfaceFeatures(Moon moon) {
+    private void generateMoonSurfaceFeatures(TerrainProperties terrain, Moon moon) {
         StringBuilder features = new StringBuilder();
 
-        if (moon.getEstimatedActiveVolcanoes() != null && moon.getEstimatedActiveVolcanoes() > 0) {
-            if ("Cryovolcanic".equals(moon.getVolcanismType())) {
+        if (terrain.getEstimatedActiveVolcanoes() != null && terrain.getEstimatedActiveVolcanoes() > 0) {
+            if ("Cryovolcanic".equals(terrain.getVolcanismType())) {
                 features.append("Active cryovolcanic plumes, Ice geysers");
-            } else if ("Silicate".equals(moon.getVolcanismType())) {
+            } else if ("Silicate".equals(terrain.getVolcanismType())) {
                 features.append("Active lava flows, Volcanic calderas");
             }
         }
@@ -925,10 +1029,10 @@ public class GeologyCreator {
             features.append("Subsurface ocean, Tectonic stress patterns");
         }
 
-        if ("EXTREME".equals(moon.getCrateringLevel())) {
+        if ("EXTREME".equals(terrain.getCrateringLevel())) {
             if (!features.isEmpty()) features.append(", ");
             features.append("Ancient impact basins, Heavily cratered highlands");
-        } else if ("HEAVY".equals(moon.getCrateringLevel())) {
+        } else if ("HEAVY".equals(terrain.getCrateringLevel())) {
             if (!features.isEmpty()) features.append(", ");
             features.append("Impact crater fields");
         }
@@ -941,12 +1045,121 @@ public class GeologyCreator {
             features.append("Rocky highlands, Silicate plains");
         }
 
-        if (moon.getMountainCoveragePercent() != null && moon.getMountainCoveragePercent() > 10) {
+        if (terrain.getMountainCoveragePercent() != null && terrain.getMountainCoveragePercent() > 10) {
             if (!features.isEmpty()) features.append(", ");
             features.append("Mountain ranges");
         }
 
-        moon.setSurfaceFeatures(!features.isEmpty() ? features.toString() : "Barren surface");
+        terrain.setSurfaceFeatures(!features.isEmpty() ? features.toString() : "Barren surface");
     }
 
+    // ── Internal DTO for planet geology generation (builder pattern) ──
+
+    static class PlanetaryGeology {
+        private String activityLevel;
+        private Double activityScore;
+        private Boolean hasPlateTectonics;
+        private Integer numberOfTectonicPlates;
+        private String tectonicActivityLevel;
+        private Boolean hasVolcanicActivity;
+        private String volcanismType;
+        private Integer estimatedActiveVolcanoes;
+        private String volcanicIntensity;
+        private Double mountainCoveragePercent;
+        private Double averageElevationKm;
+        private Double maxElevationKm;
+        private Double minElevationKm;
+        private Double terrainRoughness;
+        private String crateringLevel;
+        private Integer estimatedVisibleCraters;
+        private String erosionLevel;
+        private String primaryErosionAgent;
+        private Boolean hasGreatStorm;
+        private Integer numberOfMajorStorms;
+        private String atmosphericConvectionLevel;
+
+        public String getActivityLevel() { return activityLevel; }
+        public Double getActivityScore() { return activityScore; }
+        public Boolean getHasPlateTectonics() { return hasPlateTectonics; }
+        public Integer getNumberOfTectonicPlates() { return numberOfTectonicPlates; }
+        public String getTectonicActivityLevel() { return tectonicActivityLevel; }
+        public Boolean getHasVolcanicActivity() { return hasVolcanicActivity; }
+        public String getVolcanismType() { return volcanismType; }
+        public Integer getEstimatedActiveVolcanoes() { return estimatedActiveVolcanoes; }
+        public String getVolcanicIntensity() { return volcanicIntensity; }
+        public Double getMountainCoveragePercent() { return mountainCoveragePercent; }
+        public Double getAverageElevationKm() { return averageElevationKm; }
+        public Double getMaxElevationKm() { return maxElevationKm; }
+        public Double getMinElevationKm() { return minElevationKm; }
+        public Double getTerrainRoughness() { return terrainRoughness; }
+        public String getCrateringLevel() { return crateringLevel; }
+        public Integer getEstimatedVisibleCraters() { return estimatedVisibleCraters; }
+        public String getErosionLevel() { return erosionLevel; }
+        public String getPrimaryErosionAgent() { return primaryErosionAgent; }
+        public Boolean getHasGreatStorm() { return hasGreatStorm; }
+        public Integer getNumberOfMajorStorms() { return numberOfMajorStorms; }
+        public String getAtmosphericConvectionLevel() { return atmosphericConvectionLevel; }
+
+        static class Builder {
+            private final PlanetaryGeology geology = new PlanetaryGeology();
+
+            public Builder activityLevel(String activityLevel) {
+                geology.activityLevel = activityLevel;
+                return this;
+            }
+
+            public Builder activityScore(Double activityScore) {
+                geology.activityScore = activityScore;
+                return this;
+            }
+
+            public Builder plateTectonics(Boolean has, Integer plates, String level) {
+                geology.hasPlateTectonics = has;
+                geology.numberOfTectonicPlates = plates;
+                geology.tectonicActivityLevel = level;
+                return this;
+            }
+
+            public Builder volcanism(Boolean has, String type, Integer count, String intensity) {
+                geology.hasVolcanicActivity = has;
+                geology.volcanismType = type;
+                geology.estimatedActiveVolcanoes = count;
+                geology.volcanicIntensity = intensity;
+                return this;
+            }
+
+            public Builder terrain(Double mountainCoverage, Double avgElev, Double maxElev,
+                                   Double minElev, Double roughness) {
+                geology.mountainCoveragePercent = mountainCoverage;
+                geology.averageElevationKm = avgElev;
+                geology.maxElevationKm = maxElev;
+                geology.minElevationKm = minElev;
+                geology.terrainRoughness = roughness;
+                return this;
+            }
+
+            public Builder cratering(String level, Integer count) {
+                geology.crateringLevel = level;
+                geology.estimatedVisibleCraters = count;
+                return this;
+            }
+
+            public Builder erosion(String level, String agent) {
+                geology.erosionLevel = level;
+                geology.primaryErosionAgent = agent;
+                return this;
+            }
+
+            public Builder gasGiantStorms(Boolean hasGreatStorm, Integer majorStorms, String convection) {
+                geology.hasGreatStorm = hasGreatStorm;
+                geology.numberOfMajorStorms = majorStorms;
+                geology.atmosphericConvectionLevel = convection;
+                return this;
+            }
+
+            public PlanetaryGeology build() {
+                return geology;
+            }
+        }
+    }
 }

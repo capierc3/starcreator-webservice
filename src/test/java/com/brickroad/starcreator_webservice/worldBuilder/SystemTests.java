@@ -33,7 +33,7 @@ public class SystemTests extends AbstractCreatorTest {
         String starType = "ANY";
         boolean foundStar;
 
-        String targetType = "ANY";
+        String targetType = "Super-Earth";
         String tempTarget = "SHIRT_SLEEVE";
         boolean foundPlanet = false;
 
@@ -46,14 +46,19 @@ public class SystemTests extends AbstractCreatorTest {
 
         for (int i = 0; i < maxAttempts; i++) {
             system = systemCreator.generateSystem();
-            for (CelestialBody planet : system.getPlanets()) {
-//                if (!targetType.equalsIgnoreCase("ANY")) {
+            for (Planet planet : system.getPlanets()) {
+                if (!targetType.equalsIgnoreCase("ANY")) {
+                    if (targetType.equalsIgnoreCase(planet.getPlanetType())) {
+                        foundPlanet = true;
+                    }
+                    //foundPlanet = true;
 //                    if (!tempTarget.equalsIgnoreCase(((Planet) planet).getHabitableZonePosition())) {
 //                        foundPlanet = false;
 //                    }
-//                }
-                String s = ((Planet) planet).getHabitability().getColonizationSuitability().getDisplayName();
-                foundPlanet = ColonizationSuitability.SHIRT_SLEEVE.equals((((Planet) planet).getHabitability().getColonizationSuitability()));
+                    //break;
+                }
+                foundPlanet = ColonizationSuitability.SHIRT_SLEEVE.equals((planet.getHabitability().getColonizationSuitability()));
+                if (foundPlanet) {break;}
             }
 
             if (!starType.equalsIgnoreCase("ANY")) {

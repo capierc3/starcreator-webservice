@@ -1,9 +1,11 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField.AuroralFrequency;
 import com.brickroad.starcreator_webservice.entity.ud.PlanetaryMagneticField.AuroralIntensity;
 import com.brickroad.starcreator_webservice.utils.CelestialBodyUtils;
+import com.brickroad.starcreator_webservice.utils.PhysicsFormulas;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import org.springframework.stereotype.Component;
 
@@ -17,13 +19,13 @@ public class SkyAppearanceCalculator {
     private static final double SOLAR_RADIUS_KM = 695700.0;
     private static final double AU_TO_KM = 1.496e8;
     private static final double EARTH_MOON_ANGULAR_DIAMETER_DEG = 0.52;
-    private static final double EARTH_RADIUS_KM = CelestialBodyUtils.EARTH_RADIUS_KM;
+    private static final double EARTH_RADIUS_KM = PhysicsFormulas.EARTH_RADIUS_KM;
 
     // ================================================================
     // MAIN ENTRY POINT
     // ================================================================
 
-    public void calculate(PlanetaryWeather weather, Planet planet, Star parentStar, StarSystem system) {
+    public void calculate(PlanetaryClimate weather, Planet planet, Star parentStar, StarSystem system) {
         String atmClass = planet.getAtmosphereClassification();
 
         // Gas giants have no surface — skip moon visibility and eclipses
@@ -47,7 +49,7 @@ public class SkyAppearanceCalculator {
     // MOON VISIBILITY
     // ================================================================
 
-    private void calculateMoonVisibility(PlanetaryWeather weather, Planet planet,
+    private void calculateMoonVisibility(PlanetaryClimate weather, Planet planet,
                                           List<Moon> moons, Star parentStar) {
         List<MoonSkyAppearance> appearances = new ArrayList<>();
         double planetDistAU = planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : 1.0;
@@ -147,7 +149,7 @@ public class SkyAppearanceCalculator {
     // ECLIPSES
     // ================================================================
 
-    private void calculateEclipses(PlanetaryWeather weather, Planet planet,
+    private void calculateEclipses(PlanetaryClimate weather, Planet planet,
                                     List<Moon> moons, Star parentStar) {
         List<EclipseData> eclipses = new ArrayList<>();
         double planetDistAU = planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : 1.0;
@@ -230,7 +232,7 @@ public class SkyAppearanceCalculator {
     // SKY DESCRIPTIONS
     // ================================================================
 
-    private void generateSkyDescriptions(PlanetaryWeather weather, Planet planet,
+    private void generateSkyDescriptions(PlanetaryClimate weather, Planet planet,
                                           Star parentStar, StarSystem system) {
         String atmClass = planet.getAtmosphereClassification();
         String skyColor = weather.getSkyColor() != null ? weather.getSkyColor() : "BLUE";
@@ -323,7 +325,7 @@ public class SkyAppearanceCalculator {
         return truncate(desc.toString(), 500);
     }
 
-    private String buildNighttimeDescription(PlanetaryWeather weather, boolean hasAurora,
+    private String buildNighttimeDescription(PlanetaryClimate weather, boolean hasAurora,
                                               PlanetaryMagneticField magField, boolean tidallyLocked) {
         StringBuilder desc = new StringBuilder();
 
@@ -455,7 +457,7 @@ public class SkyAppearanceCalculator {
      * - Sibling moons are visible as moving lights
      * - Parent planet can eclipse the star
      */
-    public void calculateForMoon(PlanetaryWeather weather, Moon moon, Planet parentPlanet,
+    public void calculateForMoon(PlanetaryClimate weather, Moon moon, Planet parentPlanet,
                                   Star parentStar, StarSystem system, List<Moon> siblingMoons) {
         // Parent planet visibility from the moon's surface
         if (parentPlanet != null) {
@@ -472,7 +474,7 @@ public class SkyAppearanceCalculator {
         generateMoonSurfaceSkyDescriptions(weather, moon, parentPlanet, parentStar, system, siblingMoons);
     }
 
-    private void calculateParentPlanetVisibility(PlanetaryWeather weather, Moon moon,
+    private void calculateParentPlanetVisibility(PlanetaryClimate weather, Moon moon,
                                                    Planet parentPlanet, Star parentStar) {
         Double moonOrbitKm = moon.getSemiMajorAxisKm();
         Double planetRadiusEarth = parentPlanet.getEarthRadius();
@@ -584,7 +586,7 @@ public class SkyAppearanceCalculator {
     private static final int MAX_SIBLING_APPEARANCES = 5;
     private static final double MIN_SIBLING_ANGULAR_DIAMETER_DEG = 0.05; // Must be a visible disk, not point-like
 
-    private void calculateSiblingMoonVisibility(PlanetaryWeather weather, Moon targetMoon,
+    private void calculateSiblingMoonVisibility(PlanetaryClimate weather, Moon targetMoon,
                                                   List<Moon> siblingMoons, Planet parentPlanet,
                                                   Star parentStar) {
         List<MoonSkyAppearance> appearances = weather.getMoonSkyAppearances();
@@ -671,7 +673,7 @@ public class SkyAppearanceCalculator {
         weather.setMoonSkyAppearances(appearances);
     }
 
-    private void calculatePlanetaryEclipses(PlanetaryWeather weather, Moon moon,
+    private void calculatePlanetaryEclipses(PlanetaryClimate weather, Moon moon,
                                               Planet parentPlanet, Star parentStar) {
         List<EclipseData> eclipses = weather.getEclipseData();
         if (eclipses == null) {
@@ -755,7 +757,7 @@ public class SkyAppearanceCalculator {
         weather.setEclipseData(eclipses);
     }
 
-    private void generateMoonSurfaceSkyDescriptions(PlanetaryWeather weather, Moon moon,
+    private void generateMoonSurfaceSkyDescriptions(PlanetaryClimate weather, Moon moon,
                                                       Planet parentPlanet, Star parentStar,
                                                       StarSystem system, List<Moon> siblingMoons) {
         String atmClass = moon.getAtmosphere() != null ? moon.getAtmosphere().getClassification() : "THIN";
@@ -849,7 +851,7 @@ public class SkyAppearanceCalculator {
         return truncate(desc.toString(), 500);
     }
 
-    private String buildMoonNighttimeDescription(PlanetaryWeather weather, boolean hasAurora,
+    private String buildMoonNighttimeDescription(PlanetaryClimate weather, boolean hasAurora,
                                                    PlanetaryMagneticField magField,
                                                    boolean tidallyLocked, Planet parentPlanet) {
         StringBuilder desc = new StringBuilder();
@@ -914,7 +916,7 @@ public class SkyAppearanceCalculator {
     // GAS GIANT SKY DESCRIPTION
     // ================================================================
 
-    private void generateGasGiantSkyDescription(PlanetaryWeather weather, Planet planet, Star parentStar) {
+    private void generateGasGiantSkyDescription(PlanetaryClimate weather, Planet planet, Star parentStar) {
         String atmClass = planet.getAtmosphereClassification();
 
         if ("ICE_GIANT".equals(atmClass)) {

@@ -14,7 +14,8 @@ public class ProbabilityCounts {
     private int beltCount = 0;
     private int asteroidCount = 0;
     private int moonletCount = 0;
-    private int tempCount = 0;
+    private int dwarfPlanetCount = 0;
+    private int trojanCount = 0;
 
     public void incrementStarCount(int count) { starCount += count; }
     public void incrementPlanetCount(int count) { planetCount += count; }
@@ -23,5 +24,6 @@ public class ProbabilityCounts {
     public void incrementBeltCount(int count) { beltCount += count; }
     public void incrementAsteroidCount(int count) { asteroidCount += count; }
     public void incrementMoonletCount(int count) { moonletCount += count; }
-    public void incrementTempCount(int count) { tempCount += count; }
+    public void incrementDwarfPlanetCount(int count) { dwarfPlanetCount += count; }
+    public void incrementTrojanCount(int count) { trojanCount += count; }
 }

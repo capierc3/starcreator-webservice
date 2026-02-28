@@ -1,6 +1,7 @@
 package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ud.*;
+import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.brickroad.starcreator_webservice.enums.ColonizationSuitability;
 import com.brickroad.starcreator_webservice.enums.HabitabilityClass;
 import com.brickroad.starcreator_webservice.enums.TerraformingPotential;
@@ -25,7 +26,6 @@ public class HabitabilityCreator {
 
     public PlanetaryHabitability assess(Planet planet, Star parentStar) {
         PlanetaryHabitability hab = new PlanetaryHabitability();
-        hab.setPlanet(planet);
 
         String planetType = planet.getPlanetType() != null ? planet.getPlanetType().toLowerCase() : "";
 
@@ -48,7 +48,6 @@ public class HabitabilityCreator {
 
     public PlanetaryHabitability assessMoon(Moon moon, Planet parentPlanet, Star parentStar) {
         PlanetaryHabitability hab = new PlanetaryHabitability();
-        hab.setMoon(moon);
 
         calculateMoonESI(hab, moon);
         assessMoonRadiation(hab, moon, parentPlanet, parentStar);
@@ -59,8 +58,6 @@ public class HabitabilityCreator {
         assessMoonBiosignatures(hab, moon, parentPlanet, parentStar);
         classifyMoonHabitability(hab, moon);
 
-        hab.setCreatedAt(java.time.LocalDateTime.now());
-        hab.setModifiedAt(java.time.LocalDateTime.now());
         return hab;
     }
 
@@ -469,9 +466,6 @@ public class HabitabilityCreator {
         Double pressure = planet.getSurfacePressure();
         String waterInv = planet.getWaterInventory();
 
-        // Mean surface temp in habitable range?
-        hab.setMeanSurfaceTempHabitable(temp != null && temp >= 273.0 && temp <= 373.0);
-
         // Surface liquid water possible? (from WaterCreator's assessment)
         Double liquidPercent = planet.getLiquidWaterCoveragePercent();
         hab.setSurfaceLiquidWaterPossible(liquidPercent != null && liquidPercent > 0.1);
@@ -523,8 +517,6 @@ public class HabitabilityCreator {
         Double pressure = moon.getSurfacePressure();
         String waterInv = moon.getWaterInventory();
 
-        hab.setMeanSurfaceTempHabitable(temp != null && temp >= 273.0 && temp <= 373.0);
-
         Double liquidPercent = moon.getLiquidWaterCoveragePercent();
         hab.setSurfaceLiquidWaterPossible(liquidPercent != null && liquidPercent > 0.1);
 
@@ -566,29 +558,31 @@ public class HabitabilityCreator {
     // ================================================================
 
     private void assessGeologicalHabitability(PlanetaryHabitability hab, Planet planet, Star parentStar) {
-        // Carbon cycle requires plate tectonics + volcanism + water
+        // Geochemical cycle requires plate tectonics + volcanism + water/volatiles.
+        // Covers carbon-silicate cycling (CO2 worlds), nitrogen-ammonia cycling (ice worlds),
+        // and other geologically-driven chemical recycling processes.
         boolean hasTectonics = Boolean.TRUE.equals(planet.getHasPlateTectonics());
         boolean hasVolcanism = Boolean.TRUE.equals(planet.getHasVolcanicActivity());
         String waterInv = planet.getWaterInventory();
         boolean hasWater = waterInv != null && !"NONE".equals(waterInv) && !"TRACE".equals(waterInv);
 
-        boolean carbonCycle = hasTectonics && hasVolcanism && hasWater;
-        hab.setHasCarbonCycle(carbonCycle);
+        boolean geochemCycle = hasTectonics && hasVolcanism && hasWater;
+        hab.setHasGeochemicalCycle(geochemCycle);
 
-        if (carbonCycle) {
+        if (geochemCycle) {
             Double activityScore = planet.getActivityScore();
             if (activityScore != null && activityScore > 5.0) {
-                hab.setCarbonCycleStrength("STRONG");
+                hab.setGeochemicalCycleStrength("STRONG");
             } else if (activityScore != null && activityScore > 2.0) {
-                hab.setCarbonCycleStrength("MODERATE");
+                hab.setGeochemicalCycleStrength("MODERATE");
             } else {
-                hab.setCarbonCycleStrength("WEAK");
+                hab.setGeochemicalCycleStrength("WEAK");
             }
         } else if (hasVolcanism && hasWater) {
-            hab.setCarbonCycleStrength("WEAK"); // Partial cycle without full tectonics
-            hab.setHasCarbonCycle(true);
+            hab.setGeochemicalCycleStrength("WEAK"); // Partial cycle without full tectonics
+            hab.setHasGeochemicalCycle(true);
         } else {
-            hab.setCarbonCycleStrength("NONE");
+            hab.setGeochemicalCycleStrength("NONE");
         }
 
         // Geothermal heat flux (Earth ~87 mW/m²)
@@ -641,8 +635,8 @@ public class HabitabilityCreator {
 
     private void assessMoonGeology(PlanetaryHabitability hab, Moon moon) {
         // Moons don't have plate tectonics — but tidal heating is crucial
-        hab.setHasCarbonCycle(false);
-        hab.setCarbonCycleStrength("NONE");
+        hab.setHasGeochemicalCycle(false);
+        hab.setGeochemicalCycleStrength("NONE");
 
         // Geothermal/tidal heat flux
         double tidalHeat = moon.getTidalHeatingWattPerM2() != null ? moon.getTidalHeatingWattPerM2() : 0;
@@ -914,7 +908,7 @@ public class HabitabilityCreator {
         hab.setEnergySourcesForLife(energySources.isEmpty() ? null : String.join("; ", energySources));
 
         // Life complexity potential
-        if (bioScore >= 50 && hasLiquidWater && Boolean.TRUE.equals(hab.getHasCarbonCycle())) {
+        if (bioScore >= 50 && hasLiquidWater && Boolean.TRUE.equals(hab.getHasGeochemicalCycle())) {
             hab.setLifeComplexityPotential("COMPLEX_MULTICELLULAR");
         } else if (bioScore >= 30 && (hasLiquidWater || hasSubsurfaceWater)) {
             hab.setLifeComplexityPotential("SIMPLE_MULTICELLULAR");
@@ -1069,7 +1063,7 @@ public class HabitabilityCreator {
         }
 
         // Geological activity (0-10 points)
-        if (Boolean.TRUE.equals(hab.getHasCarbonCycle())) score += 10;
+        if (Boolean.TRUE.equals(hab.getHasGeochemicalCycle())) score += 10;
         else if (Boolean.TRUE.equals(planet.getHasVolcanicActivity())) score += 4;
 
         // Stellar environment (0-10 points)

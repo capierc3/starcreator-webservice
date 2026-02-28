@@ -2,6 +2,10 @@ package com.brickroad.starcreator_webservice.creator;
 
 import com.brickroad.starcreator_webservice.entity.ref.AtmosphereTemplateComponentRef;
 import com.brickroad.starcreator_webservice.entity.ref.AtmosphereTemplateRef;
+import com.brickroad.starcreator_webservice.entity.ref.PlanetTypeRef;
+import com.brickroad.starcreator_webservice.entity.ud.Atmosphere;
+import com.brickroad.starcreator_webservice.entity.ud.AtmosphereComponent;
+import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.enums.AtmosphereClassification;
 import com.brickroad.starcreator_webservice.enums.AtmosphereGas;
@@ -14,6 +18,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -298,5 +303,91 @@ public class AtmosphereCreator {
             case CARBON_MONOXIDE -> percentage * (1.0 + 0.05 * Math.log10(xrayFactor));
             default -> percentage;
         };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Atmosphere Entity Creation
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Full planet atmosphere creation pipeline.
+     * Generates atmosphere data and returns a persistent Atmosphere entity.
+     */
+    public Atmosphere createPlanetAtmosphere(Planet planet, PlanetTypeRef type, Star parentStar) {
+        if (!type.getCanHaveAtmosphere() || planet.getEarthMass() < 0.1) {
+            return createNoAtmosphereEntity();
+        }
+
+        double distanceAU = planet.getSemiMajorAxisAU() != null ? planet.getSemiMajorAxisAU() : 1.0;
+
+        AtmosphereResult result = generateAtmosphereWithTemplate(
+                planet.getPlanetType(),
+                planet.getSurfaceTemp(),
+                planet.getEarthMass(),
+                distanceAU,
+                parentStar
+        );
+
+        PlanetaryAtmosphere atmosphere = result.atmosphere();
+        if (atmosphere.getClassification() == AtmosphereClassification.NONE) {
+            return createNoAtmosphereEntity();
+        }
+
+        double pressure = calculateSurfacePressure(
+                planet.getEarthMass(),
+                planet.getSurfaceTemp(),
+                result.template(),
+                parentStar,
+                distanceAU
+        );
+
+        return toAtmosphereEntity(atmosphere, pressure);
+    }
+
+    /**
+     * Convert a transient PlanetaryAtmosphere to a persistent Atmosphere entity.
+     */
+    public Atmosphere toAtmosphereEntity(PlanetaryAtmosphere planetaryAtm, double pressureBar) {
+        Atmosphere atmosphere = Atmosphere.builder()
+                .classification(planetaryAtm.getClassification().name())
+                .surfacePressureBar(pressureBar)
+                .compositionSummary(planetaryAtm.toCompactString())
+                .isStripped(false)
+                .components(new ArrayList<>())
+                .build();
+
+        for (AtmosphereComponent component : planetaryAtm.components()) {
+            component.setAtmosphere(atmosphere);
+            atmosphere.getComponents().add(component);
+        }
+
+        return atmosphere;
+    }
+
+    /**
+     * Create an Atmosphere entity representing no atmosphere.
+     */
+    public Atmosphere createNoAtmosphereEntity() {
+        return Atmosphere.builder()
+                .classification("NONE")
+                .surfacePressureBar(0.0)
+                .compositionSummary("None")
+                .isStripped(false)
+                .components(new ArrayList<>())
+                .build();
+    }
+
+    /**
+     * Create an Atmosphere entity for an atmosphere stripped by external forces.
+     */
+    public Atmosphere createStrippedAtmosphereEntity(String reason) {
+        return Atmosphere.builder()
+                .classification("NONE")
+                .surfacePressureBar(0.0)
+                .compositionSummary("None")
+                .isStripped(true)
+                .strippedReason(reason)
+                .components(new ArrayList<>())
+                .build();
     }
 }
