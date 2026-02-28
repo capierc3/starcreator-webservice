@@ -136,7 +136,10 @@ public class OrbitalAnalysisHtmlGenerator {
                 double mass = safe(p.getEarthMass(), 1.0);
                 String pName = extractPlanetLetter(p.getName());
                 String pType = p.getPlanetType() != null ? p.getPlanetType() : "Unknown";
-                String pColor = getPlanetColor(pType);
+                // Prefer persisted surface color; fall back to type-based lookup
+                String pColor = p.getSurfaceColorPrimary() != null
+                        ? p.getSurfaceColorPrimary()
+                        : getPlanetColor(pType);
 
                 sb.append(String.format(
                         "      {name:'%s',type:'%s',mass:%.6f,sma:%.6f,ecc:%.6f,inc:%.4f,period:%.4f,color:'%s'},\n",

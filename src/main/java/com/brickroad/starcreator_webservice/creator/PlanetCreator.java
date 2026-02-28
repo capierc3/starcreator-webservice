@@ -14,6 +14,7 @@ import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryComposition;
 import com.brickroad.starcreator_webservice.utils.planets.StellarEnvironment;
+import com.brickroad.starcreator_webservice.utils.planets.SurfaceColorDeriver;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -433,6 +434,15 @@ public class PlanetCreator {
         // Now that water coverage is known, reduce visible crater count for submerged craters.
         // Atmosphere and erosion adjustments were already applied in createPlanetTerrain().
         refineCrateringForWaterCoverage(planet);
+
+        // Derive surface colors from composition, temperature, water, volcanism, atmosphere
+        SurfaceColorDeriver.SurfaceColors surfaceColors = SurfaceColorDeriver.derive(planet);
+        planet.setSurfaceColorPrimary(surfaceColors.primary());
+        planet.setSurfaceColorSecondary(surfaceColors.secondary());
+
+        // Capture a deterministic seed for procedural surface generation in the UI
+        long surfaceSeed = System.nanoTime() ^ ((planet.getOrbitalPosition() != null ? planet.getOrbitalPosition() : 1) * 31337L);
+        planet.setSurfaceSeed(surfaceSeed);
 
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);

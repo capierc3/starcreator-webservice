@@ -124,7 +124,12 @@ public class Planet {
     @Schema(description = "Magnetic field properties")
     private PlanetaryMagneticField magneticField;
 
-    // ── Habitability & Climate ──
+    // ── Surface & Climate Seeds ──
+
+    @Column(name = "surface_seed")
+    @JsonIgnore
+    @Schema(hidden = true, description = "Deterministic seed for procedural surface generation")
+    private Long surfaceSeed;
 
     @Column(name = "climate_seed")
     @JsonIgnore
@@ -279,6 +284,18 @@ public class Planet {
         return physicalProperties != null ? physicalProperties.getSurfaceTemp() : null;
     }
     public void setSurfaceTemp(Double surfaceTemp) { ensurePhysicalProperties().setSurfaceTemp(surfaceTemp); }
+
+    @JsonIgnore
+    public String getSurfaceColorPrimary() {
+        return physicalProperties != null ? physicalProperties.getSurfaceColorPrimary() : null;
+    }
+    public void setSurfaceColorPrimary(String color) { ensurePhysicalProperties().setSurfaceColorPrimary(color); }
+
+    @JsonIgnore
+    public String getSurfaceColorSecondary() {
+        return physicalProperties != null ? physicalProperties.getSurfaceColorSecondary() : null;
+    }
+    public void setSurfaceColorSecondary(String color) { ensurePhysicalProperties().setSurfaceColorSecondary(color); }
 
     // ── Orbital Convenience Getters (delegate to orbit object) ──
 
