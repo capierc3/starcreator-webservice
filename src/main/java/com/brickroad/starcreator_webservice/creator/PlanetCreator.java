@@ -5,6 +5,7 @@ import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
+import com.brickroad.starcreator_webservice.utils.BinaryStabilityLimits;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.repository.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -149,7 +150,9 @@ public class PlanetCreator {
 
         if (parentStar != null) {
             // Simplified orbital parameters — caller can override ecc/inc after creation
-            double eccentricity = RandomUtils.rollRange(0.0, 0.1);
+            double maxEcc = 0.1;
+            maxEcc = clampEccForBinaryLimits(parentStar, distanceAU, maxEcc);
+            double eccentricity = RandomUtils.rollRange(0.0, maxEcc);
             double inclination = RandomUtils.rollRange(0.0, 10.0);
             double stellarMass = parentStar.getSolarMass() > 0 ? parentStar.getSolarMass() : 1.0;
             planet.setOrbit(orbitalCreator.createPlanetOrbit(distanceAU, stellarMass,
@@ -177,9 +180,19 @@ public class PlanetCreator {
 
         HabitableZone hz;
         double currentDistance;
-        if (parentStar.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
+        BinaryConfiguration binConfig = parentStar.getSystem().getBinaryConfiguration();
+        boolean isCircumbinary = (binConfig == BinaryConfiguration.P_TYPE)
+                || ((binConfig == BinaryConfiguration.HIERARCHICAL_BINARY_THIRD
+                     || binConfig == BinaryConfiguration.HIERARCHICAL_TRIPLE)
+                    && parentStar.getStarRole() != Star.StarRole.TERTIARY);
+        if (isCircumbinary) {
             hz = new HabitableZone(parentStar.getSystem().getHabitableLow(), parentStar.getSystem().getHabitableHigh());
-            double minStableDistanceAU = parentStar.getSystem().getBinarySeparationAu() * 4.0;
+            double eBin = getBinaryEccentricity(parentStar);
+            double minStableDistanceAU = BinaryStabilityLimits.pTypeCriticalSMA(
+                    parentStar.getSystem().getBinarySeparationAu(),
+                    parentStar.getSolarMass(),
+                    getCompanionMass(parentStar),
+                    eBin);
             currentDistance = minStableDistanceAU * RandomUtils.rollRange(1.0, 1.2);
         } else {
             hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
@@ -193,9 +206,12 @@ public class PlanetCreator {
             if (starTypeRef != null && starTypeRef.getMaxPlanetFormationAu() != null) {
                 maxFormation = starTypeRef.getMaxPlanetFormationAu();
             }
+            maxFormation = Math.min(maxFormation, maxSystemDistance);
 
             double startCeiling = maxFormation * RandomUtils.rollRange(0.008, 0.04);
             startCeiling = Math.max(startCeiling, minFormation * 2.0);
+            startCeiling = Math.min(startCeiling, maxSystemDistance * 0.5);
+            minFormation = Math.min(minFormation, maxSystemDistance * 0.3);
             currentDistance = RandomUtils.rollRange(minFormation, startCeiling);
         }
 
@@ -236,18 +252,108 @@ public class PlanetCreator {
             maxSystemDistance = starTypeRef.getMaxPlanetFormationAu();
         }
 
-        if (parentStar.getSystem() != null && parentStar.getSystem().getSizeAu() != null) {
-            maxSystemDistance = Math.min(maxSystemDistance, parentStar.getSystem().getSizeAu());
+        if (parentStar.getSystem() != null) {
+            if (parentStar.getSystem().getSizeAu() != null) {
+                maxSystemDistance = Math.min(maxSystemDistance, parentStar.getSystem().getSizeAu());
+            }
 
+            // Binary stability limits — always applied regardless of system size
             BinaryConfiguration config = parentStar.getSystem().getBinaryConfiguration();
-            if (config == BinaryConfiguration.S_TYPE_WIDE) {
-                Double binarySep = parentStar.getSystem().getBinarySeparationAu();
-                if (binarySep != null) {
-                    maxSystemDistance = Math.min(maxSystemDistance, binarySep * 0.3);
-                }
+            Double binarySep = parentStar.getSystem().getBinarySeparationAu();
+
+            if (binarySep != null && (config == BinaryConfiguration.S_TYPE_WIDE
+                    || config == BinaryConfiguration.S_TYPE_CLOSE)) {
+                double eBin = getBinaryEccentricity(parentStar);
+                double sTypeCrit = BinaryStabilityLimits.sTypeCriticalSMA(
+                        binarySep, parentStar.getSolarMass(), getCompanionMass(parentStar), eBin);
+                maxSystemDistance = Math.min(maxSystemDistance, sTypeCrit);
+            } else if (binarySep != null && parentStar.getStarRole() == Star.StarRole.TERTIARY) {
+                double tertiarySep = binarySep * 3.0;
+                double innerPairMass = getInnerPairMass(parentStar);
+                double eBin = getBinaryEccentricity(parentStar);
+                double sTypeCrit = BinaryStabilityLimits.sTypeCriticalSMA(
+                        tertiarySep, parentStar.getSolarMass(), innerPairMass, eBin);
+                maxSystemDistance = Math.min(maxSystemDistance, sTypeCrit);
             }
         }
         return maxSystemDistance;
+    }
+
+    private double getBinaryEccentricity(Star star) {
+        Star companion = star.getCompanionStar();
+        if (companion != null && companion.getOrbit() != null
+                && companion.getOrbit().getEccentricity() != null) {
+            return companion.getOrbit().getEccentricity();
+        }
+        if (star.getOrbit() != null && star.getOrbit().getEccentricity() != null
+                && star.getOrbit().getSemiMajorAxis() != null
+                && star.getOrbit().getSemiMajorAxis() > 0) {
+            return star.getOrbit().getEccentricity();
+        }
+        return 0.0;
+    }
+
+    private double getCompanionMass(Star star) {
+        Star companion = star.getCompanionStar();
+        return companion != null ? companion.getSolarMass() : star.getSolarMass() * 0.5;
+    }
+
+    private double getInnerPairMass(Star star) {
+        if (star.getSystem() == null) return star.getSolarMass();
+        return star.getSystem().getStars().stream()
+                .filter(s -> s.getStarRole() != Star.StarRole.TERTIARY)
+                .mapToDouble(Star::getSolarMass)
+                .sum();
+    }
+
+    /**
+     * Clamps maximum eccentricity so the planet's orbit stays within the
+     * stable zone of its binary system.
+     * <ul>
+     *   <li>S-type: aphelion = sma·(1+e) must not reach companion's perihelion</li>
+     *   <li>P-type: perihelion = sma·(1−e) must not dip inside binary cavity</li>
+     * </ul>
+     *
+     * @return clamped maxEcc (may be unchanged if no binary or constraint is not binding)
+     */
+    private double clampEccForBinaryLimits(Star star, double distanceAU, double maxEcc) {
+        if (star.getSystem() == null || star.getSystem().getBinarySeparationAu() == null) {
+            return maxEcc;
+        }
+        BinaryConfiguration config = star.getSystem().getBinaryConfiguration();
+        double binarySep = star.getSystem().getBinarySeparationAu();
+
+        if (config == BinaryConfiguration.S_TYPE_WIDE
+                || config == BinaryConfiguration.S_TYPE_CLOSE
+                || star.getStarRole() == Star.StarRole.TERTIARY) {
+            // S-type: aphelion must stay below companion's closest approach
+            double eBin = getBinaryEccentricity(star);
+            double companionPeri;
+            if (star.getStarRole() == Star.StarRole.TERTIARY) {
+                companionPeri = BinaryStabilityLimits.companionPerihelionAU(
+                        binarySep * 3.0, eBin);
+            } else {
+                companionPeri = BinaryStabilityLimits.companionPerihelionAU(
+                        binarySep, eBin);
+            }
+            if (distanceAU > 0 && companionPeri > distanceAU) {
+                double limit = (companionPeri / distanceAU) - 1.0;
+                maxEcc = Math.min(maxEcc, Math.max(0.001, limit));
+            }
+        } else if (config == BinaryConfiguration.P_TYPE
+                || ((config == BinaryConfiguration.HIERARCHICAL_BINARY_THIRD
+                     || config == BinaryConfiguration.HIERARCHICAL_TRIPLE)
+                    && star.getStarRole() != Star.StarRole.TERTIARY)) {
+            // P-type: perihelion must stay above the binary cavity floor
+            double eBin = getBinaryEccentricity(star);
+            double pCrit = BinaryStabilityLimits.pTypeCriticalSMA(
+                    binarySep, star.getSolarMass(), getCompanionMass(star), eBin);
+            if (distanceAU > pCrit) {
+                double limit = 1.0 - (pCrit / distanceAU);
+                maxEcc = Math.min(maxEcc, Math.max(0.001, limit));
+            }
+        }
+        return maxEcc;
     }
 
     private void populatePlanet(Planet planet, PlanetTypeRef type, double earthMass, double earthRadius, Star parentStar) {
@@ -403,10 +509,8 @@ public class PlanetCreator {
         baseHigh = Math.min(baseHigh, maxEcc);
         baseHigh = Math.max(baseHigh, 0.001); // never negative
 
-        if (star.getSystem() != null
-                && star.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
-            baseHigh = Math.min(baseHigh, 0.04);
-        }
+        // --- Binary stability: clamp eccentricity so orbit stays within stable zone ---
+        baseHigh = clampEccForBinaryLimits(star, distanceAU, baseHigh);
 
         double eccentricity = RandomUtils.rollRange(baseLow, baseHigh);
         double inclination = RandomUtils.rollRange(0.0, 10.0);

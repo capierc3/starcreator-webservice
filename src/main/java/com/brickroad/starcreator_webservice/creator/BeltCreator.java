@@ -80,22 +80,27 @@ public class BeltCreator {
                 createCircumstellarBelts(primary, primary.getSolarLuminosity(), primary.getSolarMass(), null);
             }
             case S_TYPE_CLOSE -> {
-                // Companion at 0.1-5 AU, planets orbit primary only. No outer cap needed.
                 Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
-                createCircumstellarBelts(primary, primary.getSolarLuminosity(), primary.getSolarMass(), null);
+                Star secondary = findStarByRole(system, Star.StarRole.SECONDARY);
+                double eBin = getBinaryEccentricity(secondary);
+                double outerCap = BinaryStabilityLimits.sTypeCriticalSMA(
+                        system.getBinarySeparationAu(), primary.getSolarMass(),
+                        secondary != null ? secondary.getSolarMass() : 0, eBin);
+                createCircumstellarBelts(primary, primary.getSolarLuminosity(), primary.getSolarMass(), outerCap);
             }
             case S_TYPE_WIDE -> {
                 Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
                 Star secondary = findStarByRole(system, Star.StarRole.SECONDARY);
+                double eBin = getBinaryEccentricity(secondary);
 
                 // Yelverton et al. (2019) dead zone — medium-separation binaries suppress belt formation
                 double beltChance = BinaryStabilityLimits.beltFormationProbability(system.getBinarySeparationAu());
 
-                // Holman-Wiegert S-type outer stability limits
+                // Holman-Wiegert S-type outer stability limits (with eccentricity)
                 double outerCapPrimary = BinaryStabilityLimits.sTypeCriticalSMA(
-                        system.getBinarySeparationAu(), primary.getSolarMass(), secondary.getSolarMass());
+                        system.getBinarySeparationAu(), primary.getSolarMass(), secondary.getSolarMass(), eBin);
                 double outerCapSecondary = BinaryStabilityLimits.sTypeCriticalSMA(
-                        system.getBinarySeparationAu(), secondary.getSolarMass(), primary.getSolarMass());
+                        system.getBinarySeparationAu(), secondary.getSolarMass(), primary.getSolarMass(), eBin);
 
                 if (RandomUtils.rollRange(0.0, 1.0) < beltChance) {
                     createCircumstellarBelts(primary, primary.getSolarLuminosity(), primary.getSolarMass(), outerCapPrimary);
@@ -108,40 +113,44 @@ public class BeltCreator {
                 // Circumbinary — belts parented to primary star (same convention as planets)
                 Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
                 Star secondary = findStarByRole(system, Star.StarRole.SECONDARY);
+                double eBin = getBinaryEccentricity(secondary);
                 double totalLuminosity = sumLuminosity(system);
                 double totalMass = sumMass(system);
                 double innerCavity = BinaryStabilityLimits.pTypeCriticalSMA(
                         system.getBinarySeparationAu(), primary.getSolarMass(),
-                        secondary != null ? secondary.getSolarMass() : 0);
+                        secondary != null ? secondary.getSolarMass() : 0, eBin);
                 createCircumbinaryBelts(primary, totalLuminosity, totalMass, innerCavity);
             }
             case HIERARCHICAL_BINARY_THIRD, HIERARCHICAL_TRIPLE -> {
                 // Close pair gets circumbinary belts
                 Star primary = findStarByRole(system, Star.StarRole.PRIMARY);
                 Star secondary = findStarByRole(system, Star.StarRole.SECONDARY);
+                double innerEBin = getBinaryEccentricity(secondary);
                 double pairLuminosity = primary.getSolarLuminosity()
                         + (secondary != null ? secondary.getSolarLuminosity() : 0);
                 double pairMass = primary.getSolarMass()
                         + (secondary != null ? secondary.getSolarMass() : 0);
                 double innerCavity = BinaryStabilityLimits.pTypeCriticalSMA(
                         system.getBinarySeparationAu(), primary.getSolarMass(),
-                        secondary != null ? secondary.getSolarMass() : 0);
+                        secondary != null ? secondary.getSolarMass() : 0, innerEBin);
 
                 // Outer cap for the close pair's circumbinary belts: tertiary's gravitational influence
                 Star tertiary = findStarByRole(system, Star.StarRole.TERTIARY);
                 Double pairOuterCap = null;
                 if (tertiary != null) {
                     double tertiarySep = system.getBinarySeparationAu() * 3.0;
+                    double outerEBin = getBinaryEccentricity(tertiary);
                     pairOuterCap = BinaryStabilityLimits.sTypeCriticalSMA(
-                            tertiarySep, pairMass, tertiary.getSolarMass());
+                            tertiarySep, pairMass, tertiary.getSolarMass(), outerEBin);
                 }
                 createCircumbinaryBelts(primary, pairLuminosity, pairMass, innerCavity, pairOuterCap);
 
                 // Tertiary gets its own circumstellar belts, capped by the outer binary
                 if (tertiary != null) {
                     double tertiarySep = system.getBinarySeparationAu() * 3.0;
+                    double outerEBin = getBinaryEccentricity(tertiary);
                     double outerCapTertiary = BinaryStabilityLimits.sTypeCriticalSMA(
-                            tertiarySep, tertiary.getSolarMass(), pairMass);
+                            tertiarySep, tertiary.getSolarMass(), pairMass, outerEBin);
                     createCircumstellarBelts(tertiary, tertiary.getSolarLuminosity(),
                             tertiary.getSolarMass(), outerCapTertiary);
                 }
@@ -781,6 +790,14 @@ public class BeltCreator {
 
     private double sumMass(StarSystem system) {
         return system.getStars().stream().mapToDouble(Star::getSolarMass).sum();
+    }
+
+    private double getBinaryEccentricity(Star star) {
+        if (star != null && star.getOrbit() != null
+                && star.getOrbit().getEccentricity() != null) {
+            return star.getOrbit().getEccentricity();
+        }
+        return 0.0;
     }
 
     private void linkDwarfPlanets(OrbitalBand belt, List<Planet> dwarfPlanets) {

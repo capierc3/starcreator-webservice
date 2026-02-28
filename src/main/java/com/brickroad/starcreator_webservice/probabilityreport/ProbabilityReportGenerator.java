@@ -64,6 +64,7 @@ public class ProbabilityReportGenerator {
 
             stabilityData.analyzeSystem(system);
             stabilityData.analyzeBelts(system);
+            stabilityData.analyzePlanetStarStability(system);
             timer.lap();
         }
         timer.stop();

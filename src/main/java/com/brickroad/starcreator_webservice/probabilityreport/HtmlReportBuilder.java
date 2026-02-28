@@ -974,6 +974,20 @@ public class HtmlReportBuilder {
             }
         }
 
+        // Section 9: Planet-Star Stability
+        int totalPSIssues = stabilityData.getPlanetStarCrossingCount()
+                + stabilityData.getPlanetsExceedingSTypeCritical()
+                + stabilityData.getPlanetsBelowPTypeCritical();
+        if (totalPSIssues > 0) {
+            printSubSection(w, "Planet-Star Stability");
+            w.println("<p class=\"note\">Planets whose orbits cross or approach the companion star</p>");
+            w.println("<div class=\"stats-grid\">");
+            statCard(w, fmt(stabilityData.getPlanetStarCrossingCount()), "Planet-Star Crossings");
+            statCard(w, fmt(stabilityData.getPlanetsExceedingSTypeCritical()), "Exceed S-Type Limit");
+            statCard(w, fmt(stabilityData.getPlanetsBelowPTypeCritical()), "Below P-Type Cavity");
+            w.println("</div>");
+        }
+
         endCollapsible(w);
     }
 

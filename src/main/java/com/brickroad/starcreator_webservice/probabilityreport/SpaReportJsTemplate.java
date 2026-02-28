@@ -1483,6 +1483,18 @@ function renderStability(c) {
       }
     });
   }
+
+  // Planet-star stability
+  if (OS.planetStarStability) {
+    const PS = OS.planetStarStability;
+    sectionCard(c, 'Planet-Star Stability', '#e05050', function(body) {
+      statGrid(body, [
+        { value: fmt(PS.planetStarCrossingCount || 0), label: 'Planet-Star Crossings', cls: (PS.planetStarCrossingCount > 0 ? 'danger' : '') },
+        { value: fmt(PS.planetsExceedingSTypeCritical || 0), label: 'Exceed S-Type Limit', cls: (PS.planetsExceedingSTypeCritical > 0 ? 'danger' : '') },
+        { value: fmt(PS.planetsBelowPTypeCritical || 0), label: 'Below P-Type Cavity', cls: (PS.planetsBelowPTypeCritical > 0 ? 'danger' : '') }
+      ]);
+    });
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════

@@ -707,6 +707,18 @@ public class JsonReportBuilder {
             stability.put("beltStability", beltStability);
         }
 
+        // Planet-star stability
+        int totalPlanetStarIssues = stabilityData.getPlanetStarCrossingCount()
+                + stabilityData.getPlanetsExceedingSTypeCritical()
+                + stabilityData.getPlanetsBelowPTypeCritical();
+        if (totalPlanetStarIssues > 0 || stabilityData.getTotalBeltsAnalyzed() > 0) {
+            Map<String, Object> planetStarStability = new LinkedHashMap<>();
+            planetStarStability.put("planetStarCrossingCount", stabilityData.getPlanetStarCrossingCount());
+            planetStarStability.put("planetsExceedingSTypeCritical", stabilityData.getPlanetsExceedingSTypeCritical());
+            planetStarStability.put("planetsBelowPTypeCritical", stabilityData.getPlanetsBelowPTypeCritical());
+            stability.put("planetStarStability", planetStarStability);
+        }
+
         return stability;
     }
 
