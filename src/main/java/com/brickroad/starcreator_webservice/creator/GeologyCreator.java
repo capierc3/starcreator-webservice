@@ -199,7 +199,7 @@ public class GeologyCreator {
         terrain.setHasCryovolcanism(hasCryovolcanism);
 
         List<GeologicalTemplateRef> templates = geologicalTemplateRepository
-                .findByPlanetTypeAndActivityLevel(moon.getMoonType(), activityLevel);
+                .findByPlanetTypeAndActivityLevel(moon.getMoonType(), activityLevel, moon.getCompositionType());
         GeologicalTemplateRef template = selectGeologicalTemplate(templates);
         if (template != null) {
             applyMoonTemplate(terrain, moon, template);

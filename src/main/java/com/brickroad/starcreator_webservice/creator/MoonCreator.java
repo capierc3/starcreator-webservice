@@ -646,7 +646,11 @@ public class MoonCreator {
             moon.setRotationPeriodHours(-Math.abs(moon.getRotationPeriodHours()));
         }
 
-        moon.setAxialTilt(RandomUtils.rollRange(0.0, 25));
+        if (Boolean.TRUE.equals(moon.getTidallyLocked())) {
+            moon.setAxialTilt(RandomUtils.rollRange(0.0, 5.0));
+        } else {
+            moon.setAxialTilt(RandomUtils.rollRange(0.0, 25.0));
+        }
 
         // Per-moon Hill sphere
         moon.setHillSphereRadiusKm(
@@ -702,7 +706,7 @@ public class MoonCreator {
         moon.setTidallyLocked(true);
         moon.setRotationPeriodHours(periodDays * 24);
 
-        moon.setAxialTilt(RandomUtils.rollRange(0.0, 10.0));
+        moon.setAxialTilt(RandomUtils.rollRange(0.0, 5.0));
 
         moon.setHillSphereRadiusKm(
                 PhysicsFormulas.hillSphereRadiusKm(moon.getSemiMajorAxisKm(), moon.getMass(), planet.getMass()));

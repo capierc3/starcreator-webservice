@@ -694,6 +694,25 @@ public class HtmlReportBuilder {
         printSubSection(w, "Geological Activity");
         printSortedTable(w, moonData.getGeologicalActivity(), counts.getMoonCount(), "Activity");
 
+        printSubSection(w, "Volcanism Type");
+        printSortedTable(w, moonData.getVolcanismTypes(), counts.getMoonCount(), "Volcanism");
+
+        printSubSection(w, "Volcanism Type by Composition");
+        printVolcanismByCompositionTable(w, moonData.getVolcanismByComposition());
+
+        printSubSection(w, "Erosion Agents");
+        printSortedTable(w, moonData.getErosionAgents(), counts.getMoonCount(), "Erosion Agent");
+
+        printSubSection(w, "Axial Tilt (Tidally Locked)");
+        printSortedTableByKey(w, moonData.getAxialTiltLockedBins(),
+                moonData.getAxialTiltLockedBins().values().stream().mapToInt(Integer::intValue).sum(), "Tilt");
+
+        if (!moonData.getAxialTiltUnlockedBins().isEmpty()) {
+            printSubSection(w, "Axial Tilt (Not Tidally Locked)");
+            printSortedTableByKey(w, moonData.getAxialTiltUnlockedBins(),
+                    moonData.getAxialTiltUnlockedBins().values().stream().mapToInt(Integer::intValue).sum(), "Tilt");
+        }
+
         printSubSection(w, "Atmosphere Classifications");
         printSortedTable(w, moonData.getAtmosphereClassifications(), counts.getMoonCount(), "Classification");
 
@@ -756,6 +775,24 @@ public class HtmlReportBuilder {
                     w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(none) + "</td><td>"
                             + fmt(low) + "</td><td>" + fmt(moderate) + "</td><td>" + fmt(high) + "</td><td>"
                             + fmt(extreme) + "</td><td>" + fmt(total) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private void printVolcanismByCompositionTable(PrintWriter w, Map<String, Map<String, Integer>> data) {
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Composition</th><th>Silicate</th><th>Cryovolcanic</th><th>None</th><th>Total</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    Map<String, Integer> types = e.getValue();
+                    int silicate = types.getOrDefault("Silicate", 0);
+                    int cryo = types.getOrDefault("Cryovolcanic", 0);
+                    int none = types.getOrDefault("None", 0);
+                    int total = silicate + cryo + none;
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(silicate) + "</td><td>"
+                            + fmt(cryo) + "</td><td>" + fmt(none) + "</td><td>" + fmt(total) + "</td></tr>");
                 });
         w.println("</tbody></table>");
     }

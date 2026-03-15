@@ -78,11 +78,7 @@ public class ProbabilityReportGenerator {
             }
         }
 
-        // Generate HTML report
-        HtmlReportBuilder htmlBuilder = new HtmlReportBuilder(counts, timer, starData, planetData, moonData, ringData, trojanData, asteroidData, beltData, stabilityData);
-        htmlBuilder.saveReport(targetFolder);
-
-        // Generate JSON report
+        // Generate JSON + SPA reports
         JsonReportBuilder jsonBuilder = new JsonReportBuilder(counts, timer, starData, planetData, moonData, ringData, trojanData, asteroidData, beltData, stabilityData);
         try {
             jsonBuilder.saveReport(targetFolder);
@@ -91,7 +87,6 @@ public class ProbabilityReportGenerator {
             e.printStackTrace();
         }
 
-        // Generate SPA report
         try {
             java.util.Map<String, Object> reportData = jsonBuilder.buildReport();
             SpaReportBuilder spaBuilder = new SpaReportBuilder(reportData, counts, timer);

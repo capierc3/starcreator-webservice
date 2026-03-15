@@ -284,6 +284,20 @@ public class JsonReportBuilder {
         moons.put("orbitDistanceBins", moonData.getOrbitDistanceBins());
         moons.put("eccentricityBins", moonData.getEccentricityBins());
         moons.put("geologicalActivity", moonData.getGeologicalActivity());
+        moons.put("volcanismTypes", moonData.getVolcanismTypes());
+
+        // Volcanism by composition cross-tab
+        Map<String, Object> volcByComp = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : moonData.getVolcanismByComposition().entrySet()) {
+            volcByComp.put(entry.getKey(), entry.getValue());
+        }
+        moons.put("volcanismByComposition", volcByComp);
+
+        moons.put("erosionAgents", moonData.getErosionAgents());
+        moons.put("axialTiltLockedBins", moonData.getAxialTiltLockedBins());
+        if (!moonData.getAxialTiltUnlockedBins().isEmpty()) {
+            moons.put("axialTiltUnlockedBins", moonData.getAxialTiltUnlockedBins());
+        }
         moons.put("atmosphereClassifications", moonData.getAtmosphereClassifications());
 
         // Tidal heating by planet type

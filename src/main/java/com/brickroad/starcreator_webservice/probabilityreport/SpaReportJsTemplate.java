@@ -941,6 +941,49 @@ function renderMoons(c) {
     }
   );
 
+  // Volcanism & Erosion
+  sectionCard(c, 'Volcanism & Erosion', '#f97316', function(body) {
+    twoCol(body,
+      function(left) {
+        distTable(left, M.volcanismTypes, totalMoons, 'Volcanism');
+      },
+      function(right) {
+        distTable(right, M.erosionAgents, totalMoons, 'Erosion Agent');
+      }
+    );
+    if (M.volcanismByComposition) {
+      collapsible(body, 'Volcanism Type by Composition', function(cb) {
+        stabilityCrossRef(cb, M.volcanismByComposition, 'Composition');
+      }, true);
+    }
+  });
+
+  // Axial Tilt
+  sectionCard(c, 'Axial Tilt', '#a78bfa', function(body) {
+    var lockedTotal = 0;
+    if (M.axialTiltLockedBins) {
+      for (var k in M.axialTiltLockedBins) lockedTotal += M.axialTiltLockedBins[k];
+    }
+    twoCol(body,
+      function(left) {
+        var sub1 = el('h4');
+        sub1.textContent = 'Tidally Locked';
+        left.appendChild(sub1);
+        distTable(left, M.axialTiltLockedBins, lockedTotal, 'Tilt', { sortByKey: true, stripPrefixes: true });
+      },
+      function(right) {
+        if (M.axialTiltUnlockedBins) {
+          var unlockedTotal = 0;
+          for (var k in M.axialTiltUnlockedBins) unlockedTotal += M.axialTiltUnlockedBins[k];
+          var sub2 = el('h4');
+          sub2.textContent = 'Not Tidally Locked';
+          right.appendChild(sub2);
+          distTable(right, M.axialTiltUnlockedBins, unlockedTotal, 'Tilt', { sortByKey: true, stripPrefixes: true });
+        }
+      }
+    );
+  });
+
   // Tidal heating cross-references
   sectionCard(c, 'Tidal Heating Analysis', '#ef4444', function(body) {
     if (M.tidalHeatingByPlanetType) {

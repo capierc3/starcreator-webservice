@@ -28,9 +28,11 @@ public interface GeologicalTemplateRepository extends JpaRepository<GeologicalTe
 
     @Query("SELECT t FROM GeologicalTemplateRef t " +
             "WHERE (t.planetTypes IS NULL OR LOCATE(:moonType, t.planetTypes) > 0) " +
-            "AND t.activityLevel = :activityLevel")
+            "AND t.activityLevel = :activityLevel " +
+            "AND (t.compositionTypes IS NULL OR :compositionType IS NULL OR LOCATE(:compositionType, t.compositionTypes) > 0)")
     List<GeologicalTemplateRef> findByPlanetTypeAndActivityLevel(
             @Param("moonType") String moonType,
-            @Param("activityLevel") String activityLevel
+            @Param("activityLevel") String activityLevel,
+            @Param("compositionType") String compositionType
     );
 }
