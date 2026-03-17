@@ -43,6 +43,11 @@ public class PlanetaryClimate {
     private Double meanPolarTempK;
 
     // ================================================================
+    // ORBITAL LIGHT CYCLE
+    // ================================================================
+    private OrbitalLightCycle orbitalLightCycle;
+
+    // ================================================================
     // WIND & CIRCULATION
     // ================================================================
     private String circulationPattern;

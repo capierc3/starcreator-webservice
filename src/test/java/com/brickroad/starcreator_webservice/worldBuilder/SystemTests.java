@@ -27,8 +27,11 @@ public class SystemTests extends AbstractCreatorTest {
 
         StarSystem system = SystemFinder.using(systemCreator)
                 .starCount(1)
+                .planetPredicate(p -> p.getAxialTilt() != null && p.getAxialTilt() > 70.0)
+                .planetPredicate(p -> !p.getTidallyLocked())
+                .planetPredicate(p -> p.getAtmosphereClassification() != null
+                        && !"NONE".equals(p.getAtmosphereClassification()))
                 .planetType(PlanetType.SUPER_EARTH)
-                .atmosphereClassification(Atmosphere.EARTH_LIKE)
                 .find();
 
         assertNotNull(system);

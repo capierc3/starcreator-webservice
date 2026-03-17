@@ -41,6 +41,9 @@ public class ClimateCreator {
     @Autowired
     private GasGiantFeatureCalculator gasGiantFeatureCalculator;
 
+    @Autowired
+    private OrbitalLightCycleCalculator orbitalLightCycleCalculator;
+
     public PlanetaryClimate generateClimate(Planet planet, Star parentStar, StarSystem system) {
 
         String atmClass = planet.getAtmosphereClassification();
@@ -62,6 +65,9 @@ public class ClimateCreator {
 
         // Phase 3: Temperature & Climate
         temperatureClimateCalculator.calculate(climate, planet, parentStar, system);
+
+        // Phase 3b: Orbital Light Cycles (after temperature so it can use equatorial/polar temps)
+        orbitalLightCycleCalculator.calculate(climate, planet);
 
         // Phase 4: Wind & Circulation
         windCirculationCalculator.calculate(climate, planet);
@@ -126,6 +132,9 @@ public class ClimateCreator {
 
         // Phase 3: Temperature & Climate
         temperatureClimateCalculator.calculate(climate, proxy, parentStar, system);
+
+        // Phase 3b: Orbital Light Cycles
+        orbitalLightCycleCalculator.calculate(climate, proxy);
 
         // Phase 4: Wind & Circulation
         windCirculationCalculator.calculate(climate, proxy);
