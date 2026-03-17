@@ -1353,6 +1353,9 @@ function renderBelts(c) {
         if (td.withGaps != null) note(body, 'With gaps: ' + fmt(td.withGaps) + ' / ' + fmt(count));
         if (td.withCollisionalFamilies != null) note(body, 'With collisional families: ' + fmt(td.withCollisionalFamilies));
         note(body, 'Dwarf planets found: <span class="readout readout-purple">' + fmt(td.totalDwarfPlanets || 0) + '</span> (in ' + fmt(td.withDwarfPlanets || 0) + ' belts)');
+        if (td.dwarfCompositionTypes && Object.keys(td.dwarfCompositionTypes).length > 0) {
+          distTable(body, td.dwarfCompositionTypes, td.totalDwarfPlanets || 1, 'Dwarf Composition');
+        }
       }, false);
     }
   }

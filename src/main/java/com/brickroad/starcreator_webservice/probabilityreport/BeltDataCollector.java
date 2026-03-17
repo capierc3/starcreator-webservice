@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.probabilityreport;
 
 import com.brickroad.starcreator_webservice.entity.ud.Asteroid;
 import com.brickroad.starcreator_webservice.entity.ud.OrbitalBand;
+import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import lombok.Getter;
@@ -226,6 +227,7 @@ public class BeltDataCollector {
         private int familiesCount = 0;
         private int beltsWithDwarfPlanets = 0;
         private int totalDwarfPlanets = 0;
+        private final Map<String, Integer> dwarfCompositionTypes = new HashMap<>();
 
         void analyze(OrbitalBand band) {
             count++;
@@ -272,6 +274,10 @@ public class BeltDataCollector {
             int dwarfs = band.getDwarfPlanets().size();
             if (dwarfs > 0) beltsWithDwarfPlanets++;
             totalDwarfPlanets += dwarfs;
+            for (Planet dwarf : band.getDwarfPlanets()) {
+                String comp = dwarf.getCompositionClassification();
+                dwarfCompositionTypes.merge(comp != null ? comp : "UNKNOWN", 1, Integer::sum);
+            }
         }
 
         public Map<String, Object> toJson() {
@@ -291,6 +297,7 @@ public class BeltDataCollector {
             json.put("withCollisionalFamilies", familiesCount);
             json.put("withDwarfPlanets", beltsWithDwarfPlanets);
             json.put("totalDwarfPlanets", totalDwarfPlanets);
+            if (!dwarfCompositionTypes.isEmpty()) json.put("dwarfCompositionTypes", dwarfCompositionTypes);
             return json;
         }
     }

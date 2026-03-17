@@ -44,12 +44,16 @@ public class AtmosphereCreator {
     public AtmosphereResult generateAtmosphereWithTemplate(String planetType, double surfaceTemp,
                                                            double earthMass, double distanceAU,
                                                            Star parentStar) {
-        if (surfaceTemp > 2000 && !CelestialBodyUtils.isGasGiant(planetType)) {
+        // Types that physically require an atmosphere (e.g. Ocean Planet) skip
+        // all stripping logic — their volatile reservoir makes loss impossible.
+        boolean mustKeepAtmosphere = requiresAtmosphere(planetType);
+
+        if (surfaceTemp > 2000 && !CelestialBodyUtils.isGasGiant(planetType) && !mustKeepAtmosphere) {
             return new AtmosphereResult(createNoneAtmosphere(), null);
         }
 
-        if (!CelestialBodyUtils.isGasGiant(planetType)
-                && shouldLoseAtmosphere(earthMass, distanceAU, surfaceTemp, parentStar)) {
+        if (!CelestialBodyUtils.isGasGiant(planetType) && !mustKeepAtmosphere
+                && shouldLoseAtmosphere(planetType, earthMass, distanceAU, surfaceTemp, parentStar)) {
             return new AtmosphereResult(createNoneAtmosphere(), null);
         }
         List<AtmosphereTemplateRef> matchingTemplates = findMatchingTemplates(planetType, surfaceTemp, earthMass);
@@ -60,27 +64,31 @@ public class AtmosphereCreator {
         return new AtmosphereResult(generateFromTemplate(selectedTemplate, distanceAU, parentStar), selectedTemplate);
     }
 
-    private boolean shouldLoseAtmosphere(double earthMass, double distanceAU,
+    private boolean shouldLoseAtmosphere(String planetType, double earthMass, double distanceAU,
                                          double surfaceTemp, Star parentStar) {
         if (earthMass >= 50.0) {
             return false;
         }
 
+        // Volatile-rich planet types have massive outgassing reservoirs that
+        // continuously replenish their atmospheres, making loss far less likely.
+        double volatileResistance = volatileResistanceFactor(planetType);
+
         if (parentStar == null) {
             if (distanceAU < 0.1 && earthMass < 50.0 && surfaceTemp > 1000) {
-                return Math.random() < 0.3;
+                return Math.random() < 0.3 / volatileResistance;
             } else if (distanceAU < 0.5 && earthMass < 0.5 && surfaceTemp > 400) {
-                return Math.random() < 0.5;
+                return Math.random() < 0.5 / volatileResistance;
             } else if (distanceAU < 1.0 && earthMass < 0.3) {
-                return Math.random() < 0.2;
+                return Math.random() < 0.2 / volatileResistance;
             }
             return false;
         }
 
         double strippingFactor = StellarEnvironment.atmosphericStrippingFactor(parentStar, distanceAU);
 
-
-        double gravityResistance = Math.pow(earthMass, 0.6);
+        // Gravity resistance boosted by volatile outgassing for water/ice-rich worlds
+        double gravityResistance = Math.pow(earthMass, 0.6) * volatileResistance;
 
         double thermalEscapeFactor = 1.0;
         if (surfaceTemp > 1000) {
@@ -113,6 +121,32 @@ public class AtmosphereCreator {
         } else {
             return true;
         }
+    }
+
+    /**
+     * Returns true if the planet type physically requires an atmosphere to
+     * exist.  Ocean Planets need atmospheric pressure to maintain liquid water;
+     * without it the ocean would boil off instantly.  These types must never
+     * receive a NONE atmosphere regardless of stripping score.
+     */
+    private boolean requiresAtmosphere(String planetType) {
+        if (planetType == null) return false;
+        return planetType.toLowerCase().contains("ocean");
+    }
+
+    /**
+     * Returns a multiplier representing how effectively a planet's volatile
+     * reservoir resists atmospheric stripping.  Ice Worlds carry large ice
+     * mantles that sublimate under stellar flux, providing a replenishment
+     * buffer.
+     */
+    private double volatileResistanceFactor(String planetType) {
+        if (planetType == null) return 1.0;
+        String lower = planetType.toLowerCase();
+        if (lower.contains("ice")) {
+            return 3.0;    // large ice reservoir → strong buffer
+        }
+        return 1.0;
     }
 
     private List<AtmosphereTemplateRef> findMatchingTemplates(String planetType, double temp, double mass) {
