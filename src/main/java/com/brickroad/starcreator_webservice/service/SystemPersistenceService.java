@@ -39,12 +39,12 @@ public class SystemPersistenceService {
      * StarSystem -> Designation, Stars, FactionPresences
      * Star -> Designation, PhysicalProperties, OrbitalElements, Planets, OrbitalBands(Belts)
      * Planet -> Designation, PhysicalProperties, OrbitalElements, RotationProperties,
-     *           Atmosphere, CompositionProperties, WaterProperties, TerrainProperties,
+     *           Atmosphere, CompositionProperties, HydrologyProperties, TerrainProperties,
      *           MagneticField, Moons, Bands(Rings)
      * Moon -> (same component pattern as Planet)
      * OrbitalBand -> Designation, InnerOrbit, OuterOrbit, NotableAsteroids
      * Asteroid -> Designation, PhysicalProperties, OrbitalElements, RotationProperties,
-     *             TerrainProperties, WaterProperties, CompositionProperties
+     *             TerrainProperties, HydrologyProperties, CompositionProperties
      */
     @Transactional
     public StarSystem saveSystem(StarSystem system) {

@@ -21,7 +21,7 @@ public class StormCalculator {
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
         double rotationHours = planet.getRotationPeriodHours() != null ? Math.abs(planet.getRotationPeriodHours()) : 24.0;
-        double liquidWaterPercent = planet.getLiquidWaterCoveragePercent() != null ? planet.getLiquidWaterCoveragePercent() : 0.0;
+        double liquidWaterPercent = planet.getLiquidSurfaceCoveragePercent() != null ? planet.getLiquidSurfaceCoveragePercent() : 0.0;
         boolean tidallyLocked = Boolean.TRUE.equals(planet.getTidallyLocked());
         String erosionLevel = planet.getErosionLevel();
         String convectionLevel = planet.getAtmosphericConvectionLevel();

@@ -36,14 +36,15 @@ public class TemperatureClimateCalculator {
         weather.setDayNightTempRangeK(round2(dayNightRange));
 
         // Seasonal temperature amplitude
-        double seasonalAmp = calculateSeasonalAmplitude(surfaceTemp, axialTilt, eccentricity, pressureAtm, atmClass);
+        double seasonalAmp = calculateSeasonalAmplitude(surfaceTemp, axialTilt, eccentricity, pressureAtm, atmClass, tidallyLocked);
         weather.setSeasonalTempAmplitudeK(round2(seasonalAmp));
 
         // Season description
         weather.setSeasonDescription(generateSeasonDescription(axialTilt, eccentricity, seasonalAmp, tidallyLocked));
 
         // Equatorial and polar temperatures
-        calculateLatitudinalTemperatures(weather, surfaceTemp, axialTilt, dayNightRange, atmClass);
+        calculateLatitudinalTemperatures(weather, surfaceTemp, axialTilt, dayNightRange, atmClass,
+                tidallyLocked, pressureAtm);
 
         // Climate zones
         List<ClimateZone> zones = generateClimateZones(weather, planet, tidallyLocked, atmClass);
@@ -59,8 +60,8 @@ public class TemperatureClimateCalculator {
             return "EXTREME";
         }
 
-        double liquidWater = planet.getLiquidWaterCoveragePercent() != null ? planet.getLiquidWaterCoveragePercent() : 0.0;
-        double icePercent = planet.getIceCoveragePercent() != null ? planet.getIceCoveragePercent() : 0.0;
+        double liquidWater = planet.getLiquidSurfaceCoveragePercent() != null ? planet.getLiquidSurfaceCoveragePercent() : 0.0;
+        double icePercent = planet.getWaterIceCoveragePercent() != null ? planet.getWaterIceCoveragePercent() : 0.0;
 
         // Dense atmosphere dominates
         if (pressureAtm > 50) return "EXTREME";  // Venus-class
@@ -95,14 +96,13 @@ public class TemperatureClimateCalculator {
         }
 
         if (tidallyLocked) {
-            // Tidally locked: permanent day/night. Range depends on heat redistribution.
-            // With thick atmosphere: moderate (atmosphere transports heat)
-            // Without: extreme (Mercury-like)
-            double baseRange = surfaceTemp * 0.6;
-            if (pressureAtm > 5.0) return baseRange * 0.1;      // Dense atm redistribution (like if Venus were locked)
-            if (pressureAtm > 1.0) return baseRange * 0.25;     // Good redistribution
-            if (pressureAtm > 0.1) return baseRange * 0.5;      // Partial redistribution
-            return Math.min(baseRange, 500.0);                    // Near-vacuum: extreme
+            // Tidally locked: the "day/night range" IS the hemisphere contrast
+            // (substellar - antistellar). Compute from the same redistribution
+            // formula used for climate zones.
+            double redistribution = tidalRedistributionFactor(pressureAtm);
+            double substellarTemp = surfaceTemp * (1.0 + 0.3 * (1.0 - redistribution));
+            double antistellarTemp = surfaceTemp * (1.0 - 0.4 * (1.0 - redistribution));
+            return Math.max(0.5, substellarTemp - antistellarTemp);
         }
 
         // Non-locked rotation: base range from rotation period
@@ -151,12 +151,23 @@ public class TemperatureClimateCalculator {
     // ================================================================
 
     private double calculateSeasonalAmplitude(double surfaceTemp, double axialTilt,
-                                              double eccentricity, double pressureAtm, String atmClass) {
+                                              double eccentricity, double pressureAtm, String atmClass,
+                                              boolean tidallyLocked) {
 
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
             // Gas giants: internal heat dominates, minimal seasonal effect
             // But tilt can create some banding variation
             return axialTilt > 20 ? RandomUtils.rollRange(2.0, 8.0) : RandomUtils.rollRange(0.5, 3.0);
+        }
+
+        if (tidallyLocked) {
+            // Tidally locked: no axial-tilt-driven seasons. Only eccentricity contributes
+            // minor flux variations as orbital distance changes.
+            double fluxVariation = 4.0 * eccentricity;
+            double eccContribution = surfaceTemp * fluxVariation * 0.1;
+            if (pressureAtm > 5) eccContribution *= 0.2;
+            else if (pressureAtm > 1) eccContribution *= 0.7;
+            return Math.max(0.0, eccContribution);
         }
 
         // Tilt contribution: ΔT_tilt ∝ sin(tilt) × base_temp_factor
@@ -224,7 +235,8 @@ public class TemperatureClimateCalculator {
     // ================================================================
 
     private void calculateLatitudinalTemperatures(PlanetaryClimate weather, double surfaceTemp,
-                                                  double axialTilt, double dayNightRange, String atmClass) {
+                                                  double axialTilt, double dayNightRange, String atmClass,
+                                                  boolean tidallyLocked, double pressureAtm) {
 
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
             // Gas giants: equator slightly warmer than poles due to insolation geometry
@@ -232,6 +244,26 @@ public class TemperatureClimateCalculator {
             double gradient = RandomUtils.rollRange(5.0, 20.0);
             weather.setMeanEquatorialTempK(round2(surfaceTemp + gradient / 2));
             weather.setMeanPolarTempK(round2(surfaceTemp - gradient / 2));
+            return;
+        }
+
+        if (tidallyLocked) {
+            // On a tidally locked world, the dominant gradient is hemisphere-based
+            // (substellar vs antistellar), not latitude-based. But latitude still matters:
+            // the equator passes through the substellar point (warmest), while poles
+            // are always at oblique angles to stellar radiation even on the dayside.
+            double redistribution = tidalRedistributionFactor(pressureAtm);
+            double substellarTemp = surfaceTemp * (1.0 + 0.3 * (1.0 - redistribution));
+            double antistellarTemp = surfaceTemp * (1.0 - 0.4 * (1.0 - redistribution));
+
+            // Equatorial: slight boost because the substellar point is on the equator
+            double equatorialTemp = surfaceTemp + (substellarTemp - surfaceTemp) * 0.1;
+            // Polar: colder than antistellar — poles never face the star even on the dayside
+            double polarTemp = antistellarTemp - (substellarTemp - antistellarTemp) * 0.1;
+            polarTemp = Math.max(polarTemp, 2.7); // Can't go below cosmic microwave background
+
+            weather.setMeanEquatorialTempK(round2(equatorialTemp));
+            weather.setMeanPolarTempK(round2(polarTemp));
             return;
         }
 
@@ -338,8 +370,7 @@ public class TemperatureClimateCalculator {
         List<ClimateZone> zones = new ArrayList<>();
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
 
-        // Heat redistribution factor
-        double redistribution = pressureAtm > 5 ? 0.8 : pressureAtm > 1 ? 0.5 : pressureAtm > 0.1 ? 0.3 : 0.1;
+        double redistribution = tidalRedistributionFactor(pressureAtm);
 
         double substellarTemp = surfaceTemp * (1.0 + 0.3 * (1.0 - redistribution));
         double antistellarTemp = surfaceTemp * (1.0 - 0.4 * (1.0 - redistribution));
@@ -447,6 +478,22 @@ public class TemperatureClimateCalculator {
     // ================================================================
     // UTILITY
     // ================================================================
+
+    // ================================================================
+    // TIDAL LOCKING UTILITIES
+    // ================================================================
+
+    /**
+     * Heat redistribution factor for tidally locked worlds.
+     * Dense atmospheres transport heat from dayside to nightside, reducing the contrast.
+     * Shared between climate zone generation, dayNightRange, and hydrology.
+     */
+    public static double tidalRedistributionFactor(double pressureAtm) {
+        if (pressureAtm > 5) return 0.8;
+        if (pressureAtm > 1) return 0.5;
+        if (pressureAtm > 0.1) return 0.3;
+        return 0.1;
+    }
 
     private double round2(double value) {
         return Math.round(value * 100.0) / 100.0;

@@ -19,9 +19,10 @@ public class MoonDataCollector {
     private int moonsAssessed = 0;
 
     private final Map<String, Integer> moonWaterInventories = new HashMap<>();
-    private int moonsWithLiquidWater = 0;
+    private final Map<String, Integer> moonVolatileTypes = new HashMap<>();
+    private int moonsWithLiquidSurface = 0;
     private int moonsWithIce = 0;
-    private int moonsWithSubsurfaceWater = 0;
+    private int moonsWithSubsurfaceLiquid = 0;
     private int moonsWithSubsurfaceOcean = 0;
 
     private final Map<String, Integer> moonHabitabilityClasses = new HashMap<>();
@@ -150,15 +151,19 @@ public class MoonDataCollector {
             moonsAssessed++;
         }
 
-        String waterInv = moon.getWaterInventory();
+        String waterInv = moon.getLiquidInventory();
         if (waterInv != null) {
             moonWaterInventories.merge(waterInv, 1, Integer::sum);
-            Double liquidPct = moon.getLiquidWaterCoveragePercent();
-            Double icePct = moon.getIceCoveragePercent();
-            if (liquidPct != null && liquidPct > 0.1) moonsWithLiquidWater++;
+            Double liquidPct = moon.getLiquidSurfaceCoveragePercent();
+            Double icePct = moon.getWaterIceCoveragePercent();
+            if (liquidPct != null && liquidPct > 0.1) moonsWithLiquidSurface++;
             if (icePct != null && icePct > 0.1) moonsWithIce++;
-            if (Boolean.TRUE.equals(moon.getHasSubsurfaceWater())) moonsWithSubsurfaceWater++;
+            if (Boolean.TRUE.equals(moon.getHasSubsurfaceLiquid())) moonsWithSubsurfaceLiquid++;
         }
+
+        // Volatile type tracking
+        String volatileType = moon.getVolatileType() != null ? moon.getVolatileType() : "NULL";
+        moonVolatileTypes.merge(volatileType, 1, Integer::sum);
 
         if (mf != null) {
             moonsWithMagField++;

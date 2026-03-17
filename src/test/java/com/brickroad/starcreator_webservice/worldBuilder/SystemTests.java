@@ -1,8 +1,8 @@
 package com.brickroad.starcreator_webservice.worldBuilder;
 
 import com.brickroad.starcreator_webservice.creator.SystemCreator;
-import com.brickroad.starcreator_webservice.entity.ud.*;
-import com.brickroad.starcreator_webservice.enums.ColonizationSuitability;
+import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
+import com.brickroad.starcreator_webservice.worldBuilder.TestEnums.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -10,13 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -31,61 +25,13 @@ public class SystemTests extends AbstractCreatorTest {
     @Test
     public void findSystem() throws JsonProcessingException {
 
-        int starCount = 1;
-        String starType = "ANY";
-        boolean foundStar;
+        StarSystem system = SystemFinder.using(systemCreator)
+                .starCount(1)
+                .planetType(PlanetType.SUPER_EARTH)
+                .atmosphereClassification(Atmosphere.EARTH_LIKE)
+                .find();
 
-        String targetType = "Super-Earth";
-        String tempTarget = "SHIRT_SLEEVE";
-        boolean foundPlanet = false;
-
-        int maxAttempts = 10_000;
-        StarSystem system = null;
-
-        System.out.println("Searching for planet type: " + targetType);
-        System.out.println("Max attempts: " + maxAttempts);
-        System.out.println("---");
-
-        for (int i = 0; i < maxAttempts; i++) {
-            system = systemCreator.generateSystem();
-            for (Planet planet : system.getPlanets()) {
-                if (!targetType.equalsIgnoreCase("ANY")) {
-                    if (targetType.equalsIgnoreCase(planet.getPlanetType())) {
-                        foundPlanet = true;
-                    }
-                    //foundPlanet = true;
-//                    if (!tempTarget.equalsIgnoreCase(((Planet) planet).getHabitableZonePosition())) {
-//                        foundPlanet = false;
-//                    }
-                    //break;
-                }
-                foundPlanet = ColonizationSuitability.SHIRT_SLEEVE.equals((planet.getHabitability().getColonizationSuitability()));
-                if (foundPlanet) {break;}
-            }
-
-            if (!starType.equalsIgnoreCase("ANY")) {
-                foundStar = system.getStars().size() == starCount &&
-                        system.getStars().stream()
-                                .anyMatch(star -> star.getType().equalsIgnoreCase(starType));
-            } else {
-                foundStar = true;
-            }
-
-
-            if (foundPlanet && foundStar) {
-                break;
-            }
-            if (i % 100 == 0 && i > 0) {
-                System.out.println("Searched " + (i + 1) + " systems...");
-            }
-            system = null;
-        }
-
-        assertNotNull(system, "Failed to generate matching system after " + maxAttempts + " attempts");
-
-        Map<String, Object> testResults = new HashMap<>();
-        testResults.put("system", system);
-        String json = listToJsonString(testResults);
-        saveJson(json, "system");
+        assertNotNull(system);
+        saveJson(listToJsonString(Map.of("system", system)), "system");
     }
 }

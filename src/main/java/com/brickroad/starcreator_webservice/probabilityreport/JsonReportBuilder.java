@@ -63,6 +63,7 @@ public class JsonReportBuilder {
         report.put("notableAsteroids", buildAsteroidData());
         report.put("belts", buildBeltData());
         report.put("climate", buildClimateData());
+        report.put("surfaceDeposits", buildSurfaceDepositData());
         report.put("orbitalStability", buildOrbitalStabilityData());
         return report;
     }
@@ -176,7 +177,8 @@ public class JsonReportBuilder {
         planets.put("auroralIntensities", planetData.getAuroralIntensities());
         planets.put("beltIntensityInner", planetData.getBeltIntensityInner());
         planets.put("beltIntensityOuter", planetData.getBeltIntensityOuter());
-        planets.put("waterInventories", planetData.getWaterInventories());
+        planets.put("liquidInventories", planetData.getWaterInventories());
+        planets.put("volatileTypes", planetData.getVolatileTypes());
         planets.put("waterPhases", planetData.getWaterPhases());
         planets.put("habitabilityClasses", planetData.getHabitabilityClasses());
         planets.put("colonizationSuitabilities", planetData.getColonizationSuitabilities());
@@ -193,9 +195,9 @@ public class JsonReportBuilder {
         summary.put("planetsWithRings", planetData.getPlanetsWithRings());
         summary.put("planetsWithTrojans", planetData.getPlanetsWithTrojans());
         summary.put("planetsWithGeology", planetData.getPlanetsWithGeology());
-        summary.put("planetsWithLiquidWater", planetData.getPlanetsWithLiquidWater());
+        summary.put("planetsWithLiquidSurface", planetData.getPlanetsWithLiquidSurface());
         summary.put("planetsWithIce", planetData.getPlanetsWithIce());
-        summary.put("planetsWithSubsurfaceWater", planetData.getPlanetsWithSubsurfaceWater());
+        summary.put("planetsWithSubsurfaceLiquid", planetData.getPlanetsWithSubsurfaceLiquid());
         summary.put("breathablePlanets", planetData.getBreathablePlanets());
         summary.put("habAssessmentCount", planetData.getHabAssessmentCount());
         if (planetData.getPhysicalPropsCount() > 0) {
@@ -246,6 +248,12 @@ public class JsonReportBuilder {
             distMag.put(e.getKey(), entry);
         }
         crossRef.put("distanceVsMagnetopause", distMag);
+
+        // Volatile type cross-references
+        crossRef.put("volatileTypeByPlanetType", buildCrossTab(planetData.getVolatileTypeByPlanetType()));
+        crossRef.put("volatileTypeByAtmosphere", buildCrossTab(planetData.getVolatileTypeByAtmosphere()));
+        crossRef.put("volatileTypeByComposition", buildCrossTab(planetData.getVolatileTypeByComposition()));
+
         planets.put("crossReference", crossRef);
 
         // Per-type breakdown (single-star / non-P-type systems)
@@ -324,13 +332,14 @@ public class JsonReportBuilder {
         magField.put("protectionLevels", moonData.getMoonProtectionLevels());
         moons.put("magneticFields", magField);
 
-        // Water
-        Map<String, Object> water = new LinkedHashMap<>();
-        water.put("inventories", moonData.getMoonWaterInventories());
-        water.put("moonsWithLiquidWater", moonData.getMoonsWithLiquidWater());
-        water.put("moonsWithIce", moonData.getMoonsWithIce());
-        water.put("moonsWithSubsurfaceWater", moonData.getMoonsWithSubsurfaceWater());
-        moons.put("water", water);
+        // Hydrology
+        Map<String, Object> hydrology = new LinkedHashMap<>();
+        hydrology.put("inventories", moonData.getMoonWaterInventories());
+        hydrology.put("volatileTypes", moonData.getMoonVolatileTypes());
+        hydrology.put("moonsWithLiquidSurface", moonData.getMoonsWithLiquidSurface());
+        hydrology.put("moonsWithIce", moonData.getMoonsWithIce());
+        hydrology.put("moonsWithSubsurfaceLiquid", moonData.getMoonsWithSubsurfaceLiquid());
+        moons.put("hydrology", hydrology);
 
         // Habitability
         Map<String, Object> hab = new LinkedHashMap<>();
@@ -623,6 +632,42 @@ public class JsonReportBuilder {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    //  Surface Deposits
+    // ═══════════════════════════════════════════════════════════════
+
+    private Map<String, Object> buildSurfaceDepositData() {
+        Map<String, Object> deposits = new LinkedHashMap<>();
+
+        // Summary
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("planetsWithDeposits", planetData.getPlanetsWithDeposits());
+        summary.put("totalDepositInstances", planetData.getTotalDepositCount());
+        if (planetData.getPlanetsWithDeposits() > 0) {
+            summary.put("avgDepositsPerPlanet", round(planetData.getTotalDepositCount() * 1.0 / planetData.getPlanetsWithDeposits()));
+        }
+        if (planetData.getDominantCoverageCount() > 0) {
+            summary.put("avgDominantCoverage", round(planetData.getTotalDominantCoverage() / planetData.getDominantCoverageCount()));
+        }
+        deposits.put("summary", summary);
+
+        // Distribution maps
+        int totalInstances = planetData.getTotalDepositCount();
+        deposits.put("depositTypes", planetData.getDepositTypes());
+        deposits.put("depositSources", planetData.getDepositSources());
+        deposits.put("depositThickness", planetData.getDepositThickness());
+
+        // Cross-reference tables
+        Map<String, Object> crossRef = new LinkedHashMap<>();
+        crossRef.put("byAtmosphere", buildCrossTab(planetData.getDepositTypeByAtmosphere(), "depositTypes"));
+        crossRef.put("byVolatileType", buildCrossTab(planetData.getDepositTypeByVolatile(), "depositTypes"));
+        crossRef.put("byStarType", buildCrossTab(planetData.getDepositTypeByStarType(), "depositTypes"));
+        crossRef.put("byPlanetType", buildCrossTab(planetData.getDepositTypeByPlanetType(), "depositTypes"));
+        deposits.put("crossReference", crossRef);
+
+        return deposits;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     //  Orbital Stability
     // ═══════════════════════════════════════════════════════════════
 
@@ -734,6 +779,31 @@ public class JsonReportBuilder {
         }
 
         return stability;
+    }
+
+    private Map<String, Object> buildCrossTab(Map<String, Map<String, Integer>> data) {
+        return buildCrossTab(data, "volatileTypes");
+    }
+
+    private Map<String, Object> buildCrossTab(Map<String, Map<String, Integer>> data, String innerKey) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : data.entrySet()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            int total = entry.getValue().values().stream().mapToInt(Integer::intValue).sum();
+            row.put("total", total);
+            Map<String, Object> types = new LinkedHashMap<>();
+            entry.getValue().entrySet().stream()
+                    .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                    .forEach(e -> {
+                        Map<String, Object> typeEntry = new LinkedHashMap<>();
+                        typeEntry.put("count", e.getValue());
+                        typeEntry.put("percent", round(e.getValue() * 100.0 / Math.max(1, total)));
+                        types.put(e.getKey(), typeEntry);
+                    });
+            row.put(innerKey, types);
+            result.put(entry.getKey(), row);
+        }
+        return result;
     }
 
     private double round(double val) {

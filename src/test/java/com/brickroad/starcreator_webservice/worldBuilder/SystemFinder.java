@@ -89,9 +89,9 @@ public class SystemFinder {
     public SystemFinder lifeComplexity(TestEnums.LifeComplexity complexity) { return lifeComplexity(complexity.toString()); }
 
     public SystemFinder hasLiquidWater() {
-        planetPredicates.add(p -> p.getWater() != null
-                && p.getWater().getLiquidWaterCoveragePercent() != null
-                && p.getWater().getLiquidWaterCoveragePercent() > 0);
+        planetPredicates.add(p -> p.getHydrology() != null
+                && p.getHydrology().getLiquidSurfaceCoveragePercent() != null
+                && p.getHydrology().getLiquidSurfaceCoveragePercent() > 0);
         return this;
     }
 

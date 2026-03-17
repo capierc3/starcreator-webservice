@@ -31,10 +31,10 @@ class SurfaceColorDeriverTest {
         p.setAtmosphere(atmo);
 
         // Water
-        WaterProperties water = new WaterProperties();
-        water.setWaterCoveragePercent(waterPct);
-        water.setIceCoveragePercent(icePct);
-        p.setWater(water);
+        HydrologyProperties water = new HydrologyProperties();
+        water.setLiquidCoveragePercent(waterPct);
+        water.setWaterIceCoveragePercent(icePct);
+        p.setHydrology(water);
 
         // Terrain with volcanism
         TerrainProperties terrain = new TerrainProperties();

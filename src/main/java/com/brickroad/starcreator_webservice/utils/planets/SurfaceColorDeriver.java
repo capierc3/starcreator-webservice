@@ -1,6 +1,9 @@
 package com.brickroad.starcreator_webservice.utils.planets;
 
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
+import com.brickroad.starcreator_webservice.model.climate.SurfaceDeposit;
+
+import java.util.List;
 
 /**
  * Derives surface colors for a planet based on its physical, compositional,
@@ -110,9 +113,9 @@ public final class SurfaceColorDeriver {
     private static String deriveFromComposition(String compClass, Planet planet) {
         Double temp = planet.getSurfaceTemp();
         double t = temp != null ? temp : 288.0;
-        Double waterPct = planet.getWaterCoveragePercent();
+        Double waterPct = planet.getLiquidCoveragePercent();
         double water = waterPct != null ? waterPct : 0.0;
-        Double icePct = planet.getIceCoveragePercent();
+        Double icePct = planet.getWaterIceCoveragePercent();
         double ice = icePct != null ? icePct : 0.0;
 
         if (compClass == null) {
@@ -123,7 +126,7 @@ public final class SurfaceColorDeriver {
             case "SILICATE_RICH" -> {
                 // Earth-like rock: browns, tans, grey-greens depending on temperature
                 if (water > 50) {
-                    yield "#3377aa"; // Ocean-dominated view
+                    yield liquidDominantColor(planet, "#3377aa");
                 } else if (t > 600) {
                     yield "#8b6644"; // Baked brown rock
                 } else if (t > 350) {
@@ -169,7 +172,13 @@ public final class SurfaceColorDeriver {
                 }
             }
             case "OCEAN_WORLD" -> {
-                // Deep global ocean
+                // Deep global ocean — color depends on liquid type
+                String volatileType = planet.getVolatileType();
+                if ("METHANE".equals(volatileType) || "METHANE_ETHANE".equals(volatileType)) {
+                    yield t > 100 ? "#886633" : "#775522"; // Amber/brown methane seas
+                } else if ("AMMONIA".equals(volatileType) || "AMMONIA_WATER".equals(volatileType)) {
+                    yield t > 220 ? "#445588" : "#556699"; // Grey-blue ammonia ocean
+                }
                 if (t > 350) {
                     yield "#336688"; // Hot ocean — darker blue
                 } else if (t > 250) {
@@ -204,6 +213,17 @@ public final class SurfaceColorDeriver {
         };
     }
 
+    private static String liquidDominantColor(Planet planet, String waterDefault) {
+        String volatileType = planet.getVolatileType();
+        if ("METHANE".equals(volatileType) || "METHANE_ETHANE".equals(volatileType)) {
+            return "#886633"; // Amber/brown methane seas
+        }
+        if ("AMMONIA".equals(volatileType) || "AMMONIA_WATER".equals(volatileType)) {
+            return "#445588"; // Grey-blue ammonia ocean
+        }
+        return waterDefault;
+    }
+
     private static String fallbackFromTemperature(double temp) {
         if (temp > 1500) return "#cc5533";  // Very hot — lava tones
         if (temp > 600)  return "#aa8855";  // Hot — desert brown
@@ -220,9 +240,9 @@ public final class SurfaceColorDeriver {
     private static String deriveSecondaryColor(Planet planet, String primaryColor) {
         Double temp = planet.getSurfaceTemp();
         double t = temp != null ? temp : 288.0;
-        Double waterPct = planet.getWaterCoveragePercent();
+        Double waterPct = planet.getLiquidCoveragePercent();
         double water = waterPct != null ? waterPct : 0.0;
-        Double icePct = planet.getIceCoveragePercent();
+        Double icePct = planet.getWaterIceCoveragePercent();
         double ice = icePct != null ? icePct : 0.0;
         Boolean volcanic = planet.getHasVolcanicActivity();
         String volcType = planet.getVolcanismType();
@@ -246,9 +266,10 @@ public final class SurfaceColorDeriver {
             return "#ddeeff"; // Ice cap white-blue
         }
 
-        // Priority 3: Significant water → ocean blue accent
+        // Priority 3: Significant liquid → accent color matches liquid type
         if (water > 30) {
-            return "#4488bb"; // Ocean accent
+            String liqColor = planet.getLiquidColorPrimary();
+            return liqColor != null ? liqColor : "#4488bb";
         }
 
         // Priority 4: Temperature-based accent
@@ -283,11 +304,17 @@ public final class SurfaceColorDeriver {
             return new SurfaceColors("#cc5533", "#ee5544");
         }
 
-        // Ocean Planet: guaranteed blue dominance
+        // Ocean Planet: color depends on liquid type
         if (t.contains("ocean")) {
-            Double icePct = planet.getIceCoveragePercent();
+            Double icePct = planet.getWaterIceCoveragePercent();
             if (icePct != null && icePct > 40) {
                 return new SurfaceColors("#4499aa", "#ddeeff"); // Frozen ocean
+            }
+            String volatileType = planet.getVolatileType();
+            if ("METHANE".equals(volatileType) || "METHANE_ETHANE".equals(volatileType)) {
+                return new SurfaceColors("#886633", "#997744");
+            } else if ("AMMONIA".equals(volatileType) || "AMMONIA_WATER".equals(volatileType)) {
+                return new SurfaceColors("#445588", "#556699");
             }
             return new SurfaceColors("#3388aa", "#55aacc");
         }
@@ -333,6 +360,77 @@ public final class SurfaceColorDeriver {
 
         // No override needed — composition-derived colors are adequate
         return null;
+    }
+
+    // =========================================================================
+    // Deposit-based color adjustment
+    // =========================================================================
+
+    /**
+     * Adjust a planet or moon's surface colors based on dominant surface deposits.
+     * Called after climate generation, so deposits are available.
+     * <p>
+     * If the dominant deposit covers >30% of the surface, the primary color
+     * blends toward the deposit's color hint. If a second deposit covers >15%,
+     * the secondary color blends toward that deposit's color.
+     *
+     * @param currentPrimary   current surface primary color hex
+     * @param currentSecondary current surface secondary color hex
+     * @param deposits         computed surface deposits (sorted by dominance)
+     * @return adjusted colors, or original if no significant deposits
+     */
+    public static SurfaceColors adjustForDeposits(String currentPrimary, String currentSecondary,
+                                                   List<SurfaceDeposit> deposits) {
+        if (deposits == null || deposits.isEmpty()) {
+            return new SurfaceColors(currentPrimary, currentSecondary);
+        }
+
+        String primary = currentPrimary != null ? currentPrimary : "#888888";
+        String secondary = currentSecondary != null ? currentSecondary : "#777777";
+
+        // Dominant deposit influences primary color
+        SurfaceDeposit dominant = deposits.get(0);
+        if (dominant.getCoveragePercent() != null && dominant.getCoveragePercent() > 30
+                && dominant.getColorHint() != null) {
+            double weight = Math.min(0.7, dominant.getCoveragePercent() / 100.0);
+            primary = blendColors(primary, dominant.getColorHint(), weight);
+        }
+
+        // Second deposit influences secondary color
+        if (deposits.size() > 1) {
+            SurfaceDeposit second = deposits.get(1);
+            if (second.getCoveragePercent() != null && second.getCoveragePercent() > 15
+                    && second.getColorHint() != null) {
+                double weight = Math.min(0.5, second.getCoveragePercent() / 100.0);
+                secondary = blendColors(secondary, second.getColorHint(), weight);
+            }
+        }
+
+        return new SurfaceColors(primary, secondary);
+    }
+
+    /**
+     * Blend two hex colors with a weight (0 = all colorA, 1 = all colorB).
+     */
+    static String blendColors(String colorA, String colorB, double weight) {
+        if (colorA == null || colorA.length() != 7) return colorB;
+        if (colorB == null || colorB.length() != 7) return colorA;
+        try {
+            int rA = Integer.parseInt(colorA.substring(1, 3), 16);
+            int gA = Integer.parseInt(colorA.substring(3, 5), 16);
+            int bA = Integer.parseInt(colorA.substring(5, 7), 16);
+            int rB = Integer.parseInt(colorB.substring(1, 3), 16);
+            int gB = Integer.parseInt(colorB.substring(3, 5), 16);
+            int bB = Integer.parseInt(colorB.substring(5, 7), 16);
+
+            int r = clamp((int) (rA * (1 - weight) + rB * weight));
+            int g = clamp((int) (gA * (1 - weight) + gB * weight));
+            int b = clamp((int) (bA * (1 - weight) + bB * weight));
+
+            return String.format("#%02x%02x%02x", r, g, b);
+        } catch (NumberFormatException e) {
+            return colorA;
+        }
     }
 
     // =========================================================================

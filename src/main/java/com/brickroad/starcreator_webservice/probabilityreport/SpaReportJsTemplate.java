@@ -32,6 +32,7 @@ const PAGES = {
   asteroids:  { label: 'Asteroids',        icon: '\u2B25',  render: renderNotableAsteroids },
   belts:      { label: 'Belts',             icon: '\u2058',  render: renderBelts },
   climate:    { label: 'Climate',           icon: '\u2602',  render: renderClimate },
+  deposits:   { label: 'Surface Deposits', icon: '\u2B22',  render: renderDeposits },
   stability:  { label: 'Orbital Stability', icon: '\u2300',  render: renderStability },
   viewer:     { label: 'System Viewer',     icon: '\u269B',  render: renderViewer }
 };
@@ -86,7 +87,7 @@ function initApp() {
   title1.textContent = 'REPORT';
   nav.appendChild(title1);
 
-  const reportPages = ['dashboard','stars','planets','moons','rings','trojans','asteroids','belts','climate','stability'];
+  const reportPages = ['dashboard','stars','planets','moons','rings','trojans','asteroids','belts','climate','deposits','stability'];
   const viewerPages = ['viewer'];
 
   reportPages.forEach(key => {
@@ -365,6 +366,45 @@ function stabilityCrossRef(container, data, rowLabel) {
   xrefTable(container, data, rowLabel, cols);
 }
 
+/** Volatile type cross-tab: {category: {total, volatileTypes: {TYPE: {count, percent}}}} */
+function volatileCrossTab(container, data) {
+  if (!data || Object.keys(data).length === 0) return;
+  // Collect all volatile type columns
+  var colSet = new Set();
+  for (var row of Object.values(data)) {
+    if (row.volatileTypes) {
+      for (var k of Object.keys(row.volatileTypes)) colSet.add(k);
+    }
+  }
+  var cols = Array.from(colSet).sort();
+  var tbl = el('table', 'xref-table');
+  var hdr = '<thead><tr><th>Category</th><th>Total</th>';
+  for (var ck of cols) hdr += '<th>' + esc(ck) + '</th>';
+  hdr += '</tr></thead>';
+  tbl.innerHTML = hdr;
+  var tbody = el('tbody');
+  // Sort by total descending
+  var entries = Object.entries(data).sort(function(a, b) { return (b[1].total || 0) - (a[1].total || 0); });
+  for (var i = 0; i < entries.length; i++) {
+    var rk = entries[i][0];
+    var row = entries[i][1];
+    var tr = el('tr');
+    var html = '<td>' + esc(rk) + '</td><td>' + fmt(row.total || 0) + '</td>';
+    for (var j = 0; j < cols.length; j++) {
+      var vt = row.volatileTypes ? row.volatileTypes[cols[j]] : null;
+      if (vt) {
+        html += '<td>' + fmt(vt.count) + ' (' + round2(vt.percent) + '%)</td>';
+      } else {
+        html += '<td>-</td>';
+      }
+    }
+    tr.innerHTML = html;
+    tbody.appendChild(tr);
+  }
+  tbl.appendChild(tbody);
+  container.appendChild(tbl);
+}
+
 /** Finding callout */
 function finding(container, type, text) {
   const div = el('div', 'finding finding-' + type);
@@ -462,7 +502,7 @@ function renderDashboard(c) {
     hCard.innerHTML = '<div style="margin-bottom:12px">' +
       '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Habitability</div>' +
       '<div style="font-family:var(--font-data);font-size:18px;color:var(--safe)">' + fmt(pSum.breathablePlanets || 0) + '</div>' +
-      '<div style="font-family:var(--font-data);font-size:11px;color:var(--text-dim)">breathable atmospheres &middot; ' + fmt(pSum.planetsWithLiquidWater || 0) + ' with liquid water</div>' +
+      '<div style="font-family:var(--font-data);font-size:11px;color:var(--text-dim)">breathable atmospheres &middot; ' + fmt(pSum.planetsWithLiquidSurface || 0) + ' with liquid surface</div>' +
       '</div>';
     grid.appendChild(hCard);
 
@@ -763,18 +803,21 @@ function renderPlanets(c) {
     distTable(body, P.volcanismTypes, S.planetsWithGeology || totalPlanets, 'Volcanism Type');
   });
 
-  // Water & Habitability
-  sectionCard(c, 'Water & Habitability', '#34d399', function(body) {
+  // Hydrology & Habitability
+  sectionCard(c, 'Hydrology & Habitability', '#34d399', function(body) {
     statGrid(body, [
-      { value: fmt(S.planetsWithLiquidWater || 0), label: 'Liquid Water', cls: 'info' },
+      { value: fmt(S.planetsWithLiquidSurface || 0), label: 'Liquid Surface', cls: 'info' },
       { value: fmt(S.planetsWithIce || 0), label: 'With Ice', cls: 'cyan' },
-      { value: fmt(S.planetsWithSubsurfaceWater || 0), label: 'Subsurface Water' },
+      { value: fmt(S.planetsWithSubsurfaceLiquid || 0), label: 'Subsurface Liquid' },
       { value: S.avgHabScore != null ? round2(S.avgHabScore) : '-', label: 'Avg Hab Score', cls: 'safe' }
     ]);
     twoCol(body,
       function(left) {
-        collapsible(left, 'Water Inventories', function(cb) {
-          distTable(cb, P.waterInventories, totalPlanets, 'Inventory');
+        collapsible(left, 'Liquid Inventories', function(cb) {
+          distTable(cb, P.liquidInventories, totalPlanets, 'Inventory');
+        }, true);
+        collapsible(left, 'Volatile Types', function(cb) {
+          distTable(cb, P.volatileTypes, totalPlanets, 'Type');
         }, true);
         collapsible(left, 'Habitability Classes', function(cb) {
           distTable(cb, P.habitabilityClasses, S.habAssessmentCount || totalPlanets, 'Class');
@@ -798,6 +841,24 @@ function renderPlanets(c) {
     collapsible(body, 'Terraforming Potentials', function(cb) {
       distTable(cb, P.terraformingPotentials, S.habAssessmentCount || totalPlanets, 'Potential');
     });
+
+    // Volatile type cross-reference tables
+    var xref = P.crossReference || {};
+    if (xref.volatileTypeByPlanetType) {
+      collapsible(body, 'Volatile Type by Planet Type', function(cb) {
+        volatileCrossTab(cb, xref.volatileTypeByPlanetType);
+      });
+    }
+    if (xref.volatileTypeByAtmosphere) {
+      collapsible(body, 'Volatile Type by Atmosphere', function(cb) {
+        volatileCrossTab(cb, xref.volatileTypeByAtmosphere);
+      });
+    }
+    if (xref.volatileTypeByComposition) {
+      collapsible(body, 'Volatile Type by Composition', function(cb) {
+        volatileCrossTab(cb, xref.volatileTypeByComposition);
+      });
+    }
   });
 
   // Per-type breakdown (Single Star)
@@ -891,9 +952,11 @@ function renderPlanetPerType(c, data, heading, totalPlanets) {
       if (td.moonletBins) collapsible(body, 'Additional Moonlets', function(cb) { distTable(cb, td.moonletBins, count, 'Moonlets', { sortByKey: true }); });
 
       // ── Habitability & Geology ──
-      if (td.waterInventories) collapsible(body, 'Water Inventory', function(cb) { distTable(cb, td.waterInventories, count, 'Inventory'); });
+      if (td.waterInventories) collapsible(body, 'Liquid Inventory', function(cb) { distTable(cb, td.waterInventories, count, 'Inventory'); });
+      if (td.volatileTypes) collapsible(body, 'Volatile Types', function(cb) { distTable(cb, td.volatileTypes, count, 'Type'); });
       if (td.habitabilityClasses) collapsible(body, 'Habitability', function(cb) { distTable(cb, td.habitabilityClasses, count, 'Class'); });
       if (td.geologicalActivity) collapsible(body, 'Geological Activity', function(cb) { distTable(cb, td.geologicalActivity, count, 'Activity'); });
+      if (td.depositTypes) collapsible(body, 'Surface Deposits', function(cb) { distTable(cb, td.depositTypes, count, 'Deposit Type'); });
     }, false);
   }
 }
@@ -1014,16 +1077,19 @@ function renderMoons(c) {
     });
   }
 
-  // Water
-  if (M.water) {
-    sectionCard(c, 'Water', '#34d399', function(body) {
-      const w = M.water;
+  // Hydrology
+  var mHydro = M.hydrology || M.water;
+  if (mHydro) {
+    sectionCard(c, 'Hydrology', '#34d399', function(body) {
       statGrid(body, [
-        { value: fmt(w.moonsWithLiquidWater || 0), label: 'Liquid Water', cls: 'info' },
-        { value: fmt(w.moonsWithIce || 0), label: 'With Ice', cls: 'cyan' },
-        { value: fmt(w.moonsWithSubsurfaceWater || 0), label: 'Subsurface Water' }
+        { value: fmt(mHydro.moonsWithLiquidSurface || mHydro.moonsWithLiquidWater || 0), label: 'Liquid Surface', cls: 'info' },
+        { value: fmt(mHydro.moonsWithIce || 0), label: 'With Ice', cls: 'cyan' },
+        { value: fmt(mHydro.moonsWithSubsurfaceLiquid || mHydro.moonsWithSubsurfaceWater || 0), label: 'Subsurface Liquid' }
       ]);
-      distTable(body, w.inventories, totalMoons, 'Inventory');
+      twoCol(body,
+        function(left) { distTable(left, mHydro.inventories, totalMoons, 'Inventory'); },
+        function(right) { if (mHydro.volatileTypes) distTable(right, mHydro.volatileTypes, totalMoons, 'Volatile Type'); }
+      );
     });
   }
 
@@ -1411,6 +1477,89 @@ function renderWeatherBucket(c, bucket, title) {
       collapsible(body, 'Tidal Range', function(cb) { distTable(cb, bucket.tidalRangeBins, count, 'Range', { sortByKey: true, stripPrefixes: true }); });
     }
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE: Surface Deposits
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderDeposits(c) {
+  const R = REPORT_DATA;
+  const D = R.surfaceDeposits || {};
+  const S = D.summary || {};
+
+  pageHeader(c, 'Surface Deposits', 'Materials accumulating on planet surfaces from precipitation, volcanism, photochemistry, and biological activity');
+
+  statGrid(c, [
+    { value: fmt(S.planetsWithDeposits || 0), label: 'Planets w/ Deposits' },
+    { value: fmt(S.totalDepositInstances || 0), label: 'Total Instances', cls: 'cyan' },
+    { value: S.avgDepositsPerPlanet != null ? round2(S.avgDepositsPerPlanet) : '-', label: 'Avg per Planet' },
+    { value: S.avgDominantCoverage != null ? round2(S.avgDominantCoverage) + '%' : '-', label: 'Avg Dominant Coverage', cls: 'safe' }
+  ]);
+
+  var totalInstances = S.totalDepositInstances || 0;
+
+  twoCol(c,
+    function(left) {
+      sectionCard(left, 'Deposit Types', '#f59e0b', function(body) {
+        distTable(body, D.depositTypes, totalInstances, 'Type');
+      });
+      sectionCard(left, 'Deposit Thickness', '#a78bfa', function(body) {
+        distTable(body, D.depositThickness, totalInstances, 'Thickness');
+      });
+    },
+    function(right) {
+      sectionCard(right, 'Deposit Sources', '#40d8d8', function(body) {
+        distTable(body, D.depositSources, totalInstances, 'Source');
+      });
+    }
+  );
+
+  // Cross-reference tables
+  var xref = D.crossReference || {};
+
+  sectionCard(c, 'Deposits by Atmosphere Type', '#60a5fa', function(body) {
+    renderDepositCrossRef(body, xref.byAtmosphere, 'Atmosphere');
+  });
+
+  sectionCard(c, 'Deposits by Planet Type', '#34d399', function(body) {
+    renderDepositCrossRef(body, xref.byPlanetType, 'Planet Type');
+  });
+
+  sectionCard(c, 'Deposits by Star Type', '#f59e0b', function(body) {
+    renderDepositCrossRef(body, xref.byStarType, 'Star Type');
+  });
+
+  sectionCard(c, 'Deposits by Volatile Type', '#a78bfa', function(body) {
+    renderDepositCrossRef(body, xref.byVolatileType, 'Volatile Type');
+  });
+}
+
+function renderDepositCrossRef(body, data, rowLabel) {
+  if (!data || Object.keys(data).length === 0) { note(body, 'No data.'); return; }
+
+  for (var key of Object.keys(data).sort()) {
+    var row = data[key];
+    var depTypes = row.depositTypes || {};
+    if (Object.keys(depTypes).length === 0) continue;
+
+    collapsible(body, key + ' (' + fmt(row.total || 0) + ' instances)', function(cb) {
+      var tbl = el('table', 'data-table');
+      tbl.innerHTML = '<thead><tr><th>Deposit Type</th><th class="num">Count</th><th class="num">%</th><th>Bar</th></tr></thead>';
+      var tbody = el('tbody');
+      var entries = Object.entries(depTypes).sort(function(a, b) { return b[1].count - a[1].count; });
+      for (var i = 0; i < entries.length; i++) {
+        var tr = el('tr');
+        tr.innerHTML = '<td class="key-col">' + esc(entries[i][0]) + '</td>' +
+          '<td class="num">' + fmt(entries[i][1].count) + '</td>' +
+          '<td class="num">' + round2(entries[i][1].percent) + '%</td>' +
+          '<td>' + bar(entries[i][1].percent) + '</td>';
+        tbody.appendChild(tr);
+      }
+      tbl.appendChild(tbody);
+      cb.appendChild(tbl);
+    });
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════

@@ -464,10 +464,10 @@ public class HabitabilityCreator {
     private void assessWaterPotential(PlanetaryHabitability hab, Planet planet) {
         Double temp = planet.getSurfaceTemp();
         Double pressure = planet.getSurfacePressure();
-        String waterInv = planet.getWaterInventory();
+        String waterInv = planet.getLiquidInventory();
 
         // Surface liquid water possible? (from WaterCreator's assessment)
-        Double liquidPercent = planet.getLiquidWaterCoveragePercent();
+        Double liquidPercent = planet.getLiquidSurfaceCoveragePercent();
         hab.setSurfaceLiquidWaterPossible(liquidPercent != null && liquidPercent > 0.1);
 
         // Water phase at surface
@@ -475,8 +475,8 @@ public class HabitabilityCreator {
             hab.setWaterPhaseAtSurface("UNKNOWN");
         }
 
-        double liquidPct = planet.getLiquidWaterCoveragePercent() != null ? planet.getLiquidWaterCoveragePercent() : 0.0;
-        double icePct = planet.getIceCoveragePercent() != null ? planet.getIceCoveragePercent() : 0.0;
+        double liquidPct = planet.getLiquidSurfaceCoveragePercent() != null ? planet.getLiquidSurfaceCoveragePercent() : 0.0;
+        double icePct = planet.getWaterIceCoveragePercent() != null ? planet.getWaterIceCoveragePercent() : 0.0;
 
         if (temp > 647) {
             hab.setWaterPhaseAtSurface("SUPERCRITICAL");
@@ -488,7 +488,7 @@ public class HabitabilityCreator {
             hab.setWaterPhaseAtSurface("LIQUID");
         } else if (icePct > 0.1) {
             hab.setWaterPhaseAtSurface("ICE");
-        } else if ("NONE".equals(planet.getWaterInventory()) || (liquidPct <= 0 && icePct <= 0)) {
+        } else if ("NONE".equals(planet.getLiquidInventory()) || (liquidPct <= 0 && icePct <= 0)) {
             hab.setWaterPhaseAtSurface("NONE");
         } else {
             hab.setWaterPhaseAtSurface("VAPOR");
@@ -506,7 +506,7 @@ public class HabitabilityCreator {
         }
 
         // Subsurface ocean
-        hab.setSubsurfaceOceanPossible(Boolean.TRUE.equals(planet.getHasSubsurfaceWater()));
+        hab.setSubsurfaceOceanPossible(Boolean.TRUE.equals(planet.getHasSubsurfaceLiquid()));
 
         // Water source likelihood (from inventory)
         hab.setWaterSourceLikelihood(waterInv != null ? waterInv : "NONE");
@@ -515,14 +515,14 @@ public class HabitabilityCreator {
     private void assessMoonWater(PlanetaryHabitability hab, Moon moon) {
         Double temp = moon.getSurfaceTemp();
         Double pressure = moon.getSurfacePressure();
-        String waterInv = moon.getWaterInventory();
+        String waterInv = moon.getLiquidInventory();
 
-        Double liquidPercent = moon.getLiquidWaterCoveragePercent();
+        Double liquidPercent = moon.getLiquidSurfaceCoveragePercent();
         hab.setSurfaceLiquidWaterPossible(liquidPercent != null && liquidPercent > 0.1);
 
         // Water phase
         double liquidPct = liquidPercent != null ? liquidPercent : 0.0;
-        double icePct = moon.getIceCoveragePercent() != null ? moon.getIceCoveragePercent() : 0.0;
+        double icePct = moon.getWaterIceCoveragePercent() != null ? moon.getWaterIceCoveragePercent() : 0.0;
 
         if (temp == null || pressure == null) {
             hab.setWaterPhaseAtSurface("UNKNOWN");
@@ -563,7 +563,7 @@ public class HabitabilityCreator {
         // and other geologically-driven chemical recycling processes.
         boolean hasTectonics = Boolean.TRUE.equals(planet.getHasPlateTectonics());
         boolean hasVolcanism = Boolean.TRUE.equals(planet.getHasVolcanicActivity());
-        String waterInv = planet.getWaterInventory();
+        String waterInv = planet.getLiquidInventory();
         boolean hasWater = waterInv != null && !"NONE".equals(waterInv) && !"TRACE".equals(waterInv);
 
         boolean geochemCycle = hasTectonics && hasVolcanism && hasWater;
@@ -655,7 +655,7 @@ public class HabitabilityCreator {
         }
 
         // Nutrient cycling (requires liquid water + geological activity)
-        boolean hasWater = moon.getWaterInventory() != null && !"NONE".equals(moon.getWaterInventory());
+        boolean hasWater = moon.getLiquidInventory() != null && !"NONE".equals(moon.getLiquidInventory());
         boolean hasActivity = !"NONE".equals(moon.getGeologicalActivity());
         boolean hasCryo = Boolean.TRUE.equals(moon.getHasCryovolcanism());
 
@@ -830,9 +830,9 @@ public class HabitabilityCreator {
 
         String atmClass = planet.getAtmosphereClassification() != null ? planet.getAtmosphereClassification() : "";
         Double temp = planet.getSurfaceTemp();
-        String waterInv = planet.getWaterInventory();
+        String waterInv = planet.getLiquidInventory();
         boolean hasLiquidWater = Boolean.TRUE.equals(hab.getSurfaceLiquidWaterPossible());
-        boolean hasSubsurfaceWater = Boolean.TRUE.equals(planet.getHasSubsurfaceWater());
+        boolean hasSubsurfaceWater = Boolean.TRUE.equals(planet.getHasSubsurfaceLiquid());
 
         // O2 + CH4 coexistence (strong biosignature - thermodynamically unstable without biology)
         double o2Pct = hab.getOxygenPercentage() != null ? hab.getOxygenPercentage() : 0;
@@ -928,7 +928,7 @@ public class HabitabilityCreator {
         List<String> energySources = new ArrayList<>();
 
         boolean hasSubsurfaceOcean = Boolean.TRUE.equals(moon.getHasSubsurfaceOcean());
-        boolean hasSubsurfaceWater = Boolean.TRUE.equals(moon.getHasSubsurfaceWater());
+        boolean hasSubsurfaceWater = Boolean.TRUE.equals(moon.getHasSubsurfaceLiquid());
         boolean hasLiquidSurface = Boolean.TRUE.equals(hab.getSurfaceLiquidWaterPossible());
         String tidalLevel = moon.getTidalHeatingLevel() != null ? moon.getTidalHeatingLevel() : "NONE";
 
@@ -1035,7 +1035,7 @@ public class HabitabilityCreator {
 
         // Liquid water (0-20 points)
         if (Boolean.TRUE.equals(hab.getSurfaceLiquidWaterPossible())) {
-            Double liquidPercent = planet.getLiquidWaterCoveragePercent();
+            Double liquidPercent = planet.getLiquidSurfaceCoveragePercent();
             if (liquidPercent != null && liquidPercent > 10) score += 20;
             else if (liquidPercent != null && liquidPercent > 1) score += 12;
             else score += 5;
@@ -1133,7 +1133,7 @@ public class HabitabilityCreator {
         List<String> challenges = new ArrayList<>();
         if (!Boolean.TRUE.equals(hab.getMagneticProtectionAdequate())) challenges.add("No magnetic field protection");
         if (!"NONE".equals(hab.getToxicGasHazard()) && !"LOW".equals(hab.getToxicGasHazard())) challenges.add("Toxic atmosphere");
-        String waterInv = planet.getWaterInventory();
+        String waterInv = planet.getLiquidInventory();
         if ("NONE".equals(waterInv) || "TRACE".equals(waterInv)) challenges.add("Insufficient water");
         if (planet.getSurfaceTemp() != null && planet.getSurfaceTemp() < 200) challenges.add("Extreme cold");
         if (planet.getSurfaceTemp() != null && planet.getSurfaceTemp() > 400) challenges.add("Extreme heat");
@@ -1259,7 +1259,7 @@ public class HabitabilityCreator {
         if (!Boolean.TRUE.equals(hab.getMagneticProtectionAdequate())) challenges.add("No magnetic field protection");
         if ("LETHAL".equals(hab.getRadiationBeltSurfaceDose())) challenges.add("Lethal radiation from parent planet belts");
         if ("DANGEROUS".equals(hab.getRadiationBeltSurfaceDose())) challenges.add("Dangerous radiation belt environment");
-        String waterInv = moon.getWaterInventory();
+        String waterInv = moon.getLiquidInventory();
         if ("NONE".equals(waterInv) || "TRACE".equals(waterInv)) challenges.add("Insufficient water");
         if (temp != null && temp < 150) challenges.add("Extreme cold");
         if (pressure < 0.01) challenges.add("No significant atmosphere");
@@ -1384,7 +1384,7 @@ public class HabitabilityCreator {
         if ("STERILIZING".equals(hab.getUvHazardLevel())) return "Sterilizing radiation environment";
         if (planet.getSurfacePressure() != null && planet.getSurfacePressure() < 0.006)
             return "No atmosphere — below water triple point pressure";
-        String waterInv = planet.getWaterInventory();
+        String waterInv = planet.getLiquidInventory();
         if ("NONE".equals(waterInv)) return "No water in any form";
         if (!Boolean.TRUE.equals(hab.getMagneticProtectionAdequate()))
             return "Insufficient magnetic protection";

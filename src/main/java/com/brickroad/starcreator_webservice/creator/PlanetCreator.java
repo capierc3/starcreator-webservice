@@ -46,7 +46,7 @@ public class PlanetCreator {
     private MoonCreator moonCreator;
 
     @Autowired
-    private WaterCreator waterCreator;
+    private HydrologyCreator hydrologyCreator;
 
     @Autowired
     private HabitabilityCreator habitabilityCreator;
@@ -56,6 +56,9 @@ public class PlanetCreator {
 
     @Autowired
     private StarTypeRefRepository starTypeRefRepository;
+
+    @Autowired
+    private SurfaceCreator surfaceCreator;
 
     @Autowired
     private OrbitalCreator orbitalCreator;
@@ -428,12 +431,12 @@ public class PlanetCreator {
         PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet, parentStar);
         planet.setMagneticField(magneticField);
 
-        WaterProperties water = waterCreator.createPlanetWaterProperties(planet, parentStar);
-        planet.setWater(water);
+        HydrologyProperties hydrology = hydrologyCreator.createPlanetHydrology(planet, parentStar);
+        planet.setHydrology(hydrology);
 
-        // Now that water coverage is known, reduce visible crater count for submerged craters.
-        // Atmosphere and erosion adjustments were already applied in createPlanetTerrain().
-        refineCrateringForWaterCoverage(planet);
+        // Generate terrain distribution and reconcile surface with water coverage.
+        // Must run after both geology and water are set.
+        surfaceCreator.createPlanetSurface(planet);
 
         // Derive surface colors from composition, temperature, water, volcanism, atmosphere
         SurfaceColorDeriver.SurfaceColors surfaceColors = SurfaceColorDeriver.derive(planet);
@@ -465,6 +468,16 @@ public class PlanetCreator {
             planet.setClimate(climateCreator.generateClimate(planet, parentStar, system));
         } finally {
             RandomUtils.unseed();
+        }
+
+        // Adjust surface colors based on dominant surface deposits (e.g., tholin on Titan-like worlds)
+        if (planet.getClimate() != null && planet.getClimate().getSurfaceDeposits() != null
+                && !planet.getClimate().getSurfaceDeposits().isEmpty()) {
+            SurfaceColorDeriver.SurfaceColors adjusted = SurfaceColorDeriver.adjustForDeposits(
+                    planet.getSurfaceColorPrimary(), planet.getSurfaceColorSecondary(),
+                    planet.getClimate().getSurfaceDeposits());
+            planet.setSurfaceColorPrimary(adjusted.primary());
+            planet.setSurfaceColorSecondary(adjusted.secondary());
         }
 
         planet.setCreatedAt(LocalDateTime.now());
@@ -618,38 +631,6 @@ public class PlanetCreator {
             baseRotation = 24.0 * Math.pow(planet.getEarthMass(), -0.25);
         }
         return baseRotation;
-    }
-
-    /**
-     * Reduces visible crater count for water coverage — craters under oceans or
-     * ice sheets aren't visible from orbit. Called after water properties are set,
-     * since water data isn't available when terrain is initially generated.
-     */
-    private void refineCrateringForWaterCoverage(Planet planet) {
-        TerrainProperties terrain = planet.getTerrain();
-        if (terrain == null) return;
-
-        Integer craters = terrain.getEstimatedVisibleCraters();
-        if (craters == null || craters <= 0) return;
-
-        Double waterCoverage = planet.getWaterCoveragePercent();
-        if (waterCoverage == null || waterCoverage <= 0) return;
-
-        // Only exposed dry land preserves visible craters
-        double landFraction = Math.max(0.1, 1.0 - (waterCoverage / 100.0));
-        int adjusted = Math.max(0, (int) Math.round(craters * landFraction));
-
-        terrain.setEstimatedVisibleCraters(adjusted);
-
-        // Reclassify if the level dropped
-        String level;
-        if (adjusted < 50)           level = "Pristine";
-        else if (adjusted < 500)     level = "Light";
-        else if (adjusted < 5_000)   level = "Moderate";
-        else if (adjusted < 50_000)  level = "Heavy";
-        else if (adjusted < 500_000) level = "Extreme";
-        else                         level = "Saturated";
-        terrain.setCrateringLevel(level);
     }
 
     private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type) {

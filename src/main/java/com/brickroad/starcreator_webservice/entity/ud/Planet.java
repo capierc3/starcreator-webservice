@@ -25,7 +25,7 @@ import java.util.List;
     "physicalProperties", "orbit", "rotation",
     "atmosphere",
     "compositionProperties",
-    "water", "terrain",
+    "hydrology", "terrain",
     "additionalMoonlets", "moons", "bands",
     "magneticField", "habitability", "climate",
     "createdAt", "modifiedAt"
@@ -87,12 +87,12 @@ public class Planet {
     @Schema(description = "Composition properties including core, interior, and envelope breakdown")
     private CompositionProperties compositionProperties;
 
-    // ── Water (extracted to WaterProperties) ──
+    // ── Hydrology (extracted to HydrologyProperties) ──
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "water_id")
-    @Schema(description = "Water and hydrological properties")
-    private WaterProperties water;
+    @JoinColumn(name = "hydrology_id")
+    @Schema(description = "Hydrology and liquid properties")
+    private HydrologyProperties hydrology;
 
     // ── Terrain (extracted to TerrainProperties) ──
 
@@ -517,36 +517,66 @@ public class Planet {
     }
     public void setCompositionClassification(String compositionClassification) { ensureCompositionProperties().setCompositionClassification(compositionClassification); }
 
-    // ── Water Convenience Getters (delegate to water object) ──
+    // ── Hydrology Convenience Getters (delegate to hydrology object) ──
 
     @JsonIgnore
-    public String getWaterInventory() {
-        return water != null ? water.getWaterInventory() : null;
+    public String getLiquidInventory() {
+        return hydrology != null ? hydrology.getLiquidInventory() : null;
     }
 
     @JsonIgnore
-    public Double getWaterCoveragePercent() {
-        return water != null ? water.getWaterCoveragePercent() : null;
+    public String getVolatileType() {
+        return hydrology != null ? hydrology.getVolatileType() : null;
     }
 
     @JsonIgnore
-    public Double getLiquidWaterCoveragePercent() {
-        return water != null ? water.getLiquidWaterCoveragePercent() : null;
+    public Double getLiquidCoveragePercent() {
+        return hydrology != null ? hydrology.getLiquidCoveragePercent() : null;
     }
 
     @JsonIgnore
-    public Double getIceCoveragePercent() {
-        return water != null ? water.getIceCoveragePercent() : null;
+    public Double getLiquidSurfaceCoveragePercent() {
+        return hydrology != null ? hydrology.getLiquidSurfaceCoveragePercent() : null;
     }
 
     @JsonIgnore
-    public Boolean getHasSubsurfaceWater() {
-        return water != null ? water.getHasSubsurfaceWater() : false;
+    public Double getFrozenLiquidCoveragePercent() {
+        return hydrology != null ? hydrology.getFrozenLiquidCoveragePercent() : null;
     }
 
     @JsonIgnore
-    public Double getSubsurfaceWaterDepthKm() {
-        return water != null ? water.getSubsurfaceWaterDepthKm() : null;
+    public Double getWaterIceCoveragePercent() {
+        return hydrology != null ? hydrology.getWaterIceCoveragePercent() : null;
+    }
+
+    @JsonIgnore
+    public Double getFreezingPointK() {
+        return hydrology != null ? hydrology.getFreezingPointK() : null;
+    }
+
+    @JsonIgnore
+    public Double getBoilingPointK() {
+        return hydrology != null ? hydrology.getBoilingPointK() : null;
+    }
+
+    @JsonIgnore
+    public Boolean getHasSubsurfaceLiquid() {
+        return hydrology != null ? hydrology.getHasSubsurfaceLiquid() : false;
+    }
+
+    @JsonIgnore
+    public Double getSubsurfaceLiquidDepthKm() {
+        return hydrology != null ? hydrology.getSubsurfaceLiquidDepthKm() : null;
+    }
+
+    @JsonIgnore
+    public String getLiquidColorPrimary() {
+        return hydrology != null ? hydrology.getLiquidColorPrimary() : null;
+    }
+
+    @JsonIgnore
+    public String getLiquidColorSecondary() {
+        return hydrology != null ? hydrology.getLiquidColorSecondary() : null;
     }
 
     // ── Atmosphere Convenience Getters (delegate to atmosphere object) ──
