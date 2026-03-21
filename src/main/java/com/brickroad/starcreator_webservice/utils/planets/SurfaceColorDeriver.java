@@ -353,9 +353,13 @@ public final class SurfaceColorDeriver {
             return new SurfaceColors("#dd8855", "#cc7744");
         }
 
-        // Dwarf Planet: small, icy/rocky, muted
+        // Dwarf Planet: composition-aware but desaturated for small-body feel
         if (t.contains("dwarf")) {
-            return new SurfaceColors("#8899aa", "#778899");
+            String primary = deriveFromComposition(planet.getCompositionClassification(), planet);
+            String secondary = deriveSecondaryColor(planet, primary);
+            primary = blendColors(primary, "#999999", 0.35);
+            secondary = blendColors(secondary, "#888888", 0.35);
+            return new SurfaceColors(primary, secondary);
         }
 
         // No override needed — composition-derived colors are adequate
