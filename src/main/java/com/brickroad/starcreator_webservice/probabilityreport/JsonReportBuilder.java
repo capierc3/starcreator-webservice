@@ -170,6 +170,8 @@ public class JsonReportBuilder {
         planets.put("atmosphereClassifications", planetData.getAtmosphereClassifications());
         planets.put("habitableZonePositions", planetData.getHzPositions());
         planets.put("tidalLocking", planetData.getTidalLockCounts());
+        planets.put("rotationSyncBins", planetData.getRotationSyncBins());
+        planets.put("rotationPeriodBins", planetData.getRotationPeriodBins());
         planets.put("magneticProtectionLevels", planetData.getProtectionLevels());
         planets.put("magnetopauseBins", planetData.getMagnetopauseBins());
         planets.put("atmLossRateBins", planetData.getAtmLossRateBins());

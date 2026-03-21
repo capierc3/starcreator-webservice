@@ -712,6 +712,25 @@ function renderPlanets(c) {
     }
   );
 
+  // Rotation & Tidal Locking
+  sectionCard(c, 'Rotation & Tidal Locking', '#a78bfa', function(body) {
+    twoCol(body,
+      function(left) {
+        collapsible(left, 'Tidal Locking', function(cb) {
+          distTable(cb, P.tidalLocking, totalPlanets, 'Status');
+        }, true);
+        collapsible(left, 'Rotation Period Distribution', function(cb) {
+          distTable(cb, P.rotationPeriodBins, totalPlanets, 'Period', { sortByKey: true, stripPrefixes: true });
+        });
+      },
+      function(right) {
+        collapsible(right, 'Rotation / Orbit Sync Ratio', function(cb) {
+          distTable(cb, P.rotationSyncBins, totalPlanets, 'Sync Bucket', { sortByKey: true, stripPrefixes: true });
+        }, true);
+      }
+    );
+  });
+
   // Atmosphere & Magnetics
   sectionCard(c, 'Atmosphere & Magnetic Fields', '#60a5fa', function(body) {
     twoCol(body,
@@ -719,9 +738,6 @@ function renderPlanets(c) {
         collapsible(left, 'Atmosphere Classifications', function(cb) {
           distTable(cb, P.atmosphereClassifications, totalPlanets, 'Classification');
         }, true);
-        collapsible(left, 'Tidal Locking', function(cb) {
-          distTable(cb, P.tidalLocking, totalPlanets, 'Status');
-        });
         collapsible(left, 'Auroral Frequencies', function(cb) {
           distTable(cb, P.auroralFrequencies, totalPlanets, 'Frequency');
         });

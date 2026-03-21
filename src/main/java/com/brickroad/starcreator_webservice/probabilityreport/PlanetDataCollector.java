@@ -66,6 +66,10 @@ public class PlanetDataCollector {
     private int physicalPropsCount = 0;
     private int planetsWithGeology = 0;
 
+    // Rotation sync analysis — how close rotation is to orbital period
+    private final Map<String, Integer> rotationSyncBins = new HashMap<>();
+    private final Map<String, Integer> rotationPeriodBins = new HashMap<>();
+
     // Climate
     private final WeatherBucket climateAll = new WeatherBucket();
     private final WeatherBucket climateSurface = new WeatherBucket();
@@ -181,6 +185,9 @@ public class PlanetDataCollector {
         // Tidal locking
         String lockStatus = Boolean.TRUE.equals(planet.getTidallyLocked()) ? "LOCKED" : "NOT_LOCKED";
         tidalLockCounts.merge(lockStatus, 1, Integer::sum);
+
+        // Rotation sync analysis
+        analyzeRotationSync(planet);
 
         // Magnetic field data
         PlanetaryMagneticField mf = planet.getMagneticField();
@@ -602,6 +609,45 @@ public class PlanetDataCollector {
         return planetType.contains("Terrestrial") || planetType.contains("Super-Earth")
                 || planetType.contains("Desert") || planetType.contains("Ocean")
                 || planetType.contains("Lava");
+    }
+
+    private void analyzeRotationSync(Planet planet) {
+        Double rotationHours = planet.getRotationPeriodHours();
+        Double orbitalDays = planet.getOrbitalPeriodDays();
+
+        if (rotationHours != null) {
+            String rotBin = binRotationPeriod(Math.abs(rotationHours));
+            rotationPeriodBins.merge(rotBin, 1, Integer::sum);
+        }
+
+        if (rotationHours != null && orbitalDays != null && orbitalDays > 0) {
+            double orbitalHours = orbitalDays * 24.0;
+            double ratio = Math.abs(rotationHours) / orbitalHours;
+            double diff = Math.abs(ratio - 1.0);
+
+            String syncBin = binRotationSync(diff);
+            rotationSyncBins.merge(syncBin, 1, Integer::sum);
+        }
+    }
+
+    private String binRotationSync(double diff) {
+        if (diff == 0.0)    return "a: Exact 1:1 (diff = 0)";
+        if (diff < 0.001)   return "b: <0.001 (near-perfect)";
+        if (diff < 0.01)    return "c: 0.001-0.01 (very close)";
+        if (diff < 0.05)    return "d: 0.01-0.05 (close)";
+        if (diff < 0.1)     return "e: 0.05-0.1 (drifting)";
+        if (diff < 0.5)     return "f: 0.1-0.5 (partial braking)";
+        return                      "g: 0.5+ (not synchronous)";
+    }
+
+    private String binRotationPeriod(double hours) {
+        if (hours < 5)      return "01: <5 hrs (very fast)";
+        if (hours < 10)     return "02: 5-10 hrs (fast)";
+        if (hours < 24)     return "03: 10-24 hrs (Earth-like)";
+        if (hours < 100)    return "04: 24-100 hrs (slow)";
+        if (hours < 500)    return "05: 100-500 hrs (very slow)";
+        if (hours < 2000)   return "06: 500-2000 hrs (near-sync)";
+        return                      "07: 2000+ hrs (ultra-slow)";
     }
 
     // ═══════════════════════════════════════════════════════════════

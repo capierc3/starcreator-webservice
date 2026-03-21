@@ -20,12 +20,21 @@ public class OrbitalLightCycleCalculator {
     private static final double[] STANDARD_LATITUDES = {90, 60, 45, 30, 0, -30, -45, -60, -90};
 
     // Quadrant definitions: index, name, label, midpoint orbital angle (degrees)
+    // Prograde rotation (tilt ≤ 90°): north pole sunward at orbital angle 90°
     private static final String[] QUADRANT_NAMES = {
             "NORTH_POLE_SUNWARD", "DESCENDING_EQUINOX", "SOUTH_POLE_SUNWARD", "ASCENDING_EQUINOX"
     };
     private static final String[] QUADRANT_LABELS = {
             "North Pole Facing Star", "Transition to Southern Exposure",
             "South Pole Facing Star", "Transition to Northern Exposure"
+    };
+    // Retrograde rotation (tilt > 90°): seasons are inverted — south pole sunward at orbital angle 90°
+    private static final String[] RETROGRADE_QUADRANT_NAMES = {
+            "SOUTH_POLE_SUNWARD", "ASCENDING_EQUINOX", "NORTH_POLE_SUNWARD", "DESCENDING_EQUINOX"
+    };
+    private static final String[] RETROGRADE_QUADRANT_LABELS = {
+            "South Pole Facing Star", "Transition to Northern Exposure",
+            "North Pole Facing Star", "Transition to Southern Exposure"
     };
     // Midpoint orbital angles where solar declination is evaluated
     // 90° = max northern declination, 180° = equinox, 270° = max southern, 0° = equinox
@@ -41,7 +50,8 @@ public class OrbitalLightCycleCalculator {
         double orbitalPeriodDays = planet.getOrbitalPeriodDays() != null ? planet.getOrbitalPeriodDays() : 365.25;
         boolean tidallyLocked = Boolean.TRUE.equals(planet.getTidallyLocked());
 
-        double effectiveTilt = axialTilt > 90.0 ? 180.0 - axialTilt : axialTilt;
+        boolean retrograde = axialTilt > 90.0;
+        double effectiveTilt = retrograde ? 180.0 - axialTilt : axialTilt;
         double arcticCircle = 90.0 - effectiveTilt;
         double tropicLine = effectiveTilt;
 
@@ -89,19 +99,28 @@ public class OrbitalLightCycleCalculator {
         double quadrantDuration = orbitalPeriodDays / 4.0;
         List<OrbitalQuadrant> quadrants = new ArrayList<>();
 
+        // Select quadrant names/labels based on rotation direction
+        String[] quadrantNames = retrograde ? RETROGRADE_QUADRANT_NAMES : QUADRANT_NAMES;
+        String[] quadrantLabels = retrograde ? RETROGRADE_QUADRANT_LABELS : QUADRANT_LABELS;
+
         for (int i = 0; i < 4; i++) {
             OrbitalQuadrant q = new OrbitalQuadrant();
             q.setQuadrantIndex(i);
-            q.setQuadrantName(QUADRANT_NAMES[i]);
-            q.setLabel(QUADRANT_LABELS[i]);
+            q.setQuadrantName(quadrantNames[i]);
+            q.setLabel(quadrantLabels[i]);
             q.setOrbitalDayStart(round2(i * quadrantDuration));
             q.setOrbitalDayEnd(round2((i + 1) * quadrantDuration));
             q.setDurationDays(round2(quadrantDuration));
 
             // Solar declination at midpoint
+            // For retrograde planets (tilt > 90°), negate declination: the rotation-defined
+            // north pole points opposite to the orbital north, so the seasonal cycle inverts.
             double midpointAngleRad = Math.toRadians(QUADRANT_MIDPOINT_ANGLES[i]);
             double solarDeclination = Math.toDegrees(Math.asin(
                     Math.sin(Math.toRadians(effectiveTilt)) * Math.sin(midpointAngleRad)));
+            if (retrograde) {
+                solarDeclination = -solarDeclination;
+            }
             q.setSolarDeclinationAtMidpointDeg(round2(solarDeclination));
 
             // Compute daylight snapshots for each latitude
@@ -306,9 +325,16 @@ public class OrbitalLightCycleCalculator {
         } else if (snap.getDaylightHours() != null && solarDayHours > 0) {
             double daylightFraction = snap.getDaylightHours() / solarDayHours;
             daylightFraction = Math.max(0.01, Math.min(0.99, daylightFraction));
-            // Distribute day/night range: daytime above mean, nighttime below
-            double daytimeTemp = adjustedTemp + dayNightRange * (1.0 - daylightFraction);
-            double nighttimeTemp = adjustedTemp - dayNightRange * daylightFraction;
+
+            // Scale the day/night range by day length: longer days accumulate more
+            // heat (larger daytime boost, smaller nighttime drop) and vice versa.
+            // At 50/50 day/night the range is unchanged; extremes amplify it.
+            double dayLengthScale = 2.0 * Math.max(daylightFraction, 1.0 - daylightFraction);
+            double scaledRange = dayNightRange * dayLengthScale;
+
+            // Distribute: daytime above mean, nighttime below
+            double daytimeTemp = adjustedTemp + scaledRange * (1.0 - daylightFraction);
+            double nighttimeTemp = adjustedTemp - scaledRange * daylightFraction;
             snap.setMeanDaytimeTempK(round2(daytimeTemp));
             snap.setMeanNighttimeTempK(round2(nighttimeTemp));
         }
@@ -434,12 +460,12 @@ public class OrbitalLightCycleCalculator {
                                                 List<LatitudeDaylightSnapshot> snapshots) {
         StringBuilder sb = new StringBuilder();
 
-        if (index == 0) {
-            // North pole sunward
+        if (solarDeclination > 1.0) {
+            // Positive declination → north pole sunward
             sb.append(String.format("The north pole tilts toward the star (solar declination %.1f°). ", solarDeclination));
             appendPerpetualDaylightSummary(sb, snapshots, true, arcticCircle, quadrantDuration);
-        } else if (index == 2) {
-            // South pole sunward
+        } else if (solarDeclination < -1.0) {
+            // Negative declination → south pole sunward
             sb.append(String.format("The south pole tilts toward the star (solar declination %.1f°). ", solarDeclination));
             appendPerpetualDaylightSummary(sb, snapshots, false, arcticCircle, quadrantDuration);
         } else {
