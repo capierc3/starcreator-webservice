@@ -89,6 +89,9 @@ public class HydrologyCreator {
         // Subsurface assessment
         assessSubsurfaceLiquid(hp, planet, inventory);
 
+        // Ocean depth for surface ocean worlds
+        calculateSurfaceOceanDepth(hp, planet, inventory);
+
         // Post-distribution inventory correction
         inventory = correctInventoryForActualState(hp, inventory);
         hp.setLiquidInventory(inventory.name());
@@ -993,6 +996,64 @@ public class HydrologyCreator {
             hp.setSubsurfaceLiquidDepthKm(RandomUtils.rollRange(2.0, 30.0));
         } else {
             hp.setHasSubsurfaceLiquid(false);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Surface Ocean Depth (for ocean world planets)
+    // ═══════════════════════════════════════════════════════════════
+
+    private void calculateSurfaceOceanDepth(HydrologyProperties hp, Planet planet, LiquidInventory inventory) {
+        if (inventory != LiquidInventory.OCEAN_WORLD) {
+            return;
+        }
+        Double liquidSurface = hp.getLiquidSurfaceCoveragePercent();
+        if (liquidSurface == null || liquidSurface < 10.0) {
+            return;
+        }
+
+        double gravity = planet.getSurfaceGravity() != null ? planet.getSurfaceGravity() : 1.0;
+        double earthMass = planet.getEarthMass() != null ? planet.getEarthMass() : 1.0;
+        double coverage = liquidSurface / 100.0;
+
+        // Base depth scales with mass and coverage; Earth (1M⊕, 1g, 71%) ≈ 5.6 km base
+        double baseDepth = 2.0 + (earthMass * 1.5) + (coverage * 3.0);
+        baseDepth *= Math.sqrt(gravity);
+
+        boolean surfaceFrozen = false;
+        Double surfaceTemp = planet.getSurfaceTemp();
+        Double freezeK = hp.getFreezingPointK();
+        if (surfaceTemp != null && freezeK != null && surfaceTemp < freezeK) {
+            surfaceFrozen = true;
+        }
+
+        if (surfaceFrozen) {
+            baseDepth = Math.max(5.0, Math.min(150.0, baseDepth * 2.0));
+        } else {
+            baseDepth = Math.max(1.5, Math.min(30.0, baseDepth));
+        }
+
+        double oceanDepth = RandomUtils.rollRange(baseDepth * 0.7, baseDepth * 1.3);
+        hp.setOceanDepthKm(Math.round(oceanDepth * 100.0) / 100.0);
+
+        // High-pressure ice layer (Ice VI/VII) at ocean floor for deep oceans
+        calculateHighPressureIceLayer(hp, gravity);
+    }
+
+    /**
+     * Calculates the high-pressure ice layer thickness for deep oceans.
+     * At ~0.6 GPa (~15 km depth at 1g), water transitions to Ice VI/VII.
+     * This is a deterministic function of ocean depth and gravity — also
+     * recalculated on load by {@link com.brickroad.starcreator_webservice.service.DerivedFieldCalculator}.
+     */
+    public static void calculateHighPressureIceLayer(HydrologyProperties hp, double surfaceGravity) {
+        Double oceanDepth = hp.getOceanDepthKm();
+        if (oceanDepth == null) {
+            return;
+        }
+        double threshold = 15.0 / Math.max(0.1, surfaceGravity);
+        if (oceanDepth > threshold) {
+            hp.setHighPressureIceLayerKm(Math.round((oceanDepth - threshold) * 100.0) / 100.0);
         }
     }
 

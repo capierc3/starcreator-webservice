@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.service;
 
 import com.brickroad.starcreator_webservice.creator.ClimateCreator;
 import com.brickroad.starcreator_webservice.creator.HabitabilityCreator;
+import com.brickroad.starcreator_webservice.creator.HydrologyCreator;
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
@@ -52,6 +53,7 @@ public class DerivedFieldCalculator {
                 recalculateAtmosphere(planet.getAtmosphere(), planet);
                 recalculateMagneticField(planet.getMagneticField(), planet.getPhysicalProperties(),
                         star, planet.getSemiMajorAxisAU());
+                recalculateHighPressureIce(planet);
 
                 // Planet's moons
                 planet.getMoons().forEach(moon -> {
@@ -363,6 +365,13 @@ public class DerivedFieldCalculator {
      * @param star           parent star (for stellar wind and protection calculations)
      * @param distanceAU     distance from the star in AU (planet's SMA, or parent planet's SMA for moons)
      */
+    private void recalculateHighPressureIce(Planet planet) {
+        HydrologyProperties hp = planet.getHydrology();
+        if (hp == null || hp.getOceanDepthKm() == null) return;
+        double gravity = planet.getSurfaceGravity() != null ? planet.getSurfaceGravity() : 1.0;
+        HydrologyCreator.calculateHighPressureIceLayer(hp, gravity);
+    }
+
     private void recalculateMagneticField(PlanetaryMagneticField field, PhysicalProperties pp,
                                            Star star, Double distanceAU) {
         if (field == null || field.getStrengthComparedToEarth() == null) return;

@@ -570,6 +570,16 @@ public class Planet {
     }
 
     @JsonIgnore
+    public Double getOceanDepthKm() {
+        return hydrology != null ? hydrology.getOceanDepthKm() : null;
+    }
+
+    @JsonIgnore
+    public Double getHighPressureIceLayerKm() {
+        return hydrology != null ? hydrology.getHighPressureIceLayerKm() : null;
+    }
+
+    @JsonIgnore
     public String getLiquidColorPrimary() {
         return hydrology != null ? hydrology.getLiquidColorPrimary() : null;
     }

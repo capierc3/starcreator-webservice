@@ -106,6 +106,13 @@ public class HydrologyProperties {
     @Schema(description = "Thickness of ice shell above subsurface ocean in km")
     private Double iceShellThicknessKm;
 
+    // ── Derived (not persisted) ──
+
+    @Transient
+    @Schema(description = "Thickness of high-pressure ice layer (Ice VI/VII) at ocean floor in km. " +
+            "Derived from oceanDepthKm and surface gravity. Present only for deep oceans (>~15 km at 1g).")
+    private Double highPressureIceLayerKm;
+
     // ── Metadata ──
 
     @Column(name = "label", length = 100)
