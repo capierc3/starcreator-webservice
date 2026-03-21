@@ -1000,37 +1000,44 @@ public class HydrologyCreator {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Surface Ocean Depth (for ocean world planets)
+    //  Ocean Depth (for any planet with meaningful liquid coverage)
     // ═══════════════════════════════════════════════════════════════
 
     private void calculateSurfaceOceanDepth(HydrologyProperties hp, Planet planet, LiquidInventory inventory) {
-        if (inventory != LiquidInventory.OCEAN_WORLD) {
+        // Skip planets with negligible liquid — NONE, TRACE, and SCARCE don't form real oceans
+        if (inventory == LiquidInventory.NONE || inventory == LiquidInventory.TRACE
+                || inventory == LiquidInventory.SCARCE) {
             return;
         }
-        Double liquidSurface = hp.getLiquidSurfaceCoveragePercent();
-        if (liquidSurface == null || liquidSurface < 10.0) {
+
+        // Use total liquid coverage (liquid + frozen) — a frozen ocean is still an ocean
+        double liquidSurface = hp.getLiquidSurfaceCoveragePercent() != null ? hp.getLiquidSurfaceCoveragePercent() : 0.0;
+        double frozenSurface = hp.getFrozenLiquidCoveragePercent() != null ? hp.getFrozenLiquidCoveragePercent() : 0.0;
+        double totalCoverage = liquidSurface + frozenSurface;
+        if (totalCoverage < 5.0) {
             return;
         }
 
         double gravity = planet.getSurfaceGravity() != null ? planet.getSurfaceGravity() : 1.0;
         double earthMass = planet.getEarthMass() != null ? planet.getEarthMass() : 1.0;
-        double coverage = liquidSurface / 100.0;
+        double coverage = totalCoverage / 100.0;
 
         // Base depth scales with mass and coverage; Earth (1M⊕, 1g, 71%) ≈ 5.6 km base
         double baseDepth = 2.0 + (earthMass * 1.5) + (coverage * 3.0);
         baseDepth *= Math.sqrt(gravity);
 
-        boolean surfaceFrozen = false;
-        Double surfaceTemp = planet.getSurfaceTemp();
-        Double freezeK = hp.getFreezingPointK();
-        if (surfaceTemp != null && freezeK != null && surfaceTemp < freezeK) {
-            surfaceFrozen = true;
-        }
+        boolean surfaceFrozen = frozenSurface > liquidSurface;
 
         if (surfaceFrozen) {
+            // Frozen oceans can be very deep (water locked as ice mantles)
             baseDepth = Math.max(5.0, Math.min(150.0, baseDepth * 2.0));
-        } else {
+        } else if (inventory == LiquidInventory.OCEAN_WORLD) {
+            // Ocean worlds: deep oceans
             baseDepth = Math.max(1.5, Math.min(30.0, baseDepth));
+        } else {
+            // MODERATE/ABUNDANT terrestrial planets: shallower oceans
+            // Earth's mean ocean depth is ~3.7 km — scale down for lower coverage
+            baseDepth = Math.max(0.5, Math.min(12.0, baseDepth * 0.6));
         }
 
         double oceanDepth = RandomUtils.rollRange(baseDepth * 0.7, baseDepth * 1.3);
