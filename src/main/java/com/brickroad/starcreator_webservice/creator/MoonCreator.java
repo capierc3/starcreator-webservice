@@ -219,7 +219,7 @@ public class MoonCreator {
         StarSystem system = primaryStar != null ? primaryStar.getSystem() : null;
 
         for (Moon moon : moons) {
-            if (Boolean.TRUE.equals(moon.getHasAtmosphere()) && moon.getClimateSeed() != null) {
+            if (moon.getClimateSeed() != null) {
                 RandomUtils.seed(moon.getClimateSeed() ^ 0xDEADBEEFL);
                 try {
                     PlanetaryClimate moonClimate = climateCreator.generateMoonClimate(

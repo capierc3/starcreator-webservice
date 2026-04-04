@@ -480,6 +480,9 @@ public class GeologyCreator {
         switch (feature.getFeatureType()) {
             case "VOLCANISM_TYPE":
                 terrain.setVolcanismType(value);
+                if ("Cryovolcanic".equals(value)) {
+                    terrain.setHasCryovolcanism(true);
+                }
                 break;
 
             case "VOLCANIC_INTENSITY":
