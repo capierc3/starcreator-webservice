@@ -1,22 +1,50 @@
-version: '3.8'
-
 services:
-  web-prod:
-    build: .
-    image: starcreator-web:prod
-    container_name: starcreator-web-prod
-    ports:
-      - "9000:8080"
-    environment:
-      - SPRING_PROFILE=prod
+  starcreator-db-dev:
+    image: postgres:18
+    container_name: starcreator-db-dev
     restart: unless-stopped
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=starcreator_d
+      - POSTGRES_USER=starcreator_dev
+      - POSTGRES_PASSWORD=devpass123
+    volumes:
+      - /mnt/dockerdata/starcreator/dev/postgres:/var/lib/postgresql/data
 
   web-dev:
-    build: .
+    build: /srv/apps/starcreator-webservice
     image: starcreator-web:dev
     container_name: starcreator-web-dev
     ports:
       - "9002:8080"
     environment:
       - SPRING_PROFILE=dev
+    depends_on:
+      - starcreator-db-dev
+    restart: unless-stopped
+
+  starcreator-db-prod:
+    image: postgres:18
+    container_name: starcreator-db-prod
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=starcreator_p
+      - POSTGRES_USER=starcreator_p
+      - POSTGRES_PASSWORD=prodpass123
+    volumes:
+      - /mnt/dockerdata/starcreator/prod/postgres:/var/lib/postgresql/data
+
+  web-prod:
+    build: /srv/apps/starcreator-webservice
+    image: starcreator-web:prod
+    container_name: starcreator-web-prod
+    ports:
+      - "9000:8080"
+    environment:
+      - SPRING_PROFILE=prod
+    depends_on:
+      - starcreator-db-prod
     restart: unless-stopped
