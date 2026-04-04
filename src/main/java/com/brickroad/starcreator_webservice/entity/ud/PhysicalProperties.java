@@ -98,6 +98,16 @@ public class PhysicalProperties {
     @Schema(description = "Luminosity in solar luminosities (1.0 = Sun)", example = "0.031")
     private Double solarLuminosity;
 
+    // ── Surface Color (derived from composition, temperature, and atmosphere) ──
+
+    @Column(name = "surface_color_primary", length = 7)
+    @Schema(description = "Primary surface hex color derived from composition and temperature", example = "#88aa66")
+    private String surfaceColorPrimary;
+
+    @Column(name = "surface_color_secondary", length = 7)
+    @Schema(description = "Secondary/accent surface hex color (ice caps, volcanism, ocean)", example = "#ddeeff")
+    private String surfaceColorSecondary;
+
     // ── Shared Fields ──
 
     @Column(name = "surface_temp")

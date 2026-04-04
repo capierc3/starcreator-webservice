@@ -43,6 +43,11 @@ public class PlanetaryClimate {
     private Double meanPolarTempK;
 
     // ================================================================
+    // ORBITAL LIGHT CYCLE
+    // ================================================================
+    private OrbitalLightCycle orbitalLightCycle;
+
+    // ================================================================
     // WIND & CIRCULATION
     // ================================================================
     private String circulationPattern;
@@ -120,6 +125,7 @@ public class PlanetaryClimate {
     private List<MoonSkyAppearance> moonSkyAppearances = new ArrayList<>();
     private List<EclipseData> eclipseData = new ArrayList<>();
     private List<ClimateHazard> climateHazards = new ArrayList<>();
+    private List<SurfaceDeposit> surfaceDeposits = new ArrayList<>();
 
     // ================================================================
     // TRANSIENT FLAGS

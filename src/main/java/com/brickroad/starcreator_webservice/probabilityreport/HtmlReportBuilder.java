@@ -105,11 +105,12 @@ public class HtmlReportBuilder {
         tocLink(w, "Per-Planet-Type Breakdown (Trinary)");
         tocLink(w, "Atmosphere & Magnetic Fields");
         tocLink(w, "Geology (Rocky/Surface Planets)");
-        tocLink(w, "Water System (Rocky/Surface Planets Only)");
+        tocLink(w, "Hydrology System (Rocky/Surface Planets Only)");
         tocLink(w, "Planetary Habitability");
         tocLink(w, "Planetary Climate");
         tocLink(w, "Surface Planet Climate");
         tocLink(w, "Gas / Ice Giant Climate");
+        tocLink(w, "Surface Deposits");
         tocLink(w, "Moon Types");
         tocLink(w, "Ring Types");
         tocLink(w, "Trojan Swarms");
@@ -145,6 +146,16 @@ public class HtmlReportBuilder {
         if (!starData.getBinaryConfigurations().isEmpty()) {
             printSubSection(w, "System Configuration");
             printSortedTable(w, starData.getBinaryConfigurations(), counts.getSystemCount(), "Configuration");
+        }
+
+        // Companion star orbital element distributions
+        if (!starData.getCompanionEccentricityBins().isEmpty()) {
+            int companionCount = starData.getCompanionEccentricityBins().values().stream().mapToInt(Integer::intValue).sum();
+            printSubSection(w, "Companion Star Orbits (" + fmt(companionCount) + " companions)");
+            printSortedTable(w, starData.getCompanionSeparationBins(), companionCount, "Barycenter Distance");
+            printSortedTable(w, starData.getCompanionEccentricityBins(), companionCount, "Eccentricity");
+            printSortedTable(w, starData.getCompanionInclinationBins(), companionCount, "Inclination");
+            printSortedTable(w, starData.getCompanionOrbitalPeriodBins(), companionCount, "Orbital Period");
         }
 
         printLinkedTable(w, starData.getStarTypes(), counts.getStarCount(), "Star Type");
@@ -265,6 +276,7 @@ public class HtmlReportBuilder {
         printGeologyHtml(w);
         printWaterAndHabHtml(w);
         printClimateHtml(w);
+        printSurfaceDepositHtml(w);
     }
 
     private void printPlanetPerTypeBreakdown(PrintWriter w) {
@@ -348,9 +360,13 @@ public class HtmlReportBuilder {
         if (!ptb.getGeologicalActivity().isEmpty())
             printSortedTable(w, ptb.getGeologicalActivity(), ptb.getCount(), "Geological Activity");
         if (!ptb.getWaterInventories().isEmpty())
-            printSortedTable(w, ptb.getWaterInventories(), ptb.getCount(), "Water Inventory");
+            printSortedTable(w, ptb.getWaterInventories(), ptb.getCount(), "Liquid Inventory");
+        if (!ptb.getVolatileTypes().isEmpty())
+            printSortedTable(w, ptb.getVolatileTypes(), ptb.getCount(), "Volatile Type");
         if (!ptb.getHabitabilityClasses().isEmpty())
             printSortedTable(w, ptb.getHabitabilityClasses(), ptb.getCount(), "Habitability Class");
+        if (!ptb.getDepositTypes().isEmpty())
+            printSortedTable(w, ptb.getDepositTypes(), ptb.getCount(), "Surface Deposit Type");
 
         endCollapsible(w);
     }
@@ -520,22 +536,34 @@ public class HtmlReportBuilder {
     }
 
     private void printWaterAndHabHtml(PrintWriter w) {
-        // Water System
+        // Hydrology System
         w.println("<hr>");
-        beginCollapsible(w, "Water System (Rocky/Surface Planets Only)", 2);
+        beginCollapsible(w, "Hydrology System (Rocky/Surface Planets Only)", 2);
         w.println("<p>Total rocky/surface planets analyzed: " + fmt(planetData.getTotalRockyPlanets()) + "</p>");
-        w.println("<p>With liquid surface water: " + fmt(planetData.getPlanetsWithLiquidWater())
-                + " (" + pct(planetData.getPlanetsWithLiquidWater(), planetData.getTotalRockyPlanets()) + "%)</p>");
+        w.println("<p>With liquid surface coverage: " + fmt(planetData.getPlanetsWithLiquidSurface())
+                + " (" + pct(planetData.getPlanetsWithLiquidSurface(), planetData.getTotalRockyPlanets()) + "%)</p>");
         w.println("<p>With ice coverage: " + fmt(planetData.getPlanetsWithIce())
                 + " (" + pct(planetData.getPlanetsWithIce(), planetData.getTotalRockyPlanets()) + "%)</p>");
-        w.println("<p>With subsurface water: " + fmt(planetData.getPlanetsWithSubsurfaceWater())
-                + " (" + pct(planetData.getPlanetsWithSubsurfaceWater(), planetData.getTotalRockyPlanets()) + "%)</p>");
+        w.println("<p>With subsurface liquid: " + fmt(planetData.getPlanetsWithSubsurfaceLiquid())
+                + " (" + pct(planetData.getPlanetsWithSubsurfaceLiquid(), planetData.getTotalRockyPlanets()) + "%)</p>");
 
-        printSubSection(w, "Water Inventory Distribution");
+        printSubSection(w, "Liquid Inventory Distribution");
         printSortedTable(w, planetData.getWaterInventories(), planetData.getTotalRockyPlanets(), "Inventory");
+
+        printSubSection(w, "Volatile Type Distribution");
+        printSortedTable(w, planetData.getVolatileTypes(), planetData.getTotalRockyPlanets(), "Volatile Type");
 
         printSubSection(w, "Water Phase at Surface");
         printSortedTable(w, planetData.getWaterPhases(), planetData.getHabAssessmentCount(), "Phase");
+
+        printSubSection(w, "Volatile Type by Planet Type");
+        printCrossTabTable(w, planetData.getVolatileTypeByPlanetType(), "Planet Type");
+
+        printSubSection(w, "Volatile Type by Atmosphere");
+        printCrossTabTable(w, planetData.getVolatileTypeByAtmosphere(), "Atmosphere");
+
+        printSubSection(w, "Volatile Type by Composition");
+        printCrossTabTable(w, planetData.getVolatileTypeByComposition(), "Composition");
 
         endCollapsible(w);
 
@@ -655,6 +683,58 @@ public class HtmlReportBuilder {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    //  Surface Deposit HTML
+    // ═══════════════════════════════════════════════════════════════
+
+    private void printSurfaceDepositHtml(PrintWriter w) {
+        w.println("<hr>");
+        beginCollapsible(w, "Surface Deposits", 2);
+
+        int withDeposits = planetData.getPlanetsWithDeposits();
+        if (withDeposits == 0) {
+            w.println("<p>No planets with surface deposits.</p>");
+            endCollapsible(w);
+            return;
+        }
+
+        int totalInstances = planetData.getTotalDepositCount();
+
+        w.println("<div class=\"stats-grid\">");
+        statCard(w, fmt(withDeposits), "Planets w/ Deposits");
+        statCard(w, fmt(totalInstances), "Total Instances");
+        statCard(w, String.format("%.1f", totalInstances * 1.0 / withDeposits), "Avg per Planet");
+        if (planetData.getDominantCoverageCount() > 0) {
+            statCard(w, String.format("%.1f%%",
+                    planetData.getTotalDominantCoverage() / planetData.getDominantCoverageCount()),
+                    "Avg Dominant Coverage");
+        }
+        w.println("</div>");
+
+        printSubSection(w, "Deposit Type Distribution");
+        printSortedTable(w, planetData.getDepositTypes(), totalInstances, "Deposit Type");
+
+        printSubSection(w, "Deposit Source Distribution");
+        printSortedTable(w, planetData.getDepositSources(), totalInstances, "Source");
+
+        printSubSection(w, "Deposit Thickness Distribution");
+        printSortedTable(w, planetData.getDepositThickness(), totalInstances, "Thickness");
+
+        printSubSection(w, "Deposit Types by Atmosphere");
+        printCrossTabTable(w, planetData.getDepositTypeByAtmosphere(), "Atmosphere");
+
+        printSubSection(w, "Deposit Types by Volatile");
+        printCrossTabTable(w, planetData.getDepositTypeByVolatile(), "Volatile Type");
+
+        printSubSection(w, "Deposit Types by Star Type");
+        printCrossTabTable(w, planetData.getDepositTypeByStarType(), "Star Type");
+
+        printSubSection(w, "Deposit Types by Planet Type");
+        printCrossTabTable(w, planetData.getDepositTypeByPlanetType(), "Planet Type");
+
+        endCollapsible(w);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     //  Moon HTML
     // ═══════════════════════════════════════════════════════════════
 
@@ -684,6 +764,25 @@ public class HtmlReportBuilder {
         printSubSection(w, "Geological Activity");
         printSortedTable(w, moonData.getGeologicalActivity(), counts.getMoonCount(), "Activity");
 
+        printSubSection(w, "Volcanism Type");
+        printSortedTable(w, moonData.getVolcanismTypes(), counts.getMoonCount(), "Volcanism");
+
+        printSubSection(w, "Volcanism Type by Composition");
+        printVolcanismByCompositionTable(w, moonData.getVolcanismByComposition());
+
+        printSubSection(w, "Erosion Agents");
+        printSortedTable(w, moonData.getErosionAgents(), counts.getMoonCount(), "Erosion Agent");
+
+        printSubSection(w, "Axial Tilt (Tidally Locked)");
+        printSortedTableByKey(w, moonData.getAxialTiltLockedBins(),
+                moonData.getAxialTiltLockedBins().values().stream().mapToInt(Integer::intValue).sum(), "Tilt");
+
+        if (!moonData.getAxialTiltUnlockedBins().isEmpty()) {
+            printSubSection(w, "Axial Tilt (Not Tidally Locked)");
+            printSortedTableByKey(w, moonData.getAxialTiltUnlockedBins(),
+                    moonData.getAxialTiltUnlockedBins().values().stream().mapToInt(Integer::intValue).sum(), "Tilt");
+        }
+
         printSubSection(w, "Atmosphere Classifications");
         printSortedTable(w, moonData.getAtmosphereClassifications(), counts.getMoonCount(), "Classification");
 
@@ -701,14 +800,15 @@ public class HtmlReportBuilder {
         printSortedTable(w, moonData.getMoonDynamoTypes(), moonData.getMoonsWithMagField(), "Dynamo Type");
         printSortedTable(w, moonData.getMoonProtectionLevels(), moonData.getMoonsWithMagField(), "Protection Level");
 
-        w.println("<h4>Moon Water System</h4>");
-        w.println("<p>With liquid surface water: " + fmt(moonData.getMoonsWithLiquidWater())
-                + " (" + pct(moonData.getMoonsWithLiquidWater(), counts.getMoonCount()) + "%)</p>");
+        w.println("<h4>Moon Hydrology</h4>");
+        w.println("<p>With liquid surface coverage: " + fmt(moonData.getMoonsWithLiquidSurface())
+                + " (" + pct(moonData.getMoonsWithLiquidSurface(), counts.getMoonCount()) + "%)</p>");
         w.println("<p>With ice coverage: " + fmt(moonData.getMoonsWithIce())
                 + " (" + pct(moonData.getMoonsWithIce(), counts.getMoonCount()) + "%)</p>");
-        w.println("<p>With subsurface water: " + fmt(moonData.getMoonsWithSubsurfaceWater())
-                + " (" + pct(moonData.getMoonsWithSubsurfaceWater(), counts.getMoonCount()) + "%)</p>");
-        printSortedTable(w, moonData.getMoonWaterInventories(), counts.getMoonCount(), "Water Inventory");
+        w.println("<p>With subsurface liquid: " + fmt(moonData.getMoonsWithSubsurfaceLiquid())
+                + " (" + pct(moonData.getMoonsWithSubsurfaceLiquid(), counts.getMoonCount()) + "%)</p>");
+        printSortedTable(w, moonData.getMoonWaterInventories(), counts.getMoonCount(), "Liquid Inventory");
+        printSortedTable(w, moonData.getMoonVolatileTypes(), counts.getMoonCount(), "Volatile Type");
 
         w.println("<h4>Moon Habitability</h4>");
         w.println("<p>Moons with habitability assessment: " + fmt(moonData.getMoonHabCount()) + "</p>");
@@ -746,6 +846,24 @@ public class HtmlReportBuilder {
                     w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(none) + "</td><td>"
                             + fmt(low) + "</td><td>" + fmt(moderate) + "</td><td>" + fmt(high) + "</td><td>"
                             + fmt(extreme) + "</td><td>" + fmt(total) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private void printVolcanismByCompositionTable(PrintWriter w, Map<String, Map<String, Integer>> data) {
+        w.println("<table class=\"xref-table\">");
+        w.println("<thead><tr><th>Composition</th><th>Silicate</th><th>Cryovolcanic</th><th>None</th><th>Total</th></tr></thead>");
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    Map<String, Integer> types = e.getValue();
+                    int silicate = types.getOrDefault("Silicate", 0);
+                    int cryo = types.getOrDefault("Cryovolcanic", 0);
+                    int none = types.getOrDefault("None", 0);
+                    int total = silicate + cryo + none;
+                    w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(silicate) + "</td><td>"
+                            + fmt(cryo) + "</td><td>" + fmt(none) + "</td><td>" + fmt(total) + "</td></tr>");
                 });
         w.println("</tbody></table>");
     }
@@ -962,6 +1080,20 @@ public class HtmlReportBuilder {
                 }
                 w.println("</tbody></table>");
             }
+        }
+
+        // Section 9: Planet-Star Stability
+        int totalPSIssues = stabilityData.getPlanetStarCrossingCount()
+                + stabilityData.getPlanetsExceedingSTypeCritical()
+                + stabilityData.getPlanetsBelowPTypeCritical();
+        if (totalPSIssues > 0) {
+            printSubSection(w, "Planet-Star Stability");
+            w.println("<p class=\"note\">Planets whose orbits cross or approach the companion star</p>");
+            w.println("<div class=\"stats-grid\">");
+            statCard(w, fmt(stabilityData.getPlanetStarCrossingCount()), "Planet-Star Crossings");
+            statCard(w, fmt(stabilityData.getPlanetsExceedingSTypeCritical()), "Exceed S-Type Limit");
+            statCard(w, fmt(stabilityData.getPlanetsBelowPTypeCritical()), "Below P-Type Cavity");
+            w.println("</div>");
         }
 
         endCollapsible(w);
@@ -1497,6 +1629,46 @@ public class HtmlReportBuilder {
                     w.println("<tr><td>" + esc(e.getKey()) + "</td><td>" + fmt(e.getValue())
                             + "</td><td>" + String.format("%.1f", pctVal) + "%</td><td>"
                             + bar(pctVal) + "</td></tr>");
+                });
+        w.println("</tbody></table>");
+    }
+
+    private void printCrossTabTable(PrintWriter w, Map<String, Map<String, Integer>> data, String rowLabel) {
+        // Collect all volatile type columns
+        java.util.Set<String> allTypes = new java.util.TreeSet<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : data.entrySet()) {
+            allTypes.addAll(entry.getValue().keySet());
+        }
+
+        // Header row
+        w.println("<table>");
+        w.print("<thead><tr><th>" + rowLabel + "</th><th>Total</th>");
+        for (String type : allTypes) {
+            w.print("<th>" + esc(type) + "</th>");
+        }
+        w.println("</tr></thead>");
+
+        // Data rows sorted by total descending
+        w.println("<tbody>");
+        data.entrySet().stream()
+                .sorted((a, b) -> {
+                    int totalA = a.getValue().values().stream().mapToInt(Integer::intValue).sum();
+                    int totalB = b.getValue().values().stream().mapToInt(Integer::intValue).sum();
+                    return Integer.compare(totalB, totalA);
+                })
+                .forEach(entry -> {
+                    int rowTotal = entry.getValue().values().stream().mapToInt(Integer::intValue).sum();
+                    w.print("<tr><td>" + esc(entry.getKey()) + "</td><td>" + fmt(rowTotal) + "</td>");
+                    for (String type : allTypes) {
+                        int count = entry.getValue().getOrDefault(type, 0);
+                        if (count > 0) {
+                            double pctVal = count * 100.0 / Math.max(1, rowTotal);
+                            w.print("<td>" + fmt(count) + " (" + String.format("%.1f", pctVal) + "%)</td>");
+                        } else {
+                            w.print("<td>-</td>");
+                        }
+                    }
+                    w.println("</tr>");
                 });
         w.println("</tbody></table>");
     }

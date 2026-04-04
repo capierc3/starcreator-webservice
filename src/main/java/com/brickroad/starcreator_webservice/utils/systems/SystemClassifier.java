@@ -109,10 +109,10 @@ public class SystemClassifier {
             }
 
             // Water
-            String water = planet.getWaterInventory();
+            String water = planet.getLiquidInventory();
             if ("ABUNDANT".equals(water) || "OCEAN_WORLD".equals(water)) inv.waterRichCount++;
-            if (planet.getLiquidWaterCoveragePercent() != null && planet.getLiquidWaterCoveragePercent() > 0) inv.liquidWaterBodies++;
-            if (Boolean.TRUE.equals(planet.getHasSubsurfaceWater())) inv.subsurfaceWaterCount++;
+            if (planet.getLiquidSurfaceCoveragePercent() != null && planet.getLiquidSurfaceCoveragePercent() > 0) inv.liquidWaterBodies++;
+            if (Boolean.TRUE.equals(planet.getHasSubsurfaceLiquid())) inv.subsurfaceWaterCount++;
 
             // Habitability
             PlanetaryHabitability hab = planet.getHabitability();

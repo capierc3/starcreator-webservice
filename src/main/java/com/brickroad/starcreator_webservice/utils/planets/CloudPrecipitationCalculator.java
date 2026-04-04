@@ -31,9 +31,9 @@ public class CloudPrecipitationCalculator {
         String atmClass = planet.getAtmosphereClassification();
         double surfaceTemp = planet.getSurfaceTemp() != null ? planet.getSurfaceTemp() : 250.0;
         double pressureAtm = planet.getSurfacePressure() != null ? planet.getSurfacePressure() : 1.0;
-        double waterPercent = planet.getWaterCoveragePercent() != null ? planet.getWaterCoveragePercent() : 0.0;
-        double liquidWaterPercent = planet.getLiquidWaterCoveragePercent() != null ? planet.getLiquidWaterCoveragePercent() : 0.0;
-        double icePercent = planet.getIceCoveragePercent() != null ? planet.getIceCoveragePercent() : 0.0;
+        double waterPercent = planet.getLiquidCoveragePercent() != null ? planet.getLiquidCoveragePercent() : 0.0;
+        double liquidWaterPercent = planet.getLiquidSurfaceCoveragePercent() != null ? planet.getLiquidSurfaceCoveragePercent() : 0.0;
+        double icePercent = planet.getWaterIceCoveragePercent() != null ? planet.getWaterIceCoveragePercent() : 0.0;
         double scaleHeightKm = weather.getScaleHeightKm() != null ? weather.getScaleHeightKm() : 8.5;
         boolean tidallyLocked = Boolean.TRUE.equals(planet.getTidallyLocked());
 

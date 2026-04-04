@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.ProbabilityReport;
 
 import com.brickroad.starcreator_webservice.creator.SystemCreator;
 import com.brickroad.starcreator_webservice.probabilityreport.ProbabilityReportGenerator;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,6 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 public class ProbabilityReportApiTest {
 
     @Autowired
@@ -18,7 +20,7 @@ public class ProbabilityReportApiTest {
     //                                              0   1     2       3       4
     private static final int SYSTEM_AMOUNT = RANGES[3];
 
-    //@Test
+    @Test
     public void runProbabilityReportGenerator() {
         ProbabilityReportGenerator generator = new ProbabilityReportGenerator(systemCreator, SYSTEM_AMOUNT);
         generator.generate();

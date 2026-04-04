@@ -6,6 +6,7 @@ import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.StarSystem;
 import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 public class MoonTests extends AbstractCreatorTest {
 
     @Autowired
@@ -27,7 +29,7 @@ public class MoonTests extends AbstractCreatorTest {
 
     private static final int SYSTEM_COUNT = 1000;
 
-    //@Test
+    @Test
     public void findPlanetByType() throws JsonProcessingException {
         int moonSystemSize = 40;
         boolean foundLargeEnoughMoonSystem = false;
@@ -58,7 +60,7 @@ public class MoonTests extends AbstractCreatorTest {
         }
     }
 
-    //@Test
+    @Test
     public void getMoonData() throws JsonProcessingException {
 
         int moonCount = 0;

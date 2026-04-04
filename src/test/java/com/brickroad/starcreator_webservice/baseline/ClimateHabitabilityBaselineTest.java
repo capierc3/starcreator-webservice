@@ -4,6 +4,7 @@ import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.model.climate.*;
 import com.brickroad.starcreator_webservice.model.habitability.*;
 import com.brickroad.starcreator_webservice.service.CreationService;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
 class ClimateHabitabilityBaselineTest {
 
     private static final int SYSTEM_COUNT = 10;
@@ -37,7 +39,7 @@ class ClimateHabitabilityBaselineTest {
     //  Climate Field Completeness
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testClimateFieldCompleteness() {
         List<String> violations = new ArrayList<>();
         int rockyWithAtmo = 0;
@@ -100,7 +102,7 @@ class ClimateHabitabilityBaselineTest {
                 "Climate field contract violations (" + violations.size() + "):\n" + String.join("\n", violations));
     }
 
-    //@Test
+    @Test
     void testGasGiantClimateFields() {
         List<String> violations = new ArrayList<>();
         int gasGiantCount = 0;
@@ -146,7 +148,7 @@ class ClimateHabitabilityBaselineTest {
     //  Habitability Field Completeness
     // ══════════════════════════════════════════════════════════════════
 
-    //@Test
+    @Test
     void testHabitabilityFieldCompleteness() {
         List<String> violations = new ArrayList<>();
         int rockyCount = 0;
@@ -209,7 +211,7 @@ class ClimateHabitabilityBaselineTest {
                 "Habitability field contract violations (" + violations.size() + "):\n" + String.join("\n", violations));
     }
 
-    //@Test
+    @Test
     void testGasGiantHabitabilityShortPath() {
         List<String> violations = new ArrayList<>();
         int gasGiantCount = 0;
@@ -245,7 +247,7 @@ class ClimateHabitabilityBaselineTest {
                 "Gas giant habitability violations (" + violations.size() + "):\n" + String.join("\n", violations));
     }
 
-    //@Test
+    @Test
     void testMoonClimateAndHabitabilityCompleteness() {
         List<String> violations = new ArrayList<>();
         int moonsWithAtmo = 0;

@@ -2,6 +2,7 @@ package com.brickroad.starcreator_webservice.service;
 
 import com.brickroad.starcreator_webservice.creator.ClimateCreator;
 import com.brickroad.starcreator_webservice.creator.HabitabilityCreator;
+import com.brickroad.starcreator_webservice.creator.HydrologyCreator;
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.enums.BandCategory;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
@@ -44,6 +45,7 @@ public class DerivedFieldCalculator {
         // Stars first — other calculations depend on star properties
         system.getStars().forEach(star -> {
             recalculateStarFields(star);
+            recalculateStarOrbitalPeriod(star, system);
 
             star.getPlanets().forEach(planet -> {
                 recalculatePhysicalProps(planet.getPhysicalProperties(), false);
@@ -51,6 +53,7 @@ public class DerivedFieldCalculator {
                 recalculateAtmosphere(planet.getAtmosphere(), planet);
                 recalculateMagneticField(planet.getMagneticField(), planet.getPhysicalProperties(),
                         star, planet.getSemiMajorAxisAU());
+                recalculateHighPressureIce(planet);
 
                 // Planet's moons
                 planet.getMoons().forEach(moon -> {
@@ -138,6 +141,34 @@ public class DerivedFieldCalculator {
             star.setEstimatedRemainingMsMy(
                     PhysicsFormulas.estimatedRemainingMsMy(pp.getSolarMass(), star.getAgeMY()));
         }
+    }
+
+    /**
+     * Re-derive orbital period for companion stars from Kepler's 3rd law.
+     * P² = a³ / (M₁ + M₂) — uses total mass of the orbital subsystem.
+     * <p>
+     * For inner binary pair (PRIMARY/SECONDARY): uses sum of primary + secondary masses.
+     * For tertiary star: uses total system mass (all three stars).
+     * Primary stars at origin (SMA=0) are skipped — no orbit to derive.
+     */
+    private void recalculateStarOrbitalPeriod(Star star, StarSystem system) {
+        OrbitalElements orbit = star.getOrbit();
+        if (orbit == null || orbit.getSemiMajorAxis() == null || orbit.getSemiMajorAxis() == 0.0) return;
+
+        double totalMass;
+        if (star.getStarRole() == Star.StarRole.TERTIARY) {
+            // Outer orbit: tertiary orbits (AB) barycenter — use total system mass
+            totalMass = computeTotalStellarMass(system);
+        } else {
+            // Inner orbit: A-B pair — use sum of primary + secondary only
+            totalMass = system.getStars().stream()
+                    .filter(s -> s.getStarRole() != Star.StarRole.TERTIARY)
+                    .mapToDouble(Star::getSolarMass)
+                    .sum();
+        }
+
+        orbit.setOrbitalPeriodDays(
+                PhysicsFormulas.orbitalPeriodDaysAU(orbit.getSemiMajorAxis(), totalMass));
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -334,6 +365,13 @@ public class DerivedFieldCalculator {
      * @param star           parent star (for stellar wind and protection calculations)
      * @param distanceAU     distance from the star in AU (planet's SMA, or parent planet's SMA for moons)
      */
+    private void recalculateHighPressureIce(Planet planet) {
+        HydrologyProperties hp = planet.getHydrology();
+        if (hp == null || hp.getOceanDepthKm() == null) return;
+        double gravity = planet.getSurfaceGravity() != null ? planet.getSurfaceGravity() : 1.0;
+        HydrologyCreator.calculateHighPressureIceLayer(hp, gravity);
+    }
+
     private void recalculateMagneticField(PlanetaryMagneticField field, PhysicalProperties pp,
                                            Star star, Double distanceAU) {
         if (field == null || field.getStrengthComparedToEarth() == null) return;

@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class RandomUtilsTest {
 
-    //@Test
+    @Test
     void roll100timesRangeTest() {
         for (int i = 0; i < 1000; i++) {
             int roll = RandomUtils.rollRange(4, 9);
@@ -27,7 +27,7 @@ public class RandomUtilsTest {
         System.out.println(high);
     }
 
-    //@Test
+    @Test
     void diceRollTests() {
         for (int i = 0; i < 1000; i++) {
             assertTrue(RandomUtils.rollD100() > 0);
@@ -56,8 +56,8 @@ public class RandomUtilsTest {
         }
     }
 
-    //@ParameterizedTest
-    //@CsvSource({"3,ABC", "6,ABCDEF", "12,ABCDEFGHIJKL"})
+    @ParameterizedTest
+    @CsvSource({"3,ABC", "6,ABCDEF", "12,ABCDEFGHIJKL"})
     void testRandomLetter(int maxLetter, String acceptableValues) {
         for (int i = 0; i < 100; i++) {
             String letter = getRandomLetter(maxLetter);

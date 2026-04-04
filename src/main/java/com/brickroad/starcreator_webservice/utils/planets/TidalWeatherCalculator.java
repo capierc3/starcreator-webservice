@@ -27,7 +27,7 @@ public class TidalWeatherCalculator {
         String atmClass = planet.getAtmosphereClassification();
         double planetMassKg = (planet.getEarthMass() != null ? planet.getEarthMass() : 1.0) * EARTH_MASS_KG;
         double planetRadiusKm = (planet.getEarthRadius() != null ? planet.getEarthRadius() : 1.0) * EARTH_RADIUS_KM;
-        double liquidWaterPercent = planet.getLiquidWaterCoveragePercent() != null ? planet.getLiquidWaterCoveragePercent() : 0.0;
+        double liquidWaterPercent = planet.getLiquidSurfaceCoveragePercent() != null ? planet.getLiquidSurfaceCoveragePercent() : 0.0;
 
         // Skip tidal calculations for gas giants (no surface) or atmosphereless worlds
         if (CelestialBodyUtils.isGasGiantAtmosphere(atmClass)) {
@@ -205,7 +205,7 @@ public class TidalWeatherCalculator {
         if (atmClass == null || "NONE".equals(atmClass)) return;
 
         double moonRadiusKm = (moon.getEarthRadius() != null ? moon.getEarthRadius() : 0.1) * EARTH_RADIUS_KM;
-        double liquidWaterPercent = moon.getLiquidWaterCoveragePercent() != null ? moon.getLiquidWaterCoveragePercent() : 0.0;
+        double liquidWaterPercent = moon.getLiquidSurfaceCoveragePercent() != null ? moon.getLiquidSurfaceCoveragePercent() : 0.0;
 
         // Parent planet tidal effect on the moon (the dominant force)
         if (parentPlanet != null && liquidWaterPercent > 0) {
@@ -245,8 +245,8 @@ public class TidalWeatherCalculator {
         // Apply ocean response factor:
         // h2 Love number for ocean on rocky body ≈ 0.6
         // Partial coverage reduction: small seas don't get full equilibrium tide
-        double liquidWaterPercent = moon.getLiquidWaterCoveragePercent() != null
-                ? moon.getLiquidWaterCoveragePercent() : 1.0;
+        double liquidWaterPercent = moon.getLiquidSurfaceCoveragePercent() != null
+                ? moon.getLiquidSurfaceCoveragePercent() : 1.0;
         double coverageFactor = Math.min(1.0, liquidWaterPercent / 50.0); // Full response at 50%+ coverage
         double loveFactor = 0.6;
 
@@ -278,8 +278,8 @@ public class TidalWeatherCalculator {
         double targetMoonMassKg = (targetMoon.getEarthMass() != null ? targetMoon.getEarthMass() : 0.001) * EARTH_MASS_KG;
         double targetOrbitKm = targetMoon.getSemiMajorAxisKm() != null ? targetMoon.getSemiMajorAxisKm() : 400000.0;
 
-        double liquidWaterPercent = targetMoon.getLiquidWaterCoveragePercent() != null
-                ? targetMoon.getLiquidWaterCoveragePercent() : 1.0;
+        double liquidWaterPercent = targetMoon.getLiquidSurfaceCoveragePercent() != null
+                ? targetMoon.getLiquidSurfaceCoveragePercent() : 1.0;
         double coverageFactor = Math.min(1.0, liquidWaterPercent / 50.0);
         double loveFactor = 0.6;
         double geometryFactor = Math.min(1.0, targetMoonRadiusKm / EARTH_RADIUS_KM);

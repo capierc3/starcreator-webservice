@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.probabilityreport;
 
+import com.brickroad.starcreator_webservice.entity.ud.OrbitalElements;
 import com.brickroad.starcreator_webservice.entity.ud.Planet;
 import com.brickroad.starcreator_webservice.entity.ud.Star;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
@@ -19,6 +20,12 @@ public class StarDataCollector {
 
     // Planet formations per star type: starType -> planetType -> [count, minAU, maxAU]
     private final Map<String, Map<String, double[]>> planetFormationsByStarType = new HashMap<>();
+
+    // Companion star orbital element distributions (non-primary stars only)
+    private final Map<String, Integer> companionEccentricityBins = new HashMap<>();
+    private final Map<String, Integer> companionInclinationBins = new HashMap<>();
+    private final Map<String, Integer> companionSeparationBins = new HashMap<>();
+    private final Map<String, Integer> companionOrbitalPeriodBins = new HashMap<>();
 
     public void analyzeData(Star star) {
         starTypes.merge(star.getType(), 1, Integer::sum);
@@ -86,6 +93,23 @@ public class StarDataCollector {
                 hzOuterData.merge(binHzAU(star.getHabitableZoneOuterAU()), 1, Integer::sum);
             }
         }
+
+        // Companion star orbital elements (skip primaries at origin)
+        if (star.getStarRole() != null && star.getStarRole() != Star.StarRole.PRIMARY) {
+            OrbitalElements orbit = star.getOrbit();
+            if (orbit != null && orbit.getSemiMajorAxis() != null && orbit.getSemiMajorAxis() > 0) {
+                if (orbit.getEccentricity() != null) {
+                    companionEccentricityBins.merge(binEccentricity(orbit.getEccentricity()), 1, Integer::sum);
+                }
+                if (orbit.getInclinationDegrees() != null) {
+                    companionInclinationBins.merge(binInclination(orbit.getInclinationDegrees()), 1, Integer::sum);
+                }
+                companionSeparationBins.merge(binSeparation(orbit.getSemiMajorAxis()), 1, Integer::sum);
+                if (orbit.getOrbitalPeriodDays() != null) {
+                    companionOrbitalPeriodBins.merge(binOrbitalPeriod(orbit.getOrbitalPeriodDays()), 1, Integer::sum);
+                }
+            }
+        }
     }
 
     public boolean isUniformType(Map<String, Map<String, Integer>> typeData) {
@@ -126,5 +150,42 @@ public class StarDataCollector {
         if (au < 10.0) return "5.0-10.0 AU";
         if (au < 50.0) return "10-50 AU";
         return "50+ AU";
+    }
+
+    private String binEccentricity(double ecc) {
+        if (ecc < 0.05) return "0.00-0.05 (circular)";
+        if (ecc < 0.15) return "0.05-0.15 (near-circular)";
+        if (ecc < 0.3) return "0.15-0.30 (moderate)";
+        if (ecc < 0.5) return "0.30-0.50 (eccentric)";
+        if (ecc < 0.7) return "0.50-0.70 (highly eccentric)";
+        return "0.70+ (extreme)";
+    }
+
+    private String binInclination(double deg) {
+        if (deg < 5) return "0-5° (aligned)";
+        if (deg < 15) return "5-15° (low tilt)";
+        if (deg < 30) return "15-30° (moderate)";
+        if (deg < 60) return "30-60° (inclined)";
+        if (deg < 90) return "60-90° (polar)";
+        if (deg < 120) return "90-120° (retrograde)";
+        return "120°+ (highly retrograde)";
+    }
+
+    private String binSeparation(double au) {
+        if (au < 0.5) return "<0.5 AU (contact)";
+        if (au < 2) return "0.5-2 AU (close)";
+        if (au < 10) return "2-10 AU (moderate)";
+        if (au < 50) return "10-50 AU (wide)";
+        if (au < 200) return "50-200 AU (very wide)";
+        return "200+ AU (distant)";
+    }
+
+    private String binOrbitalPeriod(double days) {
+        if (days < 30) return "<1 month";
+        if (days < 365) return "1 month - 1 year";
+        if (days < 3652) return "1-10 years";
+        if (days < 36525) return "10-100 years";
+        if (days < 365250) return "100-1000 years";
+        return "1000+ years";
     }
 }

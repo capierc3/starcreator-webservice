@@ -38,7 +38,7 @@ public class MoonCreator {
     private MagneticFieldCreator magneticFieldCreator;
 
     @Autowired
-    private WaterCreator waterCreator;
+    private HydrologyCreator hydrologyCreator;
 
     @Autowired
     private HabitabilityCreator habitabilityCreator;
@@ -172,9 +172,9 @@ public class MoonCreator {
             moon.setCompositionClassification(composition.getClassification().name());
         }
 
-        // Water system — self-contained: handles subsurface ocean, surface water, tiny moonlet defaults
-        WaterProperties water = waterCreator.createMoonWaterProperties(moon);
-        moon.setWater(water);
+        // Hydrology system — self-contained: handles subsurface ocean, surface liquid, tiny moonlet defaults
+        HydrologyProperties hydrology = hydrologyCreator.createMoonHydrology(moon);
+        moon.setHydrology(hydrology);
 
         // Now that composition classification, ice coverage, and cryovolcanism are all
         // known, replace the preliminary density-based albedo with a physics-informed value.
@@ -219,7 +219,7 @@ public class MoonCreator {
         StarSystem system = primaryStar != null ? primaryStar.getSystem() : null;
 
         for (Moon moon : moons) {
-            if (Boolean.TRUE.equals(moon.getHasAtmosphere()) && moon.getClimateSeed() != null) {
+            if (moon.getClimateSeed() != null) {
                 RandomUtils.seed(moon.getClimateSeed() ^ 0xDEADBEEFL);
                 try {
                     PlanetaryClimate moonClimate = climateCreator.generateMoonClimate(
@@ -454,9 +454,9 @@ public class MoonCreator {
      *   Earth Moon (rocky, no ice)            → 0.12
      */
     private void refineAlbedo(Moon moon) {
-        Double iceCoverage = moon.getIceCoveragePercent();
+        Double iceCoverage = moon.getWaterIceCoveragePercent();
         if (iceCoverage == null) {
-            // No water data (tiny moonlets, etc.) — keep the preliminary albedo
+            // No hydrology data (tiny moonlets, etc.) — keep the preliminary albedo
             return;
         }
 
@@ -646,7 +646,11 @@ public class MoonCreator {
             moon.setRotationPeriodHours(-Math.abs(moon.getRotationPeriodHours()));
         }
 
-        moon.setAxialTilt(RandomUtils.rollRange(0.0, 25));
+        if (Boolean.TRUE.equals(moon.getTidallyLocked())) {
+            moon.setAxialTilt(RandomUtils.rollRange(0.0, 5.0));
+        } else {
+            moon.setAxialTilt(RandomUtils.rollRange(0.0, 25.0));
+        }
 
         // Per-moon Hill sphere
         moon.setHillSphereRadiusKm(
@@ -702,7 +706,7 @@ public class MoonCreator {
         moon.setTidallyLocked(true);
         moon.setRotationPeriodHours(periodDays * 24);
 
-        moon.setAxialTilt(RandomUtils.rollRange(0.0, 10.0));
+        moon.setAxialTilt(RandomUtils.rollRange(0.0, 5.0));
 
         moon.setHillSphereRadiusKm(
                 PhysicsFormulas.hillSphereRadiusKm(moon.getSemiMajorAxisKm(), moon.getMass(), planet.getMass()));

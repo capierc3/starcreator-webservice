@@ -65,6 +65,11 @@ public class OrbitStabilityCollector {
     private final List<String> beltOverlapDetails = new ArrayList<>();
     private final List<String> beltPlanetOverlapDetails = new ArrayList<>();
 
+    // ===== Section 9: Planet-Star Orbit Crossing =====
+    private int planetStarCrossingCount = 0;
+    private int planetsExceedingSTypeCritical = 0;
+    private int planetsBelowPTypeCritical = 0;
+
     // ═══════════════════════════════════════════════════════════════
     //  Main Analysis Method
     // ═══════════════════════════════════════════════════════════════
@@ -460,17 +465,19 @@ public class OrbitStabilityCollector {
                 }
             }
 
-            // Multi-star stability checks
+            // Multi-star stability checks (belts)
             if (binConfig != null && system.getBinarySeparationAu() != null) {
                 double sepAU = system.getBinarySeparationAu();
 
-                if (binConfig == BinaryConfiguration.S_TYPE_WIDE) {
-                    // Check if belt outer edges exceed S-type critical SMA
+                if (binConfig == BinaryConfiguration.S_TYPE_WIDE
+                        || binConfig == BinaryConfiguration.S_TYPE_CLOSE) {
                     Star companion = findCompanion(system, star);
                     if (companion != null) {
                         double hostMass = safe(star.getSolarMass(), 1.0);
                         double compMass = safe(companion.getSolarMass(), 1.0);
-                        double sCrit = BinaryStabilityLimits.sTypeCriticalSMA(sepAU, hostMass, compMass);
+                        double eBin = extractBinaryEccentricity(companion);
+                        double sCrit = BinaryStabilityLimits.sTypeCriticalSMA(
+                                sepAU, hostMass, compMass, eBin);
 
                         for (OrbitalBand belt : sortedBelts) {
                             if (getBeltOuterAU(belt) > sCrit) {
@@ -479,16 +486,111 @@ public class OrbitStabilityCollector {
                         }
                     }
                 } else if (binConfig == BinaryConfiguration.P_TYPE) {
-                    // Check if belt inner edges are inside P-type critical SMA
                     java.util.List<Star> starList = new java.util.ArrayList<>(system.getStars());
                     double m1 = safe(starList.get(0).getSolarMass(), 1.0);
                     double m2 = starList.size() > 1
                             ? safe(starList.get(1).getSolarMass(), 1.0) : 0.0;
-                    double pCrit = BinaryStabilityLimits.pTypeCriticalSMA(sepAU, m1, m2);
+                    double eBin = starList.size() > 1
+                            ? extractBinaryEccentricity(starList.get(1)) : 0.0;
+                    double pCrit = BinaryStabilityLimits.pTypeCriticalSMA(
+                            sepAU, m1, m2, eBin);
 
                     for (OrbitalBand belt : sortedBelts) {
                         if (getBeltInnerAU(belt) < pCrit) {
                             beltsBelowCavityLimit++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Section 9: Planet-Star Orbit Crossing
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Detects planets whose orbits cross or approach the companion star's
+     * orbital path, or violate S-type/P-type stability limits.
+     */
+    public void analyzePlanetStarStability(StarSystem system) {
+        BinaryConfiguration config = system.getBinaryConfiguration();
+        if (config == null || config == BinaryConfiguration.SINGLE) return;
+        Double sepAU = system.getBinarySeparationAu();
+        if (sepAU == null) return;
+
+        for (Star star : system.getStars()) {
+            List<Planet> planets = star.getPlanets() != null
+                    ? new ArrayList<>(star.getPlanets()) : List.of();
+            if (planets.isEmpty()) continue;
+
+            if (config == BinaryConfiguration.S_TYPE_WIDE
+                    || config == BinaryConfiguration.S_TYPE_CLOSE) {
+                Star companion = findCompanion(system, star);
+                if (companion == null) continue;
+
+                double hostMass = safe(star.getSolarMass(), 1.0);
+                double compMass = safe(companion.getSolarMass(), 1.0);
+                double eBin = extractBinaryEccentricity(companion);
+                double sCrit = BinaryStabilityLimits.sTypeCriticalSMA(
+                        sepAU, hostMass, compMass, eBin);
+                double companionPeri = BinaryStabilityLimits.companionPerihelionAU(
+                        sepAU, eBin);
+
+                for (Planet planet : planets) {
+                    double sma = safe(planet.getSemiMajorAxisAU(), 0.0);
+                    double ecc = safe(planet.getEccentricity(), 0.0);
+                    if (sma <= 0) continue;
+
+                    double aphelion = sma * (1.0 + ecc);
+
+                    if (aphelion >= companionPeri) {
+                        planetStarCrossingCount++;
+                    }
+                    if (sma > sCrit) {
+                        planetsExceedingSTypeCritical++;
+                    }
+                }
+            } else if (config == BinaryConfiguration.P_TYPE
+                    || config == BinaryConfiguration.HIERARCHICAL_BINARY_THIRD
+                    || config == BinaryConfiguration.HIERARCHICAL_TRIPLE) {
+                // Only check the circumbinary planets (parented to primary)
+                if (star.getStarRole() == Star.StarRole.TERTIARY) {
+                    // Tertiary has its own circumstellar system — check as S-type
+                    double tertiarySep = sepAU * 3.0;
+                    double innerPairMass = system.getStars().stream()
+                            .filter(s -> s.getStarRole() != Star.StarRole.TERTIARY)
+                            .mapToDouble(s -> safe(s.getSolarMass(), 0.0))
+                            .sum();
+                    double eBin = extractBinaryEccentricity(star);
+                    double sCrit = BinaryStabilityLimits.sTypeCriticalSMA(
+                            tertiarySep, safe(star.getSolarMass(), 1.0), innerPairMass, eBin);
+
+                    for (Planet planet : planets) {
+                        double sma = safe(planet.getSemiMajorAxisAU(), 0.0);
+                        if (sma > sCrit) {
+                            planetsExceedingSTypeCritical++;
+                        }
+                    }
+                } else {
+                    // Circumbinary planets — check P-type cavity
+                    java.util.List<Star> starList = new java.util.ArrayList<>(system.getStars());
+                    double m1 = safe(starList.get(0).getSolarMass(), 1.0);
+                    double m2 = starList.size() > 1
+                            ? safe(starList.get(1).getSolarMass(), 1.0) : 0.0;
+                    double eBin = starList.size() > 1
+                            ? extractBinaryEccentricity(starList.get(1)) : 0.0;
+                    double pCrit = BinaryStabilityLimits.pTypeCriticalSMA(
+                            sepAU, m1, m2, eBin);
+
+                    for (Planet planet : planets) {
+                        double sma = safe(planet.getSemiMajorAxisAU(), 0.0);
+                        double ecc = safe(planet.getEccentricity(), 0.0);
+                        if (sma <= 0) continue;
+
+                        double perihelion = sma * (1.0 - ecc);
+                        if (perihelion < pCrit) {
+                            planetsBelowPTypeCritical++;
                         }
                     }
                 }
@@ -516,5 +618,13 @@ public class OrbitStabilityCollector {
             if (s != star) return s;
         }
         return null;
+    }
+
+    private double extractBinaryEccentricity(Star star) {
+        if (star != null && star.getOrbit() != null
+                && star.getOrbit().getEccentricity() != null) {
+            return star.getOrbit().getEccentricity();
+        }
+        return 0.0;
     }
 }

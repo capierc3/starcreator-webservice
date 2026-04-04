@@ -19,9 +19,10 @@ public class MoonDataCollector {
     private int moonsAssessed = 0;
 
     private final Map<String, Integer> moonWaterInventories = new HashMap<>();
-    private int moonsWithLiquidWater = 0;
+    private final Map<String, Integer> moonVolatileTypes = new HashMap<>();
+    private int moonsWithLiquidSurface = 0;
     private int moonsWithIce = 0;
-    private int moonsWithSubsurfaceWater = 0;
+    private int moonsWithSubsurfaceLiquid = 0;
     private int moonsWithSubsurfaceOcean = 0;
 
     private final Map<String, Integer> moonHabitabilityClasses = new HashMap<>();
@@ -47,6 +48,15 @@ public class MoonDataCollector {
     private final Map<String, Map<String, Integer>> tidalHeatingByMoonType = new HashMap<>();
     // Geological activity counts
     private final Map<String, Integer> geologicalActivity = new HashMap<>();
+    // Volcanism type distribution
+    private final Map<String, Integer> volcanismTypes = new HashMap<>();
+    // Volcanism type cross-tabulated by composition type
+    private final Map<String, Map<String, Integer>> volcanismByComposition = new HashMap<>();
+    // Erosion agent distribution
+    private final Map<String, Integer> erosionAgents = new HashMap<>();
+    // Axial tilt bins, separated by tidal locking status
+    private final Map<String, Integer> axialTiltLockedBins = new HashMap<>();
+    private final Map<String, Integer> axialTiltUnlockedBins = new HashMap<>();
     // Atmosphere classifications (like the planet version)
     private final Map<String, Integer> atmosphereClassifications = new HashMap<>();
 
@@ -99,6 +109,28 @@ public class MoonDataCollector {
         String geoActivity = moon.getGeologicalActivity() != null ? moon.getGeologicalActivity() : "NONE";
         geologicalActivity.merge(geoActivity, 1, Integer::sum);
 
+        // Volcanism type
+        String volcType = moon.getVolcanismType() != null ? moon.getVolcanismType() : "None";
+        volcanismTypes.merge(volcType, 1, Integer::sum);
+
+        // Volcanism by composition cross-tab
+        volcanismByComposition.computeIfAbsent(compType, k -> new HashMap<>())
+                .merge(volcType, 1, Integer::sum);
+
+        // Erosion agent
+        String erosionAgent = moon.getPrimaryErosionAgent() != null ? moon.getPrimaryErosionAgent() : "None";
+        erosionAgents.merge(erosionAgent, 1, Integer::sum);
+
+        // Axial tilt bins (separated by tidal locking)
+        if (moon.getAxialTilt() != null) {
+            String tiltBin = binAxialTilt(moon.getAxialTilt());
+            if (Boolean.TRUE.equals(moon.getTidallyLocked())) {
+                axialTiltLockedBins.merge(tiltBin, 1, Integer::sum);
+            } else {
+                axialTiltUnlockedBins.merge(tiltBin, 1, Integer::sum);
+            }
+        }
+
         // Atmosphere classification
         if (Boolean.TRUE.equals(moon.getHasAtmosphere()) && moon.getAtmosphere() != null
                 && moon.getAtmosphere().getClassification() != null) {
@@ -119,15 +151,19 @@ public class MoonDataCollector {
             moonsAssessed++;
         }
 
-        String waterInv = moon.getWaterInventory();
+        String waterInv = moon.getLiquidInventory();
         if (waterInv != null) {
             moonWaterInventories.merge(waterInv, 1, Integer::sum);
-            Double liquidPct = moon.getLiquidWaterCoveragePercent();
-            Double icePct = moon.getIceCoveragePercent();
-            if (liquidPct != null && liquidPct > 0.1) moonsWithLiquidWater++;
+            Double liquidPct = moon.getLiquidSurfaceCoveragePercent();
+            Double icePct = moon.getWaterIceCoveragePercent();
+            if (liquidPct != null && liquidPct > 0.1) moonsWithLiquidSurface++;
             if (icePct != null && icePct > 0.1) moonsWithIce++;
-            if (Boolean.TRUE.equals(moon.getHasSubsurfaceWater())) moonsWithSubsurfaceWater++;
+            if (Boolean.TRUE.equals(moon.getHasSubsurfaceLiquid())) moonsWithSubsurfaceLiquid++;
         }
+
+        // Volatile type tracking
+        String volatileType = moon.getVolatileType() != null ? moon.getVolatileType() : "NULL";
+        moonVolatileTypes.merge(volatileType, 1, Integer::sum);
 
         if (mf != null) {
             moonsWithMagField++;
@@ -219,6 +255,14 @@ public class MoonDataCollector {
         if (ecc < 0.01) return "b: 0.005-0.01";
         if (ecc < 0.05) return "c: 0.01-0.05";
         return "d: 0.05+";
+    }
+
+    private String binAxialTilt(double degrees) {
+        if (degrees < 5) return "a: 0-5\u00B0";
+        if (degrees < 10) return "b: 5-10\u00B0";
+        if (degrees < 15) return "c: 10-15\u00B0";
+        if (degrees < 25) return "d: 15-25\u00B0";
+        return "e: 25\u00B0+";
     }
 
     private String binTidalRange(double meters) {

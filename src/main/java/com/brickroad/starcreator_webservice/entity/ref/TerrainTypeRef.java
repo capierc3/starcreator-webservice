@@ -30,8 +30,8 @@ public class TerrainTypeRef {
     private String category;
 
     // Environmental requirements
-    @Column(name = "requires_water")
-    private Boolean requiresWater = false;
+    @Column(name = "requires_liquid")
+    private Boolean requiresLiquid = false;
 
     @Column(name = "requires_atmosphere")
     private Boolean requiresAtmosphere = false;
@@ -89,6 +89,9 @@ public class TerrainTypeRef {
     @Column(name = "excluded_composition_classes", columnDefinition = "text[]")
     private String[] excludedCompositionClasses;
 
+    @Column(name = "volatile_type", length = 30)
+    private String volatileType;
+
     // Getters and Setters
     public Integer getId() { return id; }
 
@@ -100,7 +103,9 @@ public class TerrainTypeRef {
 
     public String getCategory() { return category; }
 
-    public Boolean getRequiresWater() { return requiresWater; }
+    public Boolean getRequiresLiquid() { return requiresLiquid; }
+
+    public String getVolatileType() { return volatileType; }
 
     public Boolean getRequiresAtmosphere() { return requiresAtmosphere; }
 
@@ -153,8 +158,8 @@ public class TerrainTypeRef {
         return weight;
     }
 
-    public boolean isViableFor(Double surfaceTempK, Double pressureAtm, Boolean hasWater, Boolean hasAtmosphere) {
-        if (requiresWater && (hasWater == null || !hasWater)) {
+    public boolean isViableFor(Double surfaceTempK, Double pressureAtm, Boolean hasLiquid, Boolean hasAtmosphere) {
+        if (requiresLiquid && (hasLiquid == null || !hasLiquid)) {
             return false;
         }
         if (requiresAtmosphere && (hasAtmosphere == null || !hasAtmosphere)) {
@@ -172,6 +177,12 @@ public class TerrainTypeRef {
     public boolean isExcludedForPlanetType(String planetType) {
         return excludedPlanetTypes != null &&
                 Arrays.asList(excludedPlanetTypes).contains(planetType);
+    }
+
+    public boolean isCompatibleWithVolatileType(String planetVolatileType) {
+        if (volatileType == null) return true;
+        if (planetVolatileType == null) return false;
+        return volatileType.equals(planetVolatileType);
     }
 
     public boolean isCompatibleWithComposition(String compositionClass) {

@@ -31,9 +31,13 @@ public class PlanetDataCollector {
 
     private final Map<String, Integer> waterInventories = new HashMap<>();
     private final Map<String, Integer> waterPhases = new HashMap<>();
-    private int planetsWithLiquidWater = 0;
+    private final Map<String, Integer> volatileTypes = new HashMap<>();
+    private final Map<String, Map<String, Integer>> volatileTypeByPlanetType = new HashMap<>();
+    private final Map<String, Map<String, Integer>> volatileTypeByAtmosphere = new HashMap<>();
+    private final Map<String, Map<String, Integer>> volatileTypeByComposition = new HashMap<>();
+    private int planetsWithLiquidSurface = 0;
     private int planetsWithIce = 0;
-    private int planetsWithSubsurfaceWater = 0;
+    private int planetsWithSubsurfaceLiquid = 0;
     private int totalRockyPlanets = 0;
 
     private final Map<String, Integer> habitabilityClasses = new HashMap<>();
@@ -62,10 +66,27 @@ public class PlanetDataCollector {
     private int physicalPropsCount = 0;
     private int planetsWithGeology = 0;
 
+    // Rotation sync analysis — how close rotation is to orbital period
+    private final Map<String, Integer> rotationSyncBins = new HashMap<>();
+    private final Map<String, Integer> rotationPeriodBins = new HashMap<>();
+
     // Climate
     private final WeatherBucket climateAll = new WeatherBucket();
     private final WeatherBucket climateSurface = new WeatherBucket();
     private final WeatherBucket climateGas = new WeatherBucket();
+
+    // Surface Deposits
+    private final Map<String, Integer> depositTypes = new HashMap<>();
+    private final Map<String, Integer> depositSources = new HashMap<>();
+    private final Map<String, Integer> depositThickness = new HashMap<>();
+    private final Map<String, Map<String, Integer>> depositTypeByAtmosphere = new HashMap<>();
+    private final Map<String, Map<String, Integer>> depositTypeByVolatile = new HashMap<>();
+    private final Map<String, Map<String, Integer>> depositTypeByStarType = new HashMap<>();
+    private final Map<String, Map<String, Integer>> depositTypeByPlanetType = new HashMap<>();
+    private int planetsWithDeposits = 0;
+    private int totalDepositCount = 0;
+    private double totalDominantCoverage = 0;
+    private int dominantCoverageCount = 0;
 
     // References to other collectors for delegation
     private final MoonDataCollector moonDataCollector;
@@ -165,6 +186,9 @@ public class PlanetDataCollector {
         String lockStatus = Boolean.TRUE.equals(planet.getTidallyLocked()) ? "LOCKED" : "NOT_LOCKED";
         tidalLockCounts.merge(lockStatus, 1, Integer::sum);
 
+        // Rotation sync analysis
+        analyzeRotationSync(planet);
+
         // Magnetic field data
         PlanetaryMagneticField mf = planet.getMagneticField();
         if (mf != null) {
@@ -262,12 +286,13 @@ public class PlanetDataCollector {
             }
         }
 
-        analyzeWaterData(planet);
+        analyzeHydrologyData(planet);
         analyzeHabitabilityData(planet);
         analyzeClimateData(planet);
+        analyzeSurfaceDepositData(planet);
     }
 
-    private void analyzeWaterData(Planet planet) {
+    private void analyzeHydrologyData(Planet planet) {
         String type = planet.getPlanetType();
         if (type == null) return;
 
@@ -280,18 +305,40 @@ public class PlanetDataCollector {
         if (!isRocky) return;
         totalRockyPlanets++;
 
-        String inventory = planet.getWaterInventory() != null ?
-                planet.getWaterInventory() : "NULL";
+        String inventory = planet.getLiquidInventory() != null ?
+                planet.getLiquidInventory() : "NULL";
         waterInventories.merge(inventory, 1, Integer::sum);
         PlanetTypeBreakdown typeData = getPerTypeMapFor(planet).get(planet.getPlanetType());
         if (typeData != null) typeData.addWaterInventory(inventory);
 
-        Double liquidPct = planet.getLiquidWaterCoveragePercent();
-        Double icePct = planet.getIceCoveragePercent();
+        // Volatile type tracking
+        String volatileType = planet.getVolatileType() != null ? planet.getVolatileType() : "NULL";
+        volatileTypes.merge(volatileType, 1, Integer::sum);
+        if (typeData != null) typeData.addVolatileType(volatileType);
 
-        if (liquidPct != null && liquidPct > 0.1) planetsWithLiquidWater++;
+        // Cross-tabs: volatile type by planet type, atmosphere, and composition
+        volatileTypeByPlanetType
+                .computeIfAbsent(planet.getPlanetType(), k -> new HashMap<>())
+                .merge(volatileType, 1, Integer::sum);
+
+        String atmClass = planet.getAtmosphereClassification() != null
+                ? planet.getAtmosphereClassification() : "NULL";
+        volatileTypeByAtmosphere
+                .computeIfAbsent(atmClass, k -> new HashMap<>())
+                .merge(volatileType, 1, Integer::sum);
+
+        String compClass = planet.getCompositionClassification() != null
+                ? planet.getCompositionClassification() : "NULL";
+        volatileTypeByComposition
+                .computeIfAbsent(compClass, k -> new HashMap<>())
+                .merge(volatileType, 1, Integer::sum);
+
+        Double liquidPct = planet.getLiquidSurfaceCoveragePercent();
+        Double icePct = planet.getWaterIceCoveragePercent();
+
+        if (liquidPct != null && liquidPct > 0.1) planetsWithLiquidSurface++;
         if (icePct != null && icePct > 0.1) planetsWithIce++;
-        if (Boolean.TRUE.equals(planet.getHasSubsurfaceWater())) planetsWithSubsurfaceWater++;
+        if (Boolean.TRUE.equals(planet.getHasSubsurfaceLiquid())) planetsWithSubsurfaceLiquid++;
     }
 
     private void analyzeHabitabilityData(Planet planet) {
@@ -413,6 +460,57 @@ public class PlanetDataCollector {
         }
     }
 
+    private void analyzeSurfaceDepositData(Planet planet) {
+        PlanetaryClimate climate = planet.getClimate();
+        if (climate == null || climate.getSurfaceDeposits() == null || climate.getSurfaceDeposits().isEmpty()) return;
+
+        planetsWithDeposits++;
+        java.util.List<SurfaceDeposit> deposits = climate.getSurfaceDeposits();
+        totalDepositCount += deposits.size();
+
+        PlanetTypeBreakdown typeData = getPerTypeMapFor(planet).get(planet.getPlanetType());
+
+        String atmClass = planet.getAtmosphereClassification() != null
+                ? planet.getAtmosphereClassification() : "NULL";
+        String volatileType = planet.getVolatileType() != null ? planet.getVolatileType() : "NULL";
+        Star parentStar = planet.getParentStar();
+        String starType = parentStar != null && parentStar.getType() != null ? parentStar.getType() : "UNKNOWN";
+
+        for (SurfaceDeposit d : deposits) {
+            String depType = d.getDepositType() != null ? d.getDepositType() : "UNKNOWN";
+            String source = d.getSource() != null ? d.getSource() : "UNKNOWN";
+            String thick = d.getThickness() != null ? d.getThickness() : "UNKNOWN";
+
+            depositTypes.merge(depType, 1, Integer::sum);
+            depositSources.merge(source, 1, Integer::sum);
+            depositThickness.merge(thick, 1, Integer::sum);
+
+            depositTypeByAtmosphere
+                    .computeIfAbsent(atmClass, k -> new HashMap<>())
+                    .merge(depType, 1, Integer::sum);
+            depositTypeByVolatile
+                    .computeIfAbsent(volatileType, k -> new HashMap<>())
+                    .merge(depType, 1, Integer::sum);
+            depositTypeByStarType
+                    .computeIfAbsent(starType, k -> new HashMap<>())
+                    .merge(depType, 1, Integer::sum);
+            depositTypeByPlanetType
+                    .computeIfAbsent(planet.getPlanetType(), k -> new HashMap<>())
+                    .merge(depType, 1, Integer::sum);
+
+            if (typeData != null) typeData.addDepositType(depType);
+        }
+
+        // Track dominant deposit coverage
+        SurfaceDeposit dominant = deposits.stream()
+                .filter(d -> d.getDominanceRank() != null && d.getDominanceRank() == 1)
+                .findFirst().orElse(deposits.get(0));
+        if (dominant.getCoveragePercent() != null) {
+            totalDominantCoverage += dominant.getCoveragePercent();
+            dominantCoverageCount++;
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  Bin Methods
     // ═══════════════════════════════════════════════════════════════
@@ -511,6 +609,45 @@ public class PlanetDataCollector {
         return planetType.contains("Terrestrial") || planetType.contains("Super-Earth")
                 || planetType.contains("Desert") || planetType.contains("Ocean")
                 || planetType.contains("Lava");
+    }
+
+    private void analyzeRotationSync(Planet planet) {
+        Double rotationHours = planet.getRotationPeriodHours();
+        Double orbitalDays = planet.getOrbitalPeriodDays();
+
+        if (rotationHours != null) {
+            String rotBin = binRotationPeriod(Math.abs(rotationHours));
+            rotationPeriodBins.merge(rotBin, 1, Integer::sum);
+        }
+
+        if (rotationHours != null && orbitalDays != null && orbitalDays > 0) {
+            double orbitalHours = orbitalDays * 24.0;
+            double ratio = Math.abs(rotationHours) / orbitalHours;
+            double diff = Math.abs(ratio - 1.0);
+
+            String syncBin = binRotationSync(diff);
+            rotationSyncBins.merge(syncBin, 1, Integer::sum);
+        }
+    }
+
+    private String binRotationSync(double diff) {
+        if (diff == 0.0)    return "a: Exact 1:1 (diff = 0)";
+        if (diff < 0.001)   return "b: <0.001 (near-perfect)";
+        if (diff < 0.01)    return "c: 0.001-0.01 (very close)";
+        if (diff < 0.05)    return "d: 0.01-0.05 (close)";
+        if (diff < 0.1)     return "e: 0.05-0.1 (drifting)";
+        if (diff < 0.5)     return "f: 0.1-0.5 (partial braking)";
+        return                      "g: 0.5+ (not synchronous)";
+    }
+
+    private String binRotationPeriod(double hours) {
+        if (hours < 5)      return "01: <5 hrs (very fast)";
+        if (hours < 10)     return "02: 5-10 hrs (fast)";
+        if (hours < 24)     return "03: 10-24 hrs (Earth-like)";
+        if (hours < 100)    return "04: 24-100 hrs (slow)";
+        if (hours < 500)    return "05: 100-500 hrs (very slow)";
+        if (hours < 2000)   return "06: 500-2000 hrs (near-sync)";
+        return                      "07: 2000+ hrs (ultra-slow)";
     }
 
     // ═══════════════════════════════════════════════════════════════

@@ -17,7 +17,9 @@ public class PlanetTypeBreakdown {
     private final Map<String, Integer> massBins = new HashMap<>();
     private final Map<String, Integer> geologicalActivity = new HashMap<>();
     private final Map<String, Integer> waterInventories = new HashMap<>();
+    private final Map<String, Integer> volatileTypes = new HashMap<>();
     private final Map<String, Integer> habitabilityClasses = new HashMap<>();
+    private final Map<String, Integer> depositTypes = new HashMap<>();
     private final Map<String, Integer> moonCountBins = new HashMap<>();
     private final Map<String, Integer> semiMajorAxisBins = new HashMap<>();
     private final Map<String, int[]> tidalLockByDistance = new HashMap<>();
@@ -45,7 +47,9 @@ public class PlanetTypeBreakdown {
     public void addMassBin(String bin) { massBins.merge(bin, 1, Integer::sum); }
     public void addGeologicalActivity(String val) { geologicalActivity.merge(val, 1, Integer::sum); }
     public void addWaterInventory(String val) { waterInventories.merge(val, 1, Integer::sum); }
+    public void addVolatileType(String val) { volatileTypes.merge(val, 1, Integer::sum); }
     public void addHabitabilityClass(String val) { habitabilityClasses.merge(val, 1, Integer::sum); }
+    public void addDepositType(String val) { depositTypes.merge(val, 1, Integer::sum); }
     public void addMoonCountBin(String bin) { moonCountBins.merge(bin, 1, Integer::sum); }
     public void addSemiMajorAxisBin(String bin) { semiMajorAxisBins.merge(bin, 1, Integer::sum); }
     public void addTidalLockAtDistance(String distanceBin, boolean locked) {
@@ -91,7 +95,9 @@ public class PlanetTypeBreakdown {
         if (!moonCountBins.isEmpty()) json.put("moonCountBins", moonCountBins);
         if (!geologicalActivity.isEmpty()) json.put("geologicalActivity", geologicalActivity);
         if (!waterInventories.isEmpty()) json.put("waterInventories", waterInventories);
+        if (!volatileTypes.isEmpty()) json.put("volatileTypes", volatileTypes);
         if (!habitabilityClasses.isEmpty()) json.put("habitabilityClasses", habitabilityClasses);
+        if (!depositTypes.isEmpty()) json.put("depositTypes", depositTypes);
         if (!semiMajorAxisBins.isEmpty()) json.put("semiMajorAxisAU", semiMajorAxisBins);
         if (!tidalLockByDistance.isEmpty()) {
             Map<String, Object> tlbd = new LinkedHashMap<>();

@@ -1,5 +1,6 @@
 package com.brickroad.starcreator_webservice.entity.ud;
 
+import com.brickroad.starcreator_webservice.enums.DistanceUnit;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -318,12 +319,13 @@ public class Star {
 
     @JsonIgnore
     public Double getDistanceFromStar() {
-        return orbit != null ? orbit.getDistanceFromParent() : null;
+        return orbit != null ? orbit.getSemiMajorAxis() : null;
     }
 
     public void setDistanceFromStar(Double distance) {
         if (orbit == null) orbit = new OrbitalElements();
-        orbit.setDistanceFromParent(distance);
+        orbit.setSemiMajorAxis(distance);
+        orbit.setSemiMajorAxisUnit(DistanceUnit.AU);
     }
 
     @JsonIgnore

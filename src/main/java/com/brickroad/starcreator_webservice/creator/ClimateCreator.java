@@ -41,10 +41,20 @@ public class ClimateCreator {
     @Autowired
     private GasGiantFeatureCalculator gasGiantFeatureCalculator;
 
+    @Autowired
+    private OrbitalLightCycleCalculator orbitalLightCycleCalculator;
+
     public PlanetaryClimate generateClimate(Planet planet, Star parentStar, StarSystem system) {
 
         String atmClass = planet.getAtmosphereClassification();
         if (atmClass == null || "NONE".equals(atmClass)) {
+            // No atmosphere → no weather, but surface deposits can still exist
+            // (e.g., intrinsic ice on ice worlds, cryovolcanic ice)
+            PlanetaryClimate minimal = new PlanetaryClimate();
+            minimal.setSurfaceDeposits(SurfaceDepositCalculator.calculate(minimal, planet, parentStar));
+            if (minimal.getSurfaceDeposits() != null && !minimal.getSurfaceDeposits().isEmpty()) {
+                return minimal;
+            }
             return null;
         }
 
@@ -55,6 +65,9 @@ public class ClimateCreator {
 
         // Phase 3: Temperature & Climate
         temperatureClimateCalculator.calculate(climate, planet, parentStar, system);
+
+        // Phase 3b: Orbital Light Cycles (after temperature so it can use equatorial/polar temps)
+        orbitalLightCycleCalculator.calculate(climate, planet);
 
         // Phase 4: Wind & Circulation
         windCirculationCalculator.calculate(climate, planet);
@@ -74,6 +87,9 @@ public class ClimateCreator {
             gasGiantFeatureCalculator.calculate(climate, planet, parentStar);
         }
 
+        // Phase 10: Surface Deposits (after precipitation, uses terrain + hydrology + habitability)
+        climate.setSurfaceDeposits(SurfaceDepositCalculator.calculate(climate, planet, parentStar));
+
         // Phase 8: Narrative (last — uses all prior data)
         climateNarrativeGenerator.generate(climate, planet, parentStar);
 
@@ -83,6 +99,14 @@ public class ClimateCreator {
     public PlanetaryClimate generateMoonClimate(Moon moon, Planet parentPlanet, Star parentStar,
                                                 StarSystem system, List<Moon> siblingMoons) {
         if (!Boolean.TRUE.equals(moon.getHasAtmosphere())) {
+            // No atmosphere → check for surface deposits (ice moons, cryovolcanism)
+            Planet proxy = buildMoonProxy(moon, parentPlanet, "NONE");
+            PlanetaryClimate minimal = new PlanetaryClimate();
+            minimal.setMoonClimate(true);
+            minimal.setSurfaceDeposits(SurfaceDepositCalculator.calculate(minimal, proxy, parentStar));
+            if (minimal.getSurfaceDeposits() != null && !minimal.getSurfaceDeposits().isEmpty()) {
+                return minimal;
+            }
             return null;
         }
 
@@ -109,6 +133,9 @@ public class ClimateCreator {
         // Phase 3: Temperature & Climate
         temperatureClimateCalculator.calculate(climate, proxy, parentStar, system);
 
+        // Phase 3b: Orbital Light Cycles
+        orbitalLightCycleCalculator.calculate(climate, proxy);
+
         // Phase 4: Wind & Circulation
         windCirculationCalculator.calculate(climate, proxy);
 
@@ -121,6 +148,9 @@ public class ClimateCreator {
         // Phase 7: Tidal & Visual — parent planet and sibling moons affect this moon
         tidalWeatherCalculator.calculateForMoon(climate, moon, parentPlanet, parentStar, siblingMoons);
         skyAppearanceCalculator.calculateForMoon(climate, moon, parentPlanet, parentStar, system, siblingMoons);
+
+        // Phase 10: Surface Deposits
+        climate.setSurfaceDeposits(SurfaceDepositCalculator.calculate(climate, proxy, parentStar));
 
         // Phase 8: Narrative (last — uses all prior data)
         climateNarrativeGenerator.generate(climate, proxy, parentStar);
@@ -164,15 +194,21 @@ public class ClimateCreator {
         proxy.setOrbit(proxyOrbit);
 
         // Surface water/ice properties
-        WaterProperties proxyWater = new WaterProperties();
-        proxyWater.setWaterCoveragePercent(moon.getWaterCoveragePercent());
-        proxyWater.setLiquidWaterCoveragePercent(moon.getLiquidWaterCoveragePercent());
-        proxyWater.setIceCoveragePercent(moon.getIceCoveragePercent());
-        proxy.setWater(proxyWater);
+        HydrologyProperties proxyWater = new HydrologyProperties();
+        proxyWater.setLiquidCoveragePercent(moon.getLiquidCoveragePercent());
+        proxyWater.setLiquidSurfaceCoveragePercent(moon.getLiquidSurfaceCoveragePercent());
+        proxyWater.setWaterIceCoveragePercent(moon.getWaterIceCoveragePercent());
+        proxyWater.setVolatileType(moon.getVolatileType());
+        proxy.setHydrology(proxyWater);
 
-        // Terrain data (used by StormCalculator for dust storms, etc.)
+        // Terrain data (used by StormCalculator, SurfaceDepositCalculator, etc.)
         TerrainProperties proxyTerrain = new TerrainProperties();
         proxyTerrain.setErosionLevel(moon.getErosionLevel());
+        proxyTerrain.setGeologicalActivity(moon.getGeologicalActivity());
+        proxyTerrain.setHasVolcanicActivity(moon.getTerrain() != null ? moon.getTerrain().getHasVolcanicActivity() : null);
+        proxyTerrain.setVolcanismType(moon.getVolcanismType());
+        proxyTerrain.setVolcanicIntensity(moon.getVolcanicIntensity());
+        proxyTerrain.setHasCryovolcanism(moon.getHasCryovolcanism());
         proxy.setTerrain(proxyTerrain);
 
         // Storm data — moons don't have these planet-level fields

@@ -5,6 +5,7 @@ import com.brickroad.starcreator_webservice.entity.ref.StarTypeRef;
 import com.brickroad.starcreator_webservice.entity.ud.*;
 import com.brickroad.starcreator_webservice.repository.StarTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.planets.OrbitalStabilityAnalyzer;
+import com.brickroad.starcreator_webservice.utils.BinaryStabilityLimits;
 import com.brickroad.starcreator_webservice.enums.BinaryConfiguration;
 import com.brickroad.starcreator_webservice.repository.PlanetTypeRefRepository;
 import com.brickroad.starcreator_webservice.utils.ConversionFormulas;
@@ -13,6 +14,7 @@ import com.brickroad.starcreator_webservice.utils.RandomUtils;
 import com.brickroad.starcreator_webservice.utils.TemperatureCalculator;
 import com.brickroad.starcreator_webservice.utils.planets.PlanetaryComposition;
 import com.brickroad.starcreator_webservice.utils.planets.StellarEnvironment;
+import com.brickroad.starcreator_webservice.utils.planets.SurfaceColorDeriver;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -44,7 +46,7 @@ public class PlanetCreator {
     private MoonCreator moonCreator;
 
     @Autowired
-    private WaterCreator waterCreator;
+    private HydrologyCreator hydrologyCreator;
 
     @Autowired
     private HabitabilityCreator habitabilityCreator;
@@ -54,6 +56,9 @@ public class PlanetCreator {
 
     @Autowired
     private StarTypeRefRepository starTypeRefRepository;
+
+    @Autowired
+    private SurfaceCreator surfaceCreator;
 
     @Autowired
     private OrbitalCreator orbitalCreator;
@@ -149,7 +154,9 @@ public class PlanetCreator {
 
         if (parentStar != null) {
             // Simplified orbital parameters — caller can override ecc/inc after creation
-            double eccentricity = RandomUtils.rollRange(0.0, 0.1);
+            double maxEcc = 0.1;
+            maxEcc = clampEccForBinaryLimits(parentStar, distanceAU, maxEcc);
+            double eccentricity = RandomUtils.rollRange(0.0, maxEcc);
             double inclination = RandomUtils.rollRange(0.0, 10.0);
             double stellarMass = parentStar.getSolarMass() > 0 ? parentStar.getSolarMass() : 1.0;
             planet.setOrbit(orbitalCreator.createPlanetOrbit(distanceAU, stellarMass,
@@ -177,9 +184,19 @@ public class PlanetCreator {
 
         HabitableZone hz;
         double currentDistance;
-        if (parentStar.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
+        BinaryConfiguration binConfig = parentStar.getSystem().getBinaryConfiguration();
+        boolean isCircumbinary = (binConfig == BinaryConfiguration.P_TYPE)
+                || ((binConfig == BinaryConfiguration.HIERARCHICAL_BINARY_THIRD
+                     || binConfig == BinaryConfiguration.HIERARCHICAL_TRIPLE)
+                    && parentStar.getStarRole() != Star.StarRole.TERTIARY);
+        if (isCircumbinary) {
             hz = new HabitableZone(parentStar.getSystem().getHabitableLow(), parentStar.getSystem().getHabitableHigh());
-            double minStableDistanceAU = parentStar.getSystem().getBinarySeparationAu() * 4.0;
+            double eBin = getBinaryEccentricity(parentStar);
+            double minStableDistanceAU = BinaryStabilityLimits.pTypeCriticalSMA(
+                    parentStar.getSystem().getBinarySeparationAu(),
+                    parentStar.getSolarMass(),
+                    getCompanionMass(parentStar),
+                    eBin);
             currentDistance = minStableDistanceAU * RandomUtils.rollRange(1.0, 1.2);
         } else {
             hz = new HabitableZone(parentStar.getHabitableZoneInnerAU(), parentStar.getHabitableZoneOuterAU());
@@ -193,9 +210,12 @@ public class PlanetCreator {
             if (starTypeRef != null && starTypeRef.getMaxPlanetFormationAu() != null) {
                 maxFormation = starTypeRef.getMaxPlanetFormationAu();
             }
+            maxFormation = Math.min(maxFormation, maxSystemDistance);
 
             double startCeiling = maxFormation * RandomUtils.rollRange(0.008, 0.04);
             startCeiling = Math.max(startCeiling, minFormation * 2.0);
+            startCeiling = Math.min(startCeiling, maxSystemDistance * 0.5);
+            minFormation = Math.min(minFormation, maxSystemDistance * 0.3);
             currentDistance = RandomUtils.rollRange(minFormation, startCeiling);
         }
 
@@ -236,18 +256,108 @@ public class PlanetCreator {
             maxSystemDistance = starTypeRef.getMaxPlanetFormationAu();
         }
 
-        if (parentStar.getSystem() != null && parentStar.getSystem().getSizeAu() != null) {
-            maxSystemDistance = Math.min(maxSystemDistance, parentStar.getSystem().getSizeAu());
+        if (parentStar.getSystem() != null) {
+            if (parentStar.getSystem().getSizeAu() != null) {
+                maxSystemDistance = Math.min(maxSystemDistance, parentStar.getSystem().getSizeAu());
+            }
 
+            // Binary stability limits — always applied regardless of system size
             BinaryConfiguration config = parentStar.getSystem().getBinaryConfiguration();
-            if (config == BinaryConfiguration.S_TYPE_WIDE) {
-                Double binarySep = parentStar.getSystem().getBinarySeparationAu();
-                if (binarySep != null) {
-                    maxSystemDistance = Math.min(maxSystemDistance, binarySep * 0.3);
-                }
+            Double binarySep = parentStar.getSystem().getBinarySeparationAu();
+
+            if (binarySep != null && (config == BinaryConfiguration.S_TYPE_WIDE
+                    || config == BinaryConfiguration.S_TYPE_CLOSE)) {
+                double eBin = getBinaryEccentricity(parentStar);
+                double sTypeCrit = BinaryStabilityLimits.sTypeCriticalSMA(
+                        binarySep, parentStar.getSolarMass(), getCompanionMass(parentStar), eBin);
+                maxSystemDistance = Math.min(maxSystemDistance, sTypeCrit);
+            } else if (binarySep != null && parentStar.getStarRole() == Star.StarRole.TERTIARY) {
+                double tertiarySep = binarySep * 3.0;
+                double innerPairMass = getInnerPairMass(parentStar);
+                double eBin = getBinaryEccentricity(parentStar);
+                double sTypeCrit = BinaryStabilityLimits.sTypeCriticalSMA(
+                        tertiarySep, parentStar.getSolarMass(), innerPairMass, eBin);
+                maxSystemDistance = Math.min(maxSystemDistance, sTypeCrit);
             }
         }
         return maxSystemDistance;
+    }
+
+    private double getBinaryEccentricity(Star star) {
+        Star companion = star.getCompanionStar();
+        if (companion != null && companion.getOrbit() != null
+                && companion.getOrbit().getEccentricity() != null) {
+            return companion.getOrbit().getEccentricity();
+        }
+        if (star.getOrbit() != null && star.getOrbit().getEccentricity() != null
+                && star.getOrbit().getSemiMajorAxis() != null
+                && star.getOrbit().getSemiMajorAxis() > 0) {
+            return star.getOrbit().getEccentricity();
+        }
+        return 0.0;
+    }
+
+    private double getCompanionMass(Star star) {
+        Star companion = star.getCompanionStar();
+        return companion != null ? companion.getSolarMass() : star.getSolarMass() * 0.5;
+    }
+
+    private double getInnerPairMass(Star star) {
+        if (star.getSystem() == null) return star.getSolarMass();
+        return star.getSystem().getStars().stream()
+                .filter(s -> s.getStarRole() != Star.StarRole.TERTIARY)
+                .mapToDouble(Star::getSolarMass)
+                .sum();
+    }
+
+    /**
+     * Clamps maximum eccentricity so the planet's orbit stays within the
+     * stable zone of its binary system.
+     * <ul>
+     *   <li>S-type: aphelion = sma·(1+e) must not reach companion's perihelion</li>
+     *   <li>P-type: perihelion = sma·(1−e) must not dip inside binary cavity</li>
+     * </ul>
+     *
+     * @return clamped maxEcc (may be unchanged if no binary or constraint is not binding)
+     */
+    private double clampEccForBinaryLimits(Star star, double distanceAU, double maxEcc) {
+        if (star.getSystem() == null || star.getSystem().getBinarySeparationAu() == null) {
+            return maxEcc;
+        }
+        BinaryConfiguration config = star.getSystem().getBinaryConfiguration();
+        double binarySep = star.getSystem().getBinarySeparationAu();
+
+        if (config == BinaryConfiguration.S_TYPE_WIDE
+                || config == BinaryConfiguration.S_TYPE_CLOSE
+                || star.getStarRole() == Star.StarRole.TERTIARY) {
+            // S-type: aphelion must stay below companion's closest approach
+            double eBin = getBinaryEccentricity(star);
+            double companionPeri;
+            if (star.getStarRole() == Star.StarRole.TERTIARY) {
+                companionPeri = BinaryStabilityLimits.companionPerihelionAU(
+                        binarySep * 3.0, eBin);
+            } else {
+                companionPeri = BinaryStabilityLimits.companionPerihelionAU(
+                        binarySep, eBin);
+            }
+            if (distanceAU > 0 && companionPeri > distanceAU) {
+                double limit = (companionPeri / distanceAU) - 1.0;
+                maxEcc = Math.min(maxEcc, Math.max(0.001, limit));
+            }
+        } else if (config == BinaryConfiguration.P_TYPE
+                || ((config == BinaryConfiguration.HIERARCHICAL_BINARY_THIRD
+                     || config == BinaryConfiguration.HIERARCHICAL_TRIPLE)
+                    && star.getStarRole() != Star.StarRole.TERTIARY)) {
+            // P-type: perihelion must stay above the binary cavity floor
+            double eBin = getBinaryEccentricity(star);
+            double pCrit = BinaryStabilityLimits.pTypeCriticalSMA(
+                    binarySep, star.getSolarMass(), getCompanionMass(star), eBin);
+            if (distanceAU > pCrit) {
+                double limit = 1.0 - (pCrit / distanceAU);
+                maxEcc = Math.min(maxEcc, Math.max(0.001, limit));
+            }
+        }
+        return maxEcc;
     }
 
     private void populatePlanet(Planet planet, PlanetTypeRef type, double earthMass, double earthRadius, Star parentStar) {
@@ -321,12 +431,21 @@ public class PlanetCreator {
         PlanetaryMagneticField magneticField = magneticFieldCreator.generateMagneticField(planet, parentStar);
         planet.setMagneticField(magneticField);
 
-        WaterProperties water = waterCreator.createPlanetWaterProperties(planet, parentStar);
-        planet.setWater(water);
+        HydrologyProperties hydrology = hydrologyCreator.createPlanetHydrology(planet, parentStar);
+        planet.setHydrology(hydrology);
 
-        // Now that water coverage is known, reduce visible crater count for submerged craters.
-        // Atmosphere and erosion adjustments were already applied in createPlanetTerrain().
-        refineCrateringForWaterCoverage(planet);
+        // Generate terrain distribution and reconcile surface with water coverage.
+        // Must run after both geology and water are set.
+        surfaceCreator.createPlanetSurface(planet);
+
+        // Derive surface colors from composition, temperature, water, volcanism, atmosphere
+        SurfaceColorDeriver.SurfaceColors surfaceColors = SurfaceColorDeriver.derive(planet);
+        planet.setSurfaceColorPrimary(surfaceColors.primary());
+        planet.setSurfaceColorSecondary(surfaceColors.secondary());
+
+        // Capture a deterministic seed for procedural surface generation in the UI
+        long surfaceSeed = System.nanoTime() ^ ((planet.getOrbitalPosition() != null ? planet.getOrbitalPosition() : 1) * 31337L);
+        planet.setSurfaceSeed(surfaceSeed);
 
         List<Moon> moons = moonCreator.createMoons(planet, parentStar, type);
         planet.setMoons(moons);
@@ -349,6 +468,16 @@ public class PlanetCreator {
             planet.setClimate(climateCreator.generateClimate(planet, parentStar, system));
         } finally {
             RandomUtils.unseed();
+        }
+
+        // Adjust surface colors based on dominant surface deposits (e.g., tholin on Titan-like worlds)
+        if (planet.getClimate() != null && planet.getClimate().getSurfaceDeposits() != null
+                && !planet.getClimate().getSurfaceDeposits().isEmpty()) {
+            SurfaceColorDeriver.SurfaceColors adjusted = SurfaceColorDeriver.adjustForDeposits(
+                    planet.getSurfaceColorPrimary(), planet.getSurfaceColorSecondary(),
+                    planet.getClimate().getSurfaceDeposits());
+            planet.setSurfaceColorPrimary(adjusted.primary());
+            planet.setSurfaceColorSecondary(adjusted.secondary());
         }
 
         planet.setCreatedAt(LocalDateTime.now());
@@ -403,10 +532,8 @@ public class PlanetCreator {
         baseHigh = Math.min(baseHigh, maxEcc);
         baseHigh = Math.max(baseHigh, 0.001); // never negative
 
-        if (star.getSystem() != null
-                && star.getSystem().getBinaryConfiguration() == BinaryConfiguration.P_TYPE) {
-            baseHigh = Math.min(baseHigh, 0.04);
-        }
+        // --- Binary stability: clamp eccentricity so orbit stays within stable zone ---
+        baseHigh = clampEccForBinaryLimits(star, distanceAU, baseHigh);
 
         double eccentricity = RandomUtils.rollRange(baseLow, baseHigh);
         double inclination = RandomUtils.rollRange(0.0, 10.0);
@@ -504,38 +631,6 @@ public class PlanetCreator {
             baseRotation = 24.0 * Math.pow(planet.getEarthMass(), -0.25);
         }
         return baseRotation;
-    }
-
-    /**
-     * Reduces visible crater count for water coverage — craters under oceans or
-     * ice sheets aren't visible from orbit. Called after water properties are set,
-     * since water data isn't available when terrain is initially generated.
-     */
-    private void refineCrateringForWaterCoverage(Planet planet) {
-        TerrainProperties terrain = planet.getTerrain();
-        if (terrain == null) return;
-
-        Integer craters = terrain.getEstimatedVisibleCraters();
-        if (craters == null || craters <= 0) return;
-
-        Double waterCoverage = planet.getWaterCoveragePercent();
-        if (waterCoverage == null || waterCoverage <= 0) return;
-
-        // Only exposed dry land preserves visible craters
-        double landFraction = Math.max(0.1, 1.0 - (waterCoverage / 100.0));
-        int adjusted = Math.max(0, (int) Math.round(craters * landFraction));
-
-        terrain.setEstimatedVisibleCraters(adjusted);
-
-        // Reclassify if the level dropped
-        String level;
-        if (adjusted < 50)           level = "Pristine";
-        else if (adjusted < 500)     level = "Light";
-        else if (adjusted < 5_000)   level = "Moderate";
-        else if (adjusted < 50_000)  level = "Heavy";
-        else if (adjusted < 500_000) level = "Extreme";
-        else                         level = "Saturated";
-        terrain.setCrateringLevel(level);
     }
 
     private void populateAtmosphereProperties(Planet planet, PlanetTypeRef type) {

@@ -44,6 +44,9 @@ public class GeologicalTemplateRef {
     @Column(name = "max_planet_mass_earth")
     private Double maxPlanetMassEarth;
 
+    @Column(name = "composition_types", length = 200)
+    private String compositionTypes;
+
     @Column(name = "rarity_weight")
     private Integer rarityWeight = 100;
 
