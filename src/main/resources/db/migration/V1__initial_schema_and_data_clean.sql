@@ -7822,7 +7822,6 @@ ALTER TABLE ONLY ud.star_system
 -- PostgreSQL database dump complete
 --
 
-\unrestrict DidHbY9dzhZ73JnclkYlYPiLR3LfeF4Y2vQrTstcVwc1jvmhAWutnUvMn5MIBUk
 
 
 
