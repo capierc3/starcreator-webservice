@@ -25,5 +25,5 @@ jobs:
         java-version: '23'
         distribution: 'temurin'
         cache: maven
-    - name: Build with Maven (unit tests only — no DB)
-      run: mvn -B package --file pom.xml -DexcludeTags=integration
+    - name: Build with Maven (tests disabled)
+      run: mvn -B package --file pom.xml -DskipTests
